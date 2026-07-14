@@ -2,9 +2,37 @@
 
 ## Current state
 
-There is no automated test framework, repository-level test runner, linter, formatter, type checker, coverage configuration or CI workflow in this checkout.
+The repository now has one focused, zero-dependency automated test harness for the workspace-local Beocreate deployment layout. There is still no general application test framework, linter, formatter, type checker, coverage configuration or CI workflow.
 
 Most package manifests contain npm's placeholder `test` script, which deliberately exits 1. Beocreate Connect has no `test` script. Files named `*-test.js`, `networktest.js` and `dsp-test.js` are manual experiments, not assertions run by a framework. The committed `@serialport/binding-mock` is a transitive package and is not a SpeakerLab hardware simulator.
+
+## Local deployed-layout tests
+
+Create a gitignored workspace-local representation of `/opt/beocreate`:
+
+```sh
+node scripts/prepare-local-beocreate-layout.js .speakerlab-local
+```
+
+The resulting server path is `.speakerlab-local/opt/beocreate/beo-system`. The script locates the repository from its own checked-in location, creates relative symbolic links, accepts an existing correct layout, and refuses unexpected managed paths. Any caller-provided destination may be used; the script writes only below that destination.
+
+Run the focused repository-level tests:
+
+```sh
+npm test
+```
+
+The equivalent explicit command is:
+
+```sh
+npm run test:local-layout
+```
+
+The harness uses only Node built-ins: `assert`, `crypto`, `fs`, `os`, `path` and `child_process`. It intentionally avoids selecting a durable project-wide test framework before M1. Node 14.14 or later is required because cleanup uses `fs.rmSync`; the other used APIs are available by that release. It was verified on Node 26.4.0. No npm install is required because the root manifest declares no dependencies.
+
+The ten tests cover fresh creation, expected links, deployed-relative `beocreate_essentials` resolution, idempotence, representative source/lockfile hashes, destination isolation, missing source content, conflicting destination content, spaces in paths and operation without network/hardware/root privileges.
+
+This command does not start the server, load extensions, access `/etc` or `/opt`, contact SigmaTCP/DSP hardware, validate HiFiBerryOS services, test application behaviour, lint the repository or package Electron. It is the first narrow M0 verification command, not a complete suite.
 
 ## Commands found
 
@@ -13,6 +41,7 @@ Most package manifests contain npm's placeholder `test` script, which deliberate
 | Beocreate server | `cd Beocreate2/beo-system && npm ci` | deployed: systemd unit; source attempt: `node beo-server.js` | none; HiFiBerryOS/Buildroot is external | placeholder `npm test`; no lint |
 | Beocreate Essentials | no lockfile; historically installed as part of image | library only | none | placeholder `npm test`; no lint |
 | Beocreate Connect | `cd BeocreateConnect && npm ci` | `npm start` | `npm run pack`, `npm run dist` | no test or lint |
+| Repository layout harness | none | `node scripts/prepare-local-beocreate-layout.js <destination>` | none | `npm test` or `npm run test:local-layout` |
 
 `npm install` is documented for Beocreate Connect in the upstream README; `npm ci` is the reproducibility check where a committed lockfile exists.
 
@@ -24,6 +53,8 @@ Environment: Apple Silicon `arm64`, macOS 14.5, Node `v26.4.0`, npm `11.17.0`.
 
 - `find ... -name '*.js' ... | xargs ... node --check`: passed for all repository JavaScript files outside `.git` and `node_modules`.
 - `cd Beocreate2/beo-system && npm ci`: passed, adding 53 packages. npm warned that the v1 lockfile required registry metadata and reported 8 vulnerabilities (3 low, 4 high, 1 critical). No fixes were applied.
+- `npm test`: passed all 10 local-layout tests without dependencies, network, root, HiFiBerryOS or hardware.
+- `node scripts/prepare-local-beocreate-layout.js .speakerlab-local` run twice: passed and produced the same valid gitignored layout.
 
 ### Failed or unavailable checks
 
@@ -46,9 +77,9 @@ The first sandboxed server `npm ci` attempt could not resolve `registry.npmjs.or
 
 ## What can run without hardware today
 
-Static JavaScript syntax checks and pure exported DSP calculations can run without hardware. JSON fixtures can be parsed. The server dependency install can run on the audited Mac with registry access.
+Static JavaScript syntax checks, the local deployed-layout tests and pure exported DSP calculations can run without hardware. JSON fixtures can be parsed. The server dependency install can run on the audited Mac with registry access.
 
-No supported whole-application automated test currently runs without hardware/HiFiBerryOS because extension loading eagerly imports OS-dependent modules and the source/deployed layouts differ. Beocreate Connect discovery/UI logic could theoretically run locally after dependencies install, but its current clean install does not succeed on the audited Apple Silicon runtime.
+No supported whole-application automated test currently runs without hardware/HiFiBerryOS because extension loading eagerly imports OS-dependent modules. The local layout fixes path reproduction only; it does not isolate extension side effects or system paths. Beocreate Connect discovery/UI logic could theoretically run locally after dependencies install, but its current clean install does not succeed on the audited Apple Silicon runtime.
 
 ## What currently requires hardware or its OS image
 

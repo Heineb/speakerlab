@@ -2,7 +2,7 @@
 
 ## Current milestone
 
-M0 – Reproducible Baseline (assessment complete; acceptance criteria not yet met)
+M0 – Reproducible Baseline (local deployment shape complete; broader acceptance criteria not yet met)
 
 ## Completed work
 
@@ -12,6 +12,8 @@ M0 – Reproducible Baseline (assessment complete; acceptance criteria not yet m
 - Verified server dependency installation on Apple Silicon/Node 26 and captured its vulnerability report.
 - Reproduced Beocreate Connect's native install failure and the server's checked-out/deployed layout mismatch.
 - Defined evidence-based M0 acceptance criteria and the smallest current-hardware simulator boundary.
+- Added a deterministic workspace-local representation of the deployed `/opt/beocreate` shape using relative symbolic links.
+- Added the first repository-level zero-dependency test command, covering layout creation, isolation, conflicts, idempotence and deployed-relative module resolution.
 
 ## Files changed
 
@@ -21,8 +23,12 @@ M0 – Reproducible Baseline (assessment complete; acceptance criteria not yet m
 - `docs/UPSTREAM.md`
 - `docs/UI_PRINCIPLES.md`
 - `docs/decisions/0001-incremental-modernisation.md`
+- `.gitignore`
+- `package.json`
+- `scripts/prepare-local-beocreate-layout.js`
+- `test/local-beocreate-layout.test.js`
 
-No production code, DSP program, dependency version, lockfile, UI or repository structure was intentionally changed.
+No production runtime code, DSP program, dependency version, lockfile, UI or audio behaviour was changed.
 
 ## Commands run and results
 
@@ -37,14 +43,19 @@ Environment: macOS 14.5 arm64, Node `v26.4.0`, npm `11.17.0`.
 - Source server startup and dependency listing: failed because imports expect deployed sibling `Beocreate2/beocreate_essentials`, which is not present in the checkout.
 - Electron `pack`/`dist`: could not run because Connect installation failed and `electron-builder` was unavailable.
 - No GitHub Actions or other `.github/workflows` files exist.
+- `npm test`: passed 10 focused local-layout tests.
+- `node scripts/prepare-local-beocreate-layout.js .speakerlab-local`: passed twice; the second run preserved the same valid layout.
+- Repository-wide `node --check`: passed for all JavaScript outside `.git` and `node_modules`.
+- Legacy package test commands remain unavailable: server and Essentials use failing placeholders; Connect has no `test` script.
+- `git diff --check`: passed.
 
 Exact failure records and blocker classifications are in `docs/TESTING.md`.
 
 ## Current known issues
 
 - No supported Node/npm version is pinned. Node 26 is an audit environment, not a supported baseline.
-- The repository cannot prepare or start the Beocreate server directly from a clean checkout.
-- There is no automated test framework, test runner, lint/format/type-check setup or CI.
+- The repository can now prepare the deployed path shape, but cannot safely start the whole server locally because extensions still assume HiFiBerryOS, root-level system paths and hardware services.
+- There is one narrow test runner for the layout harness, but no general application test framework, lint/format/type-check setup or CI.
 - Normal server execution eagerly loads Linux/HiFiBerryOS/root/hardware-dependent extensions.
 - Beocreate Connect 0.3.0/Electron 9.4.0 does not cleanly install on the audited Apple Silicon runtime; native dependencies include `drivelist`, image-writing packages and `node-hid`.
 - Electron references missing `writer.js` for its Node-mode writer path.
@@ -62,8 +73,8 @@ Obsolete/high-risk assumptions include Electron 9, renderer `nodeIntegration: tr
 
 1. Pin and document one working host Node/npm pair and the target HiFiBerryOS runtime assumption.
 2. Make clean locked installs succeed for in-scope packages on Apple Silicon.
-3. Add a non-root command that prepares the deployed Beocreate directory layout in a workspace/temp directory.
-4. Add one repository verification command with syntax/static checks and initial deterministic characterization tests, requiring no physical hardware or external network.
+3. ~~Add a non-root command that prepares the deployed Beocreate directory layout in a workspace/temp directory.~~ Completed by `scripts/prepare-local-beocreate-layout.js`.
+4. Partially complete: `npm test` runs deterministic layout tests without hardware/network; repository-wide syntax/static checks are not yet combined into that command and application characterization tests remain absent.
 5. Add CI for that command.
 6. Start the server against isolated fixture state and an explicit simulated/disconnected Beocreate DSP transport.
 7. Verify Beocreate Connect unpacked packaging on Apple Silicon, or explicitly defer/exclude it through a roadmap decision.
@@ -84,20 +95,32 @@ Obsolete/high-risk assumptions include Electron 9, renderer `nodeIntegration: tr
 
 No vulnerability or audit auto-fix should be run as a broad upgrade.
 
-## Smallest recommended first coding pull request
+## Completed coding pull request scope
 
-Add a workspace-local preparation script that creates the existing deployed directory shape (linking/copying `beo-system`, `beo-extensions`, views/assets and `beocreate_essentials` under a temporary root), plus a minimal Node built-in test command that proves the prepared paths resolve. It must accept fixture data/config paths rather than touch `/etc`, must not start hardware operations, and must not change production imports, DSP behaviour or formats.
+The workspace-local preparation script now creates `<destination>/opt/beocreate` with links to `beo-system`, extensions, views/assets, presets/program data and `beocreate_essentials`. It accepts a caller-provided destination, never touches real `/opt` or `/etc`, and does not start the application or hardware.
 
-This is smaller and safer than beginning with the DSP simulator because the current checkout cannot even resolve the server's expected module layout. The simulator follows in M1 after the harness boundary is protected.
+Create the default gitignored layout with:
 
-## Tests required before/with that pull request
+```sh
+node scripts/prepare-local-beocreate-layout.js .speakerlab-local
+```
 
-- Characterize the expected deployed relative paths for server and representative extension imports.
-- Assert preparation works from a clean checkout into a temporary directory and is repeatable.
-- Assert it never writes outside the chosen temporary/workspace destination.
-- Assert missing required source directories fail with useful diagnostics and non-zero status.
-- Assert the committed source and lockfiles are not modified.
-- Add syntax checks and JSON parsing of system configuration/preset fixtures to the same verification entry point.
+Run its tests with:
+
+```sh
+npm test
+```
+
+## Tests added
+
+- Characterized the expected deployed relative paths and `beocreate_essentials/communication` resolution.
+- Verified creation in fresh temporary paths and repeatable/idempotent execution.
+- Verified isolation to the selected destination and support for spaces.
+- Verified missing source and destination conflicts fail clearly without overwriting.
+- Verified representative production sources and the server lockfile retain their hashes.
+- Verified operation with blocked proxy settings, no dependency installation, no hardware and no root destination.
+
+Syntax checks remain a separate verification command; JSON configuration/preset characterization belongs in the next focused application-test change.
 
 ## Questions requiring physical Beocreate hardware
 
@@ -113,12 +136,17 @@ This is smaller and safer than beginning with the DSP simulator because the curr
 
 ## Remaining risks
 
-The audit is source- and local-command-based. It did not boot HiFiBerryOS, start the root server, connect to SigmaTCP, modify `/etc`, package Electron successfully or validate audible output. M0 therefore remains open.
+The new harness validates paths and module resolution only. It did not boot HiFiBerryOS, start the root server, load extensions, connect to SigmaTCP, modify `/etc`, package Electron successfully or validate audible output. M0 therefore remains open.
 
 ## Documentation updated
 
 All six requested M0 documents now contain the verified baseline. Legacy upstream material under `Documentation/` remains unchanged and is treated as supporting evidence, not SpeakerLab's durable status record.
 
+## Deferred documentation work
+
+- Update the root `README.md` when the M0 development setup, test commands, supported runtime and project status have been verified.
+- Do not present SpeakerLab as production-ready before the documented Phase 1 acceptance criteria are met.
+
 ## Next recommended task
 
-Implement only the first coding pull request described above, with its path/layout characterization tests. Do not begin dependency upgrades or the DSP simulator in the same pull request.
+Pin and document a supported development Node runtime, then add a minimal CI workflow that runs the focused layout tests and repository-wide JavaScript syntax check. Keep application characterization tests and the DSP simulator in later focused work.
