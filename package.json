@@ -1,0 +1,8 @@
+{
+  "name": "speakerlab-workspace",
+  "private": true,
+  "scripts": {
+    "test": "node test/local-beocreate-layout.test.js",
+    "test:local-layout": "node test/local-beocreate-layout.test.js"
+  }
+}

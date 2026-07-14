@@ -90,3 +90,6 @@ typings/
 
 # Playground
 /Beocreate2/beo-playground/
+
+# Workspace-local Beocreate deployment layout
+/.speakerlab-local/
