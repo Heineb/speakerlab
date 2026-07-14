@@ -2,7 +2,7 @@
 
 ## Current state
 
-The repository now has one focused, zero-dependency automated test harness for the workspace-local Beocreate deployment layout. There is still no general application test framework, linter, formatter, type checker, coverage configuration or CI workflow.
+The repository now has zero-dependency automated tests for the workspace-local Beocreate deployment layout and portable repository-wide JavaScript syntax verification. A minimal GitHub Actions workflow runs these checks on Ubuntu and macOS. There is still no general application test framework, linter, formatter, type checker or coverage configuration.
 
 Most package manifests contain npm's placeholder `test` script, which deliberately exits 1. Beocreate Connect has no `test` script. Files named `*-test.js`, `networktest.js` and `dsp-test.js` are manual experiments, not assertions run by a framework. The committed `@serialport/binding-mock` is a transitive package and is not a SpeakerLab hardware simulator.
 
@@ -34,6 +34,51 @@ The ten tests cover fresh creation, expected links, deployed-relative `beocreate
 
 This command does not start the server, load extensions, access `/etc` or `/opt`, contact SigmaTCP/DSP hardware, validate HiFiBerryOS services, test application behaviour, lint the repository or package Electron. It is the first narrow M0 verification command, not a complete suite.
 
+## Provisional development-tooling runtime
+
+Node.js 24 is the provisional baseline only for root repository scripts, the local layout harness, current zero-dependency tests, the syntax verifier and GitHub Actions. `.nvmrc` and `.node-version` both select major version 24.
+
+With nvm:
+
+```sh
+nvm install
+nvm use
+```
+
+Other version managers that understand `.node-version` can select the same baseline from that file. The root manifest intentionally has no `engines` field because Node.js 24 support has not been established for every legacy application nested in the repository.
+
+Node.js 24 is not a verified production runtime for the deployed Beocreate server, HiFiBerryOS, Beocreate Connect, Electron packaging or physical Beocreate hardware. Those runtime questions remain separate and unresolved. The tooling was most recently run locally on Node.js 26.4.0; Node.js 24 execution is configured in CI and must still be confirmed by a hosted workflow run.
+
+## Repository verification
+
+Run the focused automated tests:
+
+```sh
+npm test
+```
+
+Run only the portable JavaScript syntax sweep:
+
+```sh
+npm run check:syntax
+```
+
+Run the current repository-level verification:
+
+```sh
+npm run verify
+```
+
+`npm run verify` runs the 14 focused tests and then checks every repository `.js` file selected by `scripts/verify-javascript-syntax.js`. Selection is deterministic; `.git`, `node_modules`, `.speakerlab-local` and symbolic-link directories are not traversed. Each file is passed as a separate argument to the active Node executable's `--check` mode, so paths containing spaces are safe and failures identify the affected relative path.
+
+This is not complete application verification. It does not run legacy placeholder test commands, install nested application dependencies, start the Beocreate server, access hardware or HiFiBerryOS, communicate with SigmaTCP, package Electron, test the UI, lint, type-check or audit dependencies.
+
+## Continuous integration
+
+`.github/workflows/verify.yml` runs on pushes to `master` and pull requests targeting `master`. Its matrix uses `ubuntu-latest` and `macos-latest`, checks out SpeakerLab, selects Node.js 24, runs `npm test`, and runs `npm run verify`.
+
+The root tooling has no dependencies, so CI does not run an installation step or use a dependency cache. The workflow does not write to `/opt`, use sudo or secrets, start services, contact physical hardware, install Beocreate Connect dependencies, package Electron or remediate npm audit findings.
+
 ## Commands found
 
 | Area | Install | Start | Build/package | Test/lint |
@@ -42,6 +87,7 @@ This command does not start the server, load extensions, access `/etc` or `/opt`
 | Beocreate Essentials | no lockfile; historically installed as part of image | library only | none | placeholder `npm test`; no lint |
 | Beocreate Connect | `cd BeocreateConnect && npm ci` | `npm start` | `npm run pack`, `npm run dist` | no test or lint |
 | Repository layout harness | none | `node scripts/prepare-local-beocreate-layout.js <destination>` | none | `npm test` or `npm run test:local-layout` |
+| Repository verification | none | not applicable | none | `npm run verify`; syntax only: `npm run check:syntax` |
 
 `npm install` is documented for Beocreate Connect in the upstream README; `npm ci` is the reproducibility check where a committed lockfile exists.
 
@@ -55,6 +101,9 @@ Environment: Apple Silicon `arm64`, macOS 14.5, Node `v26.4.0`, npm `11.17.0`.
 - `cd Beocreate2/beo-system && npm ci`: passed, adding 53 packages. npm warned that the v1 lockfile required registry metadata and reported 8 vulnerabilities (3 low, 4 high, 1 critical). No fixes were applied.
 - `npm test`: passed all 10 local-layout tests without dependencies, network, root, HiFiBerryOS or hardware.
 - `node scripts/prepare-local-beocreate-layout.js .speakerlab-local` run twice: passed and produced the same valid gitignored layout.
+- `npm test`: passed 14 focused tests (10 layout and 4 syntax-verifier tests).
+- `npm run check:syntax`: passed for 132 JavaScript files on the audited checkout.
+- `npm run verify`: passed the focused tests and repository-wide syntax verification.
 
 ### Failed or unavailable checks
 
@@ -77,7 +126,7 @@ The first sandboxed server `npm ci` attempt could not resolve `registry.npmjs.or
 
 ## What can run without hardware today
 
-Static JavaScript syntax checks, the local deployed-layout tests and pure exported DSP calculations can run without hardware. JSON fixtures can be parsed. The server dependency install can run on the audited Mac with registry access.
+Static JavaScript syntax checks, the local deployed-layout tests and pure exported DSP calculations can run without hardware. The root verification command needs no dependency installation or external network. JSON fixtures can be parsed. The server dependency install can run on the audited Mac with registry access.
 
 No supported whole-application automated test currently runs without hardware/HiFiBerryOS because extension loading eagerly imports OS-dependent modules. The local layout fixes path reproduction only; it does not isolate extension side effects or system paths. Beocreate Connect discovery/UI logic could theoretically run locally after dependencies install, but its current clean install does not succeed on the audited Apple Silicon runtime.
 
@@ -125,10 +174,10 @@ Selecting the test and UI automation frameworks is a difficult-to-reverse projec
 
 ## Proposed M0 acceptance criteria
 
-- A supported host Node/npm pair is pinned and installs every in-scope locked package from a clean checkout on Apple Silicon.
+- Node.js 24 is pinned provisionally for development tooling and CI; production and nested-application runtime baselines remain unresolved.
 - A documented command prepares the repository's Beocreate server layout without writing to host `/etc`.
-- One repository-level verification command runs deterministic syntax/static checks and the initial characterization tests without hardware.
-- CI runs that command on every pull request.
+- One repository-level verification command runs the currently available deterministic syntax and layout checks without hardware.
+- CI runs the available verification on Ubuntu and macOS for pushes to `master` and pull requests targeting `master`.
 - Server startup reaches an explicit simulated/disconnected state without root or physical hardware.
 - Beocreate Connect install and at least unpacked packaging succeed on Apple Silicon, or it is explicitly excluded from M0 with an approved roadmap decision.
 - Exact install/start/package commands and supported/unsupported environments are recorded.

@@ -2,7 +2,7 @@
 
 ## Current milestone
 
-M0 – Reproducible Baseline (local deployment shape complete; broader acceptance criteria not yet met)
+M0 – Reproducible Baseline (provisional tooling runtime and minimal CI added; broader acceptance criteria not yet met)
 
 ## Completed work
 
@@ -15,6 +15,9 @@ M0 – Reproducible Baseline (local deployment shape complete; broader acceptanc
 - Added a deterministic workspace-local representation of the deployed `/opt/beocreate` shape using relative symbolic links.
 - Added the first repository-level zero-dependency test command, covering layout creation, isolation, conflicts, idempotence and deployed-relative module resolution.
 - Established that SpeakerLab is developed exclusively in `Heineb/speakerlab`; the original Beocreate repository is historical source material, not a development or pull-request destination.
+- Selected Node.js 24 provisionally for root development tooling and CI without claiming support for legacy production runtimes.
+- Added portable repository-wide JavaScript syntax verification, four focused tests for its selection and failure behaviour, and `npm run verify`.
+- Added minimal GitHub Actions verification on current Ubuntu and macOS runners for pushes to `master` and pull requests targeting `master`.
 
 ## Files changed
 
@@ -31,8 +34,19 @@ M0 – Reproducible Baseline (local deployment shape complete; broader acceptanc
 - `test/local-beocreate-layout.test.js`
 - `AGENTS.md`
 - `docs/decisions/0002-independent-repository-governance.md`
+- `.nvmrc`
+- `.node-version`
+- `.github/workflows/verify.yml`
+- `scripts/verify-javascript-syntax.js`
+- `test/verify-javascript-syntax.test.js`
 
 No production runtime code, DSP program, dependency version, lockfile, UI or audio behaviour was changed.
+
+## Provisional Node.js baseline
+
+Node.js 24 is selected by `.nvmrc` and `.node-version` for root repository scripts, the layout harness, current zero-dependency tests, syntax verification and CI only. It is not established as the production runtime for the deployed Beocreate server, HiFiBerryOS, Beocreate Connect, Electron packaging or physical hardware. No root `engines` field or nested runtime declaration was added.
+
+Use `nvm install && nvm use` locally, or a version manager that reads `.node-version`. The task was verified locally with the available Node.js 26.4.0; the selected Node.js 24 baseline is exercised by the GitHub Actions workflow when it runs remotely.
 
 ## Repository governance
 
@@ -58,16 +72,20 @@ Environment: macOS 14.5 arm64, Node `v26.4.0`, npm `11.17.0`.
 - Repository-wide `node --check`: passed for all JavaScript outside `.git` and `node_modules`.
 - Legacy package test commands remain unavailable: server and Essentials use failing placeholders; Connect has no `test` script.
 - `git diff --check`: passed.
-- Repository safety check: `origin` is `https://github.com/Heineb/speakerlab.git`, branch is `docs/independent-speakerlab-workflow`, and no unrelated working-tree changes were present.
+- Repository safety check: `origin` is `https://github.com/Heineb/speakerlab.git`, branch is `chore/node-baseline-and-ci`, and no unrelated working-tree changes were present.
 - Documentation governance search: no incorrect SpeakerLab repository-name variants remain, and no text recommends the original Beocreate repository as a future contribution destination.
+- `npm test`: passed 14 focused tests.
+- `npm run check:syntax`: passed for 132 JavaScript files.
+- `npm run verify`: passed focused tests and syntax verification.
+- Local workflow inspection: YAML parsed successfully and confirmed `master` triggers, Node.js 24, Ubuntu/macOS coverage, no secrets, no privileged paths and no hardware or nested-application installation steps.
 
 Exact failure records and blocker classifications are in `docs/TESTING.md`.
 
 ## Current known issues
 
-- No supported Node/npm version is pinned. Node 26 is an audit environment, not a supported baseline.
+- Node.js 24 is pinned only for development tooling and CI. Production server, HiFiBerryOS, Connect/Electron and hardware runtime versions remain unresolved.
 - The repository can now prepare the deployed path shape, but cannot safely start the whole server locally because extensions still assume HiFiBerryOS, root-level system paths and hardware services.
-- There is one narrow test runner for the layout harness, but no general application test framework, lint/format/type-check setup or CI.
+- There are narrow zero-dependency tests and minimal CI for layout and syntax verification, but no general application test framework, lint/format/type-check setup or coverage reporting.
 - Normal server execution eagerly loads Linux/HiFiBerryOS/root/hardware-dependent extensions.
 - Beocreate Connect 0.3.0/Electron 9.4.0 does not cleanly install on the audited Apple Silicon runtime; native dependencies include `drivelist`, image-writing packages and `node-hid`.
 - Electron references missing `writer.js` for its Node-mode writer path.
@@ -83,11 +101,11 @@ Obsolete/high-risk assumptions include Electron 9, renderer `nodeIntegration: tr
 
 ## Proposed M0 acceptance criteria
 
-1. Pin and document one working host Node/npm pair and the target HiFiBerryOS runtime assumption.
+1. Partially complete: Node.js 24 is pinned provisionally for development tooling and CI; the target HiFiBerryOS and production application runtime assumptions remain unresolved.
 2. Make clean locked installs succeed for in-scope packages on Apple Silicon.
 3. ~~Add a non-root command that prepares the deployed Beocreate directory layout in a workspace/temp directory.~~ Completed by `scripts/prepare-local-beocreate-layout.js`.
-4. Partially complete: `npm test` runs deterministic layout tests without hardware/network; repository-wide syntax/static checks are not yet combined into that command and application characterization tests remain absent.
-5. Add CI for that command.
+4. Partially complete: `npm run verify` combines deterministic layout and syntax checks without hardware/network; application characterization tests remain absent.
+5. Minimal CI now runs the available checks on Ubuntu and macOS; branch protection and execution on the hosted service have not been verified locally.
 6. Start the server against isolated fixture state and an explicit simulated/disconnected Beocreate DSP transport.
 7. Verify Beocreate Connect unpacked packaging on Apple Silicon, or explicitly defer/exclude it through a roadmap decision.
 8. Keep DSP program, audible behaviour, preset formats and main navigation unchanged.
@@ -148,7 +166,7 @@ Syntax checks remain a separate verification command; JSON configuration/preset 
 
 ## Remaining risks
 
-The new harness validates paths and module resolution only. It did not boot HiFiBerryOS, start the root server, load extensions, connect to SigmaTCP, modify `/etc`, package Electron successfully or validate audible output. M0 therefore remains open.
+The verification suite validates paths, module resolution and JavaScript parsing only. Node.js 24 CI has not run from this local-only change, and Node.js 24 has not been validated as any production runtime. The work did not boot HiFiBerryOS, start the root server, load extensions, connect to SigmaTCP, modify `/etc`, package Electron successfully or validate audible output. M0 therefore remains open.
 
 ## Documentation updated
 
@@ -162,4 +180,4 @@ All six requested M0 documents now contain the verified baseline. Legacy upstrea
 
 ## Next recommended task
 
-Pin and document a supported development Node runtime, then add a minimal CI workflow that runs the focused layout tests and repository-wide JavaScript syntax check. Keep application characterization tests and the DSP simulator in later focused work.
+After this branch is reviewed and CI has run on both operating systems, add the smallest characterization tests for existing preset loading using isolated fixture paths. Do not add the DSP simulator or dependency upgrades in the same pull request.

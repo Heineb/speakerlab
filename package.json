@@ -2,7 +2,10 @@
   "name": "speakerlab-workspace",
   "private": true,
   "scripts": {
-    "test": "node test/local-beocreate-layout.test.js",
-    "test:local-layout": "node test/local-beocreate-layout.test.js"
+    "test": "npm run test:local-layout && npm run test:syntax-verification",
+    "test:local-layout": "node test/local-beocreate-layout.test.js",
+    "test:syntax-verification": "node test/verify-javascript-syntax.test.js",
+    "check:syntax": "node scripts/verify-javascript-syntax.js",
+    "verify": "npm test && npm run check:syntax"
   }
 }
