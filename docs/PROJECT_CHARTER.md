@@ -169,13 +169,15 @@ When compatibility cannot be maintained:
 * audible changes must never be hidden
 * the last known working configuration should be preserved
 
-## Relationship to upstream
+## Relationship to the original Beocreate project
 
-SpeakerLab is based on the Bang & Olufsen Beocreate project but is an independent project.
+SpeakerLab is an independent project based on the original Bang & Olufsen Beocreate codebase.
+
+The Beocreate repository serves as the historical and technical starting point for SpeakerLab.
+
+SpeakerLab maintains its own roadmap, releases, issue tracking and development process. Changes developed for SpeakerLab are not expected to be submitted to or merged into the original Beocreate repository.
 
 Original upstream copyright and licence notices must be preserved.
-
-General bug fixes and documentation improvements may be proposed back to the upstream project when practical.
 
 SpeakerLab must not imply that it is developed, endorsed or supported by Bang & Olufsen.
 
