@@ -34,6 +34,7 @@ var exec = require("child_process").exec;
 var EventEmitter = require('eventemitter3');
 var aplay = require('aplay');
 var _ = require('underscore');
+var settingsStore = require('./settings-store');
 
 // Beocreate Essentials
 var beoCom = require("../beocreate_essentials/communication")();
@@ -201,30 +202,7 @@ beoBus.on("settings", function(event) {
 });
 
 function getSettings(extension) {
-	if (extension) {
-		if (fs.existsSync(dataDirectory+"/"+extension+".json")) { 
-			try {
-				file = fs.readFileSync(dataDirectory+"/"+extension+".json", "utf8").trim();
-					if (file) {
-					settings = JSON.parse(file);
-					// Return the parsed JSON.
-					if (debugMode >= 2) console.log("Settings loaded for '"+extension+"'.");
-				} else {
-					if (debugMode >= 2) console.log("Settings file for '"+extension+"' is empty.");
-					settings = null;
-				}
-			} catch (error) {
-				console.error("Error loading settings for '"+extension+"':", error);
-				settings = null;
-			}
-		} else {
-			// If the settings file doesn't exist, return null.
-			settings = null;
-		}
-	} else {
-		settings = null;
-	}
-	return settings;
+	return settingsStore.getSettings(dataDirectory, extension, debugMode);
 }
 
 function saveSettings(extension, settings, immediately) {
@@ -264,12 +242,12 @@ function getAllSettings() {
 // LOAD SYSTEM SETTINGS
 // Contains sound card type, port to use, possibly disabled extensions.
 tempSystemConfiguration = getSettings('system');
-if (tempSystemConfiguration != null) systemConfiguration = Object.assign(systemConfiguration, tempSystemConfiguration);
+systemConfiguration = settingsStore.mergeSettings(systemConfiguration, tempSystemConfiguration);
 
 
 // Load UI settings.
 tempUISettings = getSettings('ui');
-if (tempUISettings != null) uiSettings = Object.assign(uiSettings, tempUISettings);
+uiSettings = settingsStore.mergeSettings(uiSettings, tempUISettings);
 
 
 

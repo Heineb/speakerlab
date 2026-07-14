@@ -2,7 +2,7 @@
 
 ## Current state
 
-The repository now has zero-dependency automated tests for the workspace-local Beocreate deployment layout and portable repository-wide JavaScript syntax verification. A minimal GitHub Actions workflow runs these checks on Ubuntu and macOS. There is still no general application test framework, linter, formatter, type checker or coverage configuration.
+The repository now has zero-dependency automated tests for the workspace-local Beocreate deployment layout, central settings-file loading/default merging and portable repository-wide JavaScript syntax verification. A minimal GitHub Actions workflow runs these checks on Ubuntu and macOS. There is still no general application test framework, linter, formatter, type checker or coverage configuration.
 
 Most package manifests contain npm's placeholder `test` script, which deliberately exits 1. Beocreate Connect has no `test` script. Files named `*-test.js`, `networktest.js` and `dsp-test.js` are manual experiments, not assertions run by a framework. The committed `@serialport/binding-mock` is a transitive package and is not a SpeakerLab hardware simulator.
 
@@ -16,7 +16,7 @@ node scripts/prepare-local-beocreate-layout.js .speakerlab-local
 
 The resulting server path is `.speakerlab-local/opt/beocreate/beo-system`. The script locates the repository from its own checked-in location, creates relative symbolic links, accepts an existing correct layout, and refuses unexpected managed paths. Any caller-provided destination may be used; the script writes only below that destination.
 
-Run the focused repository-level tests:
+Run the repository-level tests:
 
 ```sh
 npm test
@@ -32,7 +32,31 @@ The harness uses only Node built-ins: `assert`, `crypto`, `fs`, `os`, `path` and
 
 The ten tests cover fresh creation, expected links, deployed-relative `beocreate_essentials` resolution, idempotence, representative source/lockfile hashes, destination isolation, missing source content, conflicting destination content, spaces in paths and operation without network/hardware/root privileges.
 
-This command does not start the server, load extensions, access `/etc` or `/opt`, contact SigmaTCP/DSP hardware, validate HiFiBerryOS services, test application behaviour, lint the repository or package Electron. It is the first narrow M0 verification command, not a complete suite.
+The local-layout command does not start the server, load extensions, access `/etc` or `/opt`, contact SigmaTCP/DSP hardware, validate HiFiBerryOS services, test application behaviour, lint the repository or package Electron.
+
+## Settings loading characterization
+
+The selected boundary is the central settings reader used by `Beocreate2/beo-system/beo-server.js` for system, UI and extension JSON files. The deployed server stores these as `/etc/beocreate/<extension>.json`; system and UI defaults are declared in `beo-server.js`, while extensions generally declare and merge their own defaults after receiving settings over the shared bus. The command-line `configure.js` editor reads and writes the same directory independently. Preset storage is separate: speaker presets use `Beocreate2/beo-speaker-presets` and `/etc/beocreate/beo-speaker-presets`, and Beosonic listening modes use `Beocreate2/beo-listening-modes` and `/etc/beocreate/beo-listening-modes`.
+
+Run only the settings characterization tests:
+
+```sh
+npm run test:settings-store
+```
+
+The tests use Node built-ins only and require Node 14.14 or later because temporary-directory cleanup uses `fs.rmSync`. They create all fixtures under operating-system temporary directories and do not read or write `/etc/beocreate`, the developer's settings, the network, hardware, systemd, GPIO or SigmaTCP.
+
+The characterized behavior is:
+
+- Valid JSON is returned without schema validation; optional properties may be absent and unknown properties are retained.
+- Missing, empty, whitespace-only, malformed and literal JSON `null` settings all produce `null`. Malformed JSON is reported to the error logger; missing files are silent.
+- Each read reparses the file and returns a fresh object, so mutating one loaded result does not mutate the file or a later result.
+- System/UI defaults are merged with `Object.assign`. The defaults object is mutated, the merge is shallow, unknown top-level properties survive, and a loaded nested object replaces the complete nested default object.
+- Paths are based on the caller's data directory plus `<extension>.json`. Production supplies the hard-coded `/etc/beocreate` directory; the loader itself can be exercised with isolated paths, including paths containing spaces, and does not depend on the deployed `/opt/beocreate` source layout.
+
+Directly requiring `beo-server.js` is unsafe in an ordinary development test because module evaluation creates the production data directory when absent, loads extensions, starts the HTTP/WebSocket server and imports OS/hardware-dependent modules. A small `settings-store.js` seam therefore contains the existing read and shallow-merge operations; the server calls it with the same production directory, defaults, debug level and console logger. No file format, default, path, error outcome or merge behavior was intentionally changed.
+
+The tests do not characterize writes, the ten-second shared save queue, shutdown flushing, path traversal through an untrusted extension name, extension-specific validation/merging, speaker-preset or listening-mode discovery, preset application, atomicity, recovery, or concurrent access. Settings writes remain synchronous, unversioned and non-atomic.
 
 ## Provisional development-tooling runtime
 
@@ -69,7 +93,7 @@ Run the current repository-level verification:
 npm run verify
 ```
 
-`npm run verify` runs the 14 focused tests and then checks every repository `.js` file selected by `scripts/verify-javascript-syntax.js`. Selection is deterministic; `.git`, `node_modules`, `.speakerlab-local` and symbolic-link directories are not traversed. Each file is passed as a separate argument to the active Node executable's `--check` mode, so paths containing spaces are safe and failures identify the affected relative path.
+`npm run verify` runs the 25 focused tests and then checks every repository `.js` file selected by `scripts/verify-javascript-syntax.js`. Selection is deterministic; `.git`, `node_modules`, `.speakerlab-local` and symbolic-link directories are not traversed. Each file is passed as a separate argument to the active Node executable's `--check` mode, so paths containing spaces are safe and failures identify the affected relative path.
 
 This is not complete application verification. It does not run legacy placeholder test commands, install nested application dependencies, start the Beocreate server, access hardware or HiFiBerryOS, communicate with SigmaTCP, package Electron, test the UI, lint, type-check or audit dependencies.
 
@@ -87,6 +111,7 @@ The root tooling has no dependencies, so CI does not run an installation step or
 | Beocreate Essentials | no lockfile; historically installed as part of image | library only | none | placeholder `npm test`; no lint |
 | Beocreate Connect | `cd BeocreateConnect && npm ci` | `npm start` | `npm run pack`, `npm run dist` | no test or lint |
 | Repository layout harness | none | `node scripts/prepare-local-beocreate-layout.js <destination>` | none | `npm test` or `npm run test:local-layout` |
+| Settings loading characterization | none | library seam only | none | `npm run test:settings-store` |
 | Repository verification | none | not applicable | none | `npm run verify`; syntax only: `npm run check:syntax` |
 
 `npm install` is documented for Beocreate Connect in the upstream README; `npm ci` is the reproducibility check where a committed lockfile exists.
@@ -124,9 +149,21 @@ Environment: Apple Silicon `arm64`, macOS 14.5, Node `v26.4.0`, npm `11.17.0`.
 
 The first sandboxed server `npm ci` attempt could not resolve `registry.npmjs.org`; rerunning with approved network access succeeded. That environmental DNS failure is not a repository defect and does not independently block M0.
 
+## Settings characterization command results (2026-07-15)
+
+Environment: macOS, Node `v26.4.0`, npm `11.17.0`.
+
+- `npm run test:settings-store`: passed 11 focused settings-reader/default-merge tests.
+- `npm test`: passed 25 focused tests (10 layout, 4 syntax-verifier and 11 settings tests).
+- `npm run check:syntax`: passed for 134 JavaScript files.
+- `npm run verify`: passed all 25 focused tests and the 134-file syntax sweep.
+- `git diff --check`: passed.
+
+No command failed in this change. The checks did not install dependencies, use the network, access `/etc` or `/opt`, start the complete server, contact hardware or invoke HiFiBerryOS services.
+
 ## What can run without hardware today
 
-Static JavaScript syntax checks, the local deployed-layout tests and pure exported DSP calculations can run without hardware. The root verification command needs no dependency installation or external network. JSON fixtures can be parsed. The server dependency install can run on the audited Mac with registry access.
+The central settings reader/default merge, static JavaScript syntax checks, local deployed-layout tests and pure exported DSP calculations can run without hardware. The root verification command needs no dependency installation or external network. JSON fixtures can be parsed. The server dependency install can run on the audited Mac with registry access.
 
 No supported whole-application automated test currently runs without hardware/HiFiBerryOS because extension loading eagerly imports OS-dependent modules. The local layout fixes path reproduction only; it does not isolate extension side effects or system paths. Beocreate Connect discovery/UI logic could theoretically run locally after dependencies install, but its current clean install does not succeed on the audited Apple Silicon runtime.
 

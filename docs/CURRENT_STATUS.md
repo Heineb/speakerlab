@@ -18,6 +18,8 @@ M0 – Reproducible Baseline (provisional tooling runtime and minimal CI added; 
 - Selected Node.js 24 provisionally for root development tooling and CI without claiming support for legacy production runtimes.
 - Added portable repository-wide JavaScript syntax verification, four focused tests for its selection and failure behaviour, and `npm run verify`.
 - Added minimal GitHub Actions verification on current Ubuntu and macOS runners for pushes to `master` and pull requests targeting `master`.
+- Added zero-dependency characterization tests for the central settings-file reader and the server's shallow default merge, using isolated temporary directories.
+- Extracted only those existing operations into a hardware-free `settings-store.js` seam; production paths, formats, defaults, logging outcomes and merge semantics remain unchanged.
 
 ## Files changed
 
@@ -39,8 +41,11 @@ M0 – Reproducible Baseline (provisional tooling runtime and minimal CI added; 
 - `.github/workflows/verify.yml`
 - `scripts/verify-javascript-syntax.js`
 - `test/verify-javascript-syntax.test.js`
+- `Beocreate2/beo-system/settings-store.js`
+- `Beocreate2/beo-system/beo-server.js`
+- `test/settings-store.test.js`
 
-No production runtime code, DSP program, dependency version, lockfile, UI or audio behaviour was changed.
+The server now calls a small settings-store module for its existing read and default-merge operations. This is a production-code test seam, but no production path, configuration format, default, error outcome, UI, DSP or audio behaviour was intentionally changed. No dependency version or lockfile changed.
 
 ## Provisional Node.js baseline
 
@@ -78,6 +83,13 @@ Environment: macOS 14.5 arm64, Node `v26.4.0`, npm `11.17.0`.
 - `npm run check:syntax`: passed for 132 JavaScript files.
 - `npm run verify`: passed focused tests and syntax verification.
 - Local workflow inspection: YAML parsed successfully and confirmed `master` triggers, Node.js 24, Ubuntu/macOS coverage, no secrets, no privileged paths and no hardware or nested-application installation steps.
+- `npm run test:settings-store`: passed 11 settings loading/default-merge characterization tests.
+- Repository safety check: `origin` is `https://github.com/Heineb/speakerlab.git`, branch is `test/settings-preset-characterization`, and the working tree was clean before this task.
+- `npm test`: passed 25 focused tests (10 layout, 4 syntax-verifier and 11 settings tests).
+- `npm run verify`: passed the 25 focused tests and repository-wide syntax verification.
+- `npm run test:settings-store`: passed independently (11 tests).
+- `npm run check:syntax`: passed for 134 JavaScript files.
+- `git diff --check`: passed.
 
 Exact failure records and blocker classifications are in `docs/TESTING.md`.
 
@@ -85,7 +97,7 @@ Exact failure records and blocker classifications are in `docs/TESTING.md`.
 
 - Node.js 24 is pinned only for development tooling and CI. Production server, HiFiBerryOS, Connect/Electron and hardware runtime versions remain unresolved.
 - The repository can now prepare the deployed path shape, but cannot safely start the whole server locally because extensions still assume HiFiBerryOS, root-level system paths and hardware services.
-- There are narrow zero-dependency tests and minimal CI for layout and syntax verification, but no general application test framework, lint/format/type-check setup or coverage reporting.
+- There are narrow zero-dependency tests and minimal CI for layout, settings loading/default merging and syntax verification, but no general application test framework, lint/format/type-check setup or coverage reporting.
 - Normal server execution eagerly loads Linux/HiFiBerryOS/root/hardware-dependent extensions.
 - Beocreate Connect 0.3.0/Electron 9.4.0 does not cleanly install on the audited Apple Silicon runtime; native dependencies include `drivelist`, image-writing packages and `node-hid`.
 - Electron references missing `writer.js` for its Node-mode writer path.
@@ -104,7 +116,7 @@ Obsolete/high-risk assumptions include Electron 9, renderer `nodeIntegration: tr
 1. Partially complete: Node.js 24 is pinned provisionally for development tooling and CI; the target HiFiBerryOS and production application runtime assumptions remain unresolved.
 2. Make clean locked installs succeed for in-scope packages on Apple Silicon.
 3. ~~Add a non-root command that prepares the deployed Beocreate directory layout in a workspace/temp directory.~~ Completed by `scripts/prepare-local-beocreate-layout.js`.
-4. Partially complete: `npm run verify` combines deterministic layout and syntax checks without hardware/network; application characterization tests remain absent.
+4. Partially complete: `npm run verify` combines deterministic layout, settings loading/default merging and syntax checks without hardware/network; broader application characterization remains absent.
 5. Minimal CI now runs the available checks on Ubuntu and macOS; branch protection and execution on the hosted service have not been verified locally.
 6. Start the server against isolated fixture state and an explicit simulated/disconnected Beocreate DSP transport.
 7. Verify Beocreate Connect unpacked packaging on Apple Silicon, or explicitly defer/exclude it through a roadmap decision.
@@ -150,7 +162,7 @@ npm test
 - Verified representative production sources and the server lockfile retain their hashes.
 - Verified operation with blocked proxy settings, no dependency installation, no hardware and no root destination.
 
-Syntax checks remain a separate verification command; JSON configuration/preset characterization belongs in the next focused application-test change.
+The central settings reader and server default merge are now characterized. Speaker-preset discovery/loading and settings writes remain untested.
 
 ## Questions requiring physical Beocreate hardware
 
@@ -166,7 +178,7 @@ Syntax checks remain a separate verification command; JSON configuration/preset 
 
 ## Remaining risks
 
-The verification suite validates paths, module resolution and JavaScript parsing only. Node.js 24 CI has not run from this local-only change, and Node.js 24 has not been validated as any production runtime. The work did not boot HiFiBerryOS, start the root server, load extensions, connect to SigmaTCP, modify `/etc`, package Electron successfully or validate audible output. M0 therefore remains open.
+The verification suite validates paths, module resolution, central settings reads/default merging and JavaScript parsing only. Settings writes, extension-specific initialization, preset discovery/application and whole-server startup remain untested. Node.js 24 CI has not run from this local-only change, and Node.js 24 has not been validated as any production runtime. The work did not boot HiFiBerryOS, start the root server, load extensions, connect to SigmaTCP, modify `/etc`, package Electron successfully or validate audible output. M0 therefore remains open.
 
 ## Documentation updated
 
@@ -180,4 +192,4 @@ All six requested M0 documents now contain the verified baseline. Legacy upstrea
 
 ## Next recommended task
 
-After this branch is reviewed and CI has run on both operating systems, add the smallest characterization tests for existing preset loading using isolated fixture paths. Do not add the DSP simulator or dependency upgrades in the same pull request.
+After this branch is reviewed, add a similarly narrow characterization seam and isolated fixtures for speaker-preset discovery/loading: system-first precedence, malformed JSON, required names and repeat loading. Do not include preset application, DSP simulation or dependency upgrades in that pull request.
