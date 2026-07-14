@@ -173,9 +173,9 @@ When compatibility cannot be maintained:
 
 SpeakerLab is an independent project based on the original Bang & Olufsen Beocreate codebase.
 
-The Beocreate repository serves as the historical and technical starting point for SpeakerLab.
+The Beocreate repository is historical source material and the technical starting point for SpeakerLab. It is not a destination for SpeakerLab development.
 
-SpeakerLab maintains its own roadmap, releases, issue tracking and development process. Changes developed for SpeakerLab are not expected to be submitted to or merged into the original Beocreate repository.
+SpeakerLab maintains its own roadmap, releases, issue tracking and development process in `Heineb/speakerlab`. SpeakerLab changes are not submitted to or merged into the original Beocreate repository.
 
 Original upstream copyright and licence notices must be preserved.
 

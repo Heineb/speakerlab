@@ -242,3 +242,88 @@ At the end of a task, report:
 * suggested next task
 
 Do not claim that a task is complete when required verification failed or was not executed.
+
+## Repository ownership and Git safety
+
+SpeakerLab is an independent project developed in:
+
+`Heineb/speakerlab`
+
+The original Bang & Olufsen Beocreate repository is historical source material only.
+
+SpeakerLab changes must never be submitted, pushed or proposed to:
+
+`bang-olufsen/create`
+
+### Remote requirements
+
+* `origin` must point to `Heineb/speakerlab`.
+* No Beocreate remote is required.
+* Do not add, remove, rename or modify Git remotes.
+* If `origin` does not point to `Heineb/speakerlab`, stop and report the problem before changing files.
+* Do not synchronise SpeakerLab with the original Beocreate repository unless the user explicitly introduces a new policy in the future.
+
+### Branch requirements
+
+Before changing files, run:
+
+* `git status --short`
+* `git branch --show-current`
+* `git remote -v`
+
+Never implement changes directly on the SpeakerLab default branch.
+
+Create or use one focused SpeakerLab topic branch for each task.
+
+Approved branch prefixes are:
+
+* `docs/`
+* `chore/`
+* `test/`
+* `fix/`
+* `feature/`
+* `refactor/`
+
+Do not create branches in any other repository.
+
+Do not combine unrelated roadmap tasks on one branch.
+
+### Push and merge restrictions
+
+Codex must not:
+
+* push branches
+* create pull requests
+* merge pull requests
+* merge into the default branch
+* rebase or rewrite the default branch
+* force-push
+* delete remote branches
+* create tags or releases
+* change repository settings
+
+unless the user explicitly requests that exact Git operation.
+
+The normal Codex task ends with local changes, test results and a suggested commit message. The user reviews and performs the push and merge.
+
+### Pull request destination
+
+All pull requests are internal SpeakerLab pull requests.
+
+The required base repository is:
+
+`Heineb/speakerlab`
+
+The head repository is also:
+
+`Heineb/speakerlab`
+
+Never create or recommend a pull request with `bang-olufsen/create` as the base repository.
+
+### Relationship to Beocreate
+
+Do not describe SpeakerLab changes as candidates for contribution back to Beocreate.
+
+Do not add roadmap items for upstream synchronisation.
+
+Preserve applicable original copyright and licence notices, but maintain an independent roadmap, release process and project identity.

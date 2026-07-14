@@ -14,11 +14,13 @@ M0 – Reproducible Baseline (local deployment shape complete; broader acceptanc
 - Defined evidence-based M0 acceptance criteria and the smallest current-hardware simulator boundary.
 - Added a deterministic workspace-local representation of the deployed `/opt/beocreate` shape using relative symbolic links.
 - Added the first repository-level zero-dependency test command, covering layout creation, isolation, conflicts, idempotence and deployed-relative module resolution.
+- Established that SpeakerLab is developed exclusively in `Heineb/speakerlab`; the original Beocreate repository is historical source material, not a development or pull-request destination.
 
 ## Files changed
 
 - `docs/ARCHITECTURE.md`
 - `docs/CURRENT_STATUS.md`
+- `docs/PROJECT_CHARTER.md`
 - `docs/TESTING.md`
 - `docs/UPSTREAM.md`
 - `docs/UI_PRINCIPLES.md`
@@ -27,8 +29,16 @@ M0 – Reproducible Baseline (local deployment shape complete; broader acceptanc
 - `package.json`
 - `scripts/prepare-local-beocreate-layout.js`
 - `test/local-beocreate-layout.test.js`
+- `AGENTS.md`
+- `docs/decisions/0002-independent-repository-governance.md`
 
 No production runtime code, DSP program, dependency version, lockfile, UI or audio behaviour was changed.
+
+## Repository governance
+
+All future SpeakerLab branches, issues, releases and pull requests belong only to `Heineb/speakerlab`. Pull requests are internal to that repository, with both base and head in `Heineb/speakerlab`. No ongoing synchronisation with the original Beocreate repository is planned, and SpeakerLab work is never proposed or pushed there.
+
+Before editing files, agents must verify the working tree, current branch and remotes. Ordinary tasks must not modify remotes, push, merge, create pull requests, create releases or change repository settings unless the user explicitly requests that exact operation.
 
 ## Commands run and results
 
@@ -48,6 +58,8 @@ Environment: macOS 14.5 arm64, Node `v26.4.0`, npm `11.17.0`.
 - Repository-wide `node --check`: passed for all JavaScript outside `.git` and `node_modules`.
 - Legacy package test commands remain unavailable: server and Essentials use failing placeholders; Connect has no `test` script.
 - `git diff --check`: passed.
+- Repository safety check: `origin` is `https://github.com/Heineb/speakerlab.git`, branch is `docs/independent-speakerlab-workflow`, and no unrelated working-tree changes were present.
+- Documentation governance search: no incorrect SpeakerLab repository-name variants remain, and no text recommends the original Beocreate repository as a future contribution destination.
 
 Exact failure records and blocker classifications are in `docs/TESTING.md`.
 
@@ -145,6 +157,7 @@ All six requested M0 documents now contain the verified baseline. Legacy upstrea
 ## Deferred documentation work
 
 - Update the root `README.md` when the M0 development setup, test commands, supported runtime and project status have been verified.
+- The eventual README must clearly describe SpeakerLab as an independent project developed in `Heineb/speakerlab`, not an official Bang & Olufsen project.
 - Do not present SpeakerLab as production-ready before the documented Phase 1 acceptance criteria are met.
 
 ## Next recommended task

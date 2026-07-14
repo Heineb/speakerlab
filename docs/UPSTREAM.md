@@ -1,39 +1,33 @@
-# Upstream Relationship and Provenance
+# Historical Code Origin and Repository Policy
 
-## Repository history
+## Independent development repository
 
-SpeakerLab is an independent continuation of Bang & Olufsen's Beocreate project. The current branch begins from upstream repository `bang-olufsen/create` and adds SpeakerLab foundation documentation.
+SpeakerLab is independently developed in `Heineb/speakerlab`. This is the only development and push destination for SpeakerLab branches, issues, releases and pull requests.
 
-At the M0 audit point:
+The original Bang & Olufsen Beocreate repository is the historical code origin only. SpeakerLab has its own roadmap, governance and release process. No ongoing synchronisation with the original repository is planned, and no SpeakerLab pull requests are intended for it.
 
-- audited commit: `64dc331` (`docs: define focused SpeakerLab roadmap`)
-- upstream baseline immediately below it: `1afe3d7` (`Merge pull request #138 ... electron-9.4.0`)
-- `upstream` remote: `https://github.com/bang-olufsen/create.git`
-- `origin` remote: `https://github.com/Heineb/speakerlab.git`
-- working branch: `docs/speakerlab-foundation`
+## Local clone policy
 
-Remote URLs are historical development metadata, not an endorsement or support relationship.
+A normal SpeakerLab development clone should contain only the `origin` remote, pointing to `https://github.com/Heineb/speakerlab.git` or the equivalent SSH URL. No Beocreate remote is required.
+
+Agents and contributors must not add, remove, rename or modify remotes as part of ordinary project work. If `origin` does not identify `Heineb/speakerlab`, work must stop before files are edited. Historical repository names must not be used as destinations for future development, pushes or pull requests.
+
+All pull requests, when used, are internal SpeakerLab pull requests. Both the base and head repository must be `Heineb/speakerlab`.
+
+## Historical provenance
+
+SpeakerLab retains the Git history inherited from the original Beocreate codebase. At the initial M0 documentation audit, the historical Beocreate baseline immediately below the SpeakerLab foundation work was commit `1afe3d7`.
+
+This provenance records where the code came from; it does not create an endorsement, support relationship or future contribution path.
 
 ## Attribution and licence
 
-The root `LICENSE` is the MIT License with Bang & Olufsen copyright. Existing source files also carry upstream copyright/licence headers. These notices and the repository history must be preserved.
+The root `LICENSE` is the MIT License with Bang & Olufsen copyright. Existing source files also carry original copyright and licence headers. Applicable notices, attribution and repository history must be preserved.
 
-SpeakerLab must not imply that it is developed, endorsed or supported by Bang & Olufsen. User-facing branding and application identifiers inherited from upstream need a separate legal/branding review before public distribution; M0 does not alter them.
+SpeakerLab must not imply that it is developed, endorsed or supported by Bang & Olufsen. User-facing branding and application identifiers inherited from the historical codebase need a separate legal and branding review before public distribution.
 
-Third-party assets, fonts, speaker data, DSP project files and dependencies may carry obligations not fully inventoried by the root licence. A licence/notice inventory remains required before release. Do not assume the root MIT licence alone resolves every bundled asset or trademark question.
-
-## Upstream contribution policy
-
-Focused bug fixes and documentation improvements may be offered upstream when practical. SpeakerLab-specific roadmap, naming and project-governance changes should remain downstream. Contributions must preserve authorship and avoid rewriting upstream history.
-
-When importing later upstream work:
-
-1. Record the upstream commit range.
-2. Review licence and attribution changes.
-3. Keep the import separate from SpeakerLab feature or dependency work.
-4. Run the complete available baseline verification.
-5. Document conflicts, behavioural differences and any audible risk.
+Third-party assets, fonts, speaker data, DSP project files and dependencies may carry obligations not fully inventoried by the root licence. A licence and notice inventory remains required before release. Do not assume the root MIT licence alone resolves every bundled asset or trademark question.
 
 ## Source-of-truth boundaries
 
-The repository contains legacy documentation under `Documentation/`. It is valuable evidence for the current extension, preset and design contracts, but `docs/` is SpeakerLab's durable project memory and should record verified current behaviour. Where legacy prose and code differ, executable code is the baseline until tests and a deliberate change establish a new contract.
+The repository contains legacy documentation under `Documentation/`. It is useful historical evidence for extension, preset and design contracts, but `docs/` is SpeakerLab's durable project memory. Where legacy prose and code differ, executable code is the baseline until tests and a deliberate SpeakerLab change establish a new contract.
