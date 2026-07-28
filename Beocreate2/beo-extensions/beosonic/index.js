@@ -19,7 +19,7 @@ SOFTWARE.*/
 
 var beoDSP = require('../../beocreate_essentials/dsp');
 var fs = require('fs');
-var path = require('path');
+var presetDiscovery = require('./preset-discovery');
 
 var debug = beo.debug;
 var systemVolume = beo.volume;
@@ -358,70 +358,21 @@ function applyBeosonicPreset(presetID) {
 
 
 function readAllLocalPresets() {
-	// Read presets from system directory and then from user directory
-	presetFiles = fs.readdirSync(systemPresetDirectory);
-	for (var i = 0; i < presetFiles.length; i++) {
-		readPresetFromFile(systemPresetDirectory+"/"+presetFiles[i], true);
-	}
-	
-	presetFiles = fs.readdirSync(presetDirectory);
-	for (var i = 0; i < presetFiles.length; i++) {
-		readPresetFromFile(presetDirectory+"/"+presetFiles[i], false);
-	}
-	
-	presetRemoved = false;
-	for (o in settings.presetOrder) {
-		if (!compactPresetList[settings.presetOrder[o]]) {
-			delete settings.presetOrder[o];
-			presetRemoved = true;
-		}
-	}
-	if (presetRemoved) {
-		settings.presetOrder = settings.presetOrder.filter(function (el) {
-			return el != null;
-		});
-		beo.saveSettings("beosonic", settings);
-	}
+	presetDiscovery.discoverPresets(systemPresetDirectory, presetDirectory, {
+		fullPresetList: fullPresetList,
+		compactPresetList: compactPresetList,
+		settings: settings,
+		saveSettings: beo.saveSettings
+	}, debug);
 }
 
 function readPresetFromFile(presetPath, systemPreset) {
-	presetFileName = path.basename(presetPath, path.extname(presetPath));
-		
-		try {
-			preset = JSON.parse(fs.readFileSync(presetPath, "utf8"));
-			
-			presetName = null;
-			if (preset['beosonic'] != undefined) { 
-				if (preset['beosonic'].presetName) {
-					// Preset information record contains a preset name.
-					presetName = preset['beosonic'].presetName;
-				}
-			}
-			
-			readOnly = (systemPreset) ? true : false;
-			
-			if (presetName != null) {
-				// If the preset has a name, it qualifies.
-				adjustments = [];
-				for (adjustment in preset) {
-					adjustments.push(adjustment);
-				}
-				compactPresetList[presetFileName] = {presetName: presetName, readOnly: readOnly, adjustments: adjustments};
-				fullPresetList[presetFileName] = preset;
-				if (settings.presetOrder.indexOf(presetFileName) == -1) {
-					settings.presetOrder.push(presetFileName);
-					beo.saveSettings("beosonic", settings);
-				}
-				return presetFileName;
-			} else {
-				if (debug) console.log("Beosonic: preset '"+presetFileName+"' did not include a preset name. Skipping.");
-				return null;
-			}
-			
-		} catch (error) {
-			if (debug) console.error("Beosonic: error loading preset '"+presetFileName+"' from '"+presetPath+"':", error);
-			return null;
-		}
+	return presetDiscovery.readPresetFromFile(presetPath, systemPreset, {
+		fullPresetList: fullPresetList,
+		compactPresetList: compactPresetList,
+		settings: settings,
+		saveSettings: beo.saveSettings
+	}, debug);
 }
 
 function savePresetToFile(withName, withAdjustments) {

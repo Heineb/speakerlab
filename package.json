@@ -2,10 +2,13 @@
   "name": "speakerlab-workspace",
   "private": true,
   "scripts": {
-    "test": "npm run test:local-layout && npm run test:syntax-verification && npm run test:settings-store",
+    "test": "npm run test:local-layout && npm run test:syntax-verification && npm run test:settings-store && npm run test:configuration-read",
     "test:local-layout": "node test/local-beocreate-layout.test.js",
     "test:syntax-verification": "node test/verify-javascript-syntax.test.js",
     "test:settings-store": "node test/settings-store.test.js",
+    "test:speaker-presets": "node test/speaker-preset-discovery.test.js",
+    "test:listening-modes": "node test/listening-mode-discovery.test.js",
+    "test:configuration-read": "npm run test:speaker-presets && npm run test:listening-modes",
     "check:syntax": "node scripts/verify-javascript-syntax.js",
     "verify": "npm test && npm run check:syntax"
   }
