@@ -10,7 +10,8 @@
     "test:listening-modes": "node test/listening-mode-discovery.test.js",
     "test:configuration-read": "npm run test:speaker-presets && npm run test:listening-modes",
     "test:settings-write": "node test/settings-write.test.js",
-    "test:configuration-write": "npm run test:settings-write",
+    "test:atomic-settings": "node test/atomic-settings.test.js",
+    "test:configuration-write": "npm run test:settings-write && npm run test:atomic-settings",
     "check:syntax": "node scripts/verify-javascript-syntax.js",
     "verify": "npm test && npm run check:syntax"
   }

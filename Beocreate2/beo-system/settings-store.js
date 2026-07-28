@@ -18,6 +18,7 @@ SOFTWARE.*/
 'use strict';
 
 var fs = require('fs');
+var atomicJSONFile = require('./atomic-json-file');
 
 function getSettings(dataDirectory, extension, debugMode, logger) {
 	var file;
@@ -53,10 +54,11 @@ function mergeSettings(defaultSettings, loadedSettings) {
 	return defaultSettings;
 }
 
-function createSettingsWriter(dataDirectory, debugMode, logger, timers) {
+function createSettingsWriter(dataDirectory, debugMode, logger, timers, persistence) {
 	var settingsToBeSaved = {};
 	var settingsSaveTimeout = null;
 	logger = logger || console;
+	persistence = persistence || atomicJSONFile;
 	timers = timers || {
 		setTimeout: setTimeout,
 		clearTimeout: clearTimeout
@@ -64,7 +66,7 @@ function createSettingsWriter(dataDirectory, debugMode, logger, timers) {
 
 	function saveSettings(extension, settings, immediately) {
 		if (immediately) {
-			fs.writeFileSync(dataDirectory+"/"+extension+".json", JSON.stringify(settings));
+			persistence.writeJSONAtomic(dataDirectory+"/"+extension+".json", settings);
 			if (debugMode >= 2) logger.log("Settings saved for '"+extension+"' (immediately).");
 		} else {
 			settingsToBeSaved[extension] = settings;
@@ -78,7 +80,7 @@ function createSettingsWriter(dataDirectory, debugMode, logger, timers) {
 	function savePendingSettings() {
 		for (var extension in settingsToBeSaved) {
 			if (settingsToBeSaved.hasOwnProperty(extension)) {
-				fs.writeFileSync(dataDirectory+"/"+extension+".json", JSON.stringify(settingsToBeSaved[extension]));
+				persistence.writeJSONAtomic(dataDirectory+"/"+extension+".json", settingsToBeSaved[extension]);
 				if (debugMode >= 2) logger.log("Settings saved for '"+extension+"'.");
 			}
 		}
