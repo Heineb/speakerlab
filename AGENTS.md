@@ -2,9 +2,9 @@
 
 ## Mission
 
-SpeakerLab is an open-source, incrementally modernised continuation of the Bang & Olufsen Beocreate software.
+SpeakerLab is an independent open-source continuation of the Bang & Olufsen Beocreate software.
 
-The current and only supported product target is the existing Beocreate hardware and software platform.
+The current product target is the existing Beocreate software and hardware platform.
 
 The goal is to stabilise, test and improve the current product before introducing major new loudspeaker-design functionality.
 
@@ -12,33 +12,68 @@ Future hardware platforms are not part of the current roadmap.
 
 Preserve the strongest characteristic of Beocreate: its intuitive, approachable and easy-to-navigate user interface.
 
+## Repository ownership
+
+SpeakerLab is independently developed in:
+
+`Heineb/speakerlab`
+
+The original Bang & Olufsen Beocreate repository is historical source material only.
+
+SpeakerLab has its own:
+
+* roadmap
+* branches
+* issues
+* releases
+* pull requests
+* development process
+
+SpeakerLab changes must never be submitted, pushed or proposed to:
+
+`bang-olufsen/create`
+
+Preserve all applicable upstream copyright and licence notices.
+
+Do not imply that SpeakerLab is developed, endorsed or supported by Bang & Olufsen.
+
 ## Start every task by reading
+
+Always read:
 
 1. `docs/PROJECT_CHARTER.md`
 2. `docs/CURRENT_STATUS.md`
 3. `docs/ROADMAP.md`
-4. `docs/ARCHITECTURE.md`
-5. `docs/UI_PRINCIPLES.md`
-6. `docs/TESTING.md`
+4. `docs/TESTING.md`
 
-Read relevant architecture decision records under `docs/decisions/` when a task affects architecture.
+Read these when relevant:
 
-Repository documentation is the durable project memory. Do not rely on previous conversation context when the repository contains the answer.
+* `docs/ARCHITECTURE.md`
+* `docs/UI_PRINCIPLES.md`
+* `docs/UPSTREAM.md`
+* relevant records under `docs/decisions/`
+
+Repository documentation is the durable project memory.
+
+Do not rely on previous conversation context when the repository contains a more current answer.
 
 ## Current priorities
 
-Work must follow the roadmap in this order:
+Work should generally follow this sequence:
 
-1. Reproducible baseline.
-2. Test framework and simulated Beocreate hardware.
-3. Incremental Node.js, Electron and dependency upgrades.
-4. Configuration export, import and recovery.
-5. Safe DSP deployment and rollback.
-6. Existing API documentation.
-7. Loudspeaker-tool improvements described in Phase 2.
-8. Distinctive functionality described in Phase 3.
+1. Reproducible development baseline.
+2. Characterization and automated testing of existing behaviour.
+3. Simulated or isolated execution of existing Beocreate software.
+4. Incremental Node.js, Electron and dependency modernisation.
+5. Configuration export, import, backup and recovery.
+6. Safe DSP deployment, verification and rollback.
+7. Documentation and protection of the existing API.
+8. Loudspeaker-tool improvements from Phase 2.
+9. Distinctive SpeakerLab functionality from Phase 3.
 
-Do not begin a later milestone while foundational requirements from an earlier milestone remain unresolved unless the user explicitly approves it.
+Several related tasks may be completed together when they form one coherent feature slice.
+
+Do not mix unrelated roadmap areas merely to increase task size.
 
 ## Scope restrictions
 
@@ -48,61 +83,186 @@ Do not currently:
 * create generic board capability models
 * create universal DSP backends
 * build abstractions solely for possible future products
-* restructure the repository into speculative packages
+* restructure the repository around speculative future requirements
 * replace the existing UI framework solely because it is old
-* rewrite working subsystems without a documented need
-* redesign the visual identity or main navigation
+* rewrite working subsystems without a documented reason
+* redesign the visual identity or primary navigation without a clear usability benefit
 * change the DSP program without an explicit task
 
 An abstraction is justified only when it:
 
-* improves testing of existing Beocreate behaviour
+* improves testing of current Beocreate behaviour
 * isolates a known source of instability
-* makes current code easier to understand
+* makes current code substantially easier to understand
 * enables an approved current-roadmap feature
 
-The simulated hardware must model the existing Beocreate platform. It must not become a speculative universal hardware framework.
+Any simulated hardware must model the current Beocreate platform.
+
+It must not become a speculative universal hardware framework.
 
 ## Working principles
 
-* Make incremental changes.
-* Prefer small, reviewable pull requests.
+* Prefer coherent, testable feature slices over tiny isolated edits.
 * Preserve existing behaviour unless the task explicitly changes it.
-* Add characterization tests before refactoring legacy code.
-* Separate refactoring from behaviour changes.
-* Keep dependency upgrades separate from feature work.
-* Do not introduce a new framework without an architecture decision.
+* Add characterization tests before refactoring poorly tested legacy behaviour.
+* Separate refactoring from intentional behaviour changes when practical.
+* Keep dependency upgrades separate from feature development.
+* Do not introduce a new framework without a documented architecture decision.
 * Never silently change audio behaviour.
-* Preserve upstream copyright and licence notices.
 * Avoid unrelated cleanup.
-* Do not continue to a second roadmap task after completing the requested task.
+* Preserve existing file formats unless migration is part of the approved task.
+* Do not continue into an unrelated roadmap area without user approval.
+
+A task may include several related implementation steps when they share:
+
+* one clear objective
+* one main risk category
+* one verification strategy
+* one coherent completion criterion
+
+## Branch workflow
+
+SpeakerLab uses two permanent branches:
+
+* `master` is the stable integration and release branch.
+* `develop` is the normal working and milestone-integration branch.
+
+Routine development should normally be performed directly on `develop`.
+
+Several related tasks and local commits may accumulate on `develop` before a pull request is created from `develop` to `master`.
+
+### Topic branches
+
+Create a separate topic branch only when the work is:
+
+* experimental
+* high risk
+* difficult to review as part of ongoing development
+* likely to be discarded independently
+* a major dependency or Electron upgrade
+* a DSP-program change
+* a large user-interface feature
+* a release-specific fix
+
+Approved topic-branch prefixes are:
+
+* `docs/`
+* `chore/`
+* `test/`
+* `fix/`
+* `feature/`
+* `refactor/`
+* `upgrade/`
+
+Do not create a topic branch for every small test, documentation update or closely related implementation step.
+
+## Git safety
+
+Before changing files, run:
+
+* `git status --short`
+* `git branch --show-current`
+* `git remote -v`
+
+Confirm that:
+
+* `origin` points to `Heineb/speakerlab`
+* the current branch is `develop` or an explicitly requested SpeakerLab topic branch
+* the working tree contains no unrelated changes that would be overwritten
+
+Never modify production files directly on `master`.
+
+Do not add, remove, rename or modify Git remotes.
+
+Do not synchronise SpeakerLab with the original Beocreate repository unless the user explicitly changes this policy.
+
+## Local commits
+
+Codex may:
+
+* stage files related to the current task
+* create focused local commits
+* create multiple local commits when they represent distinct logical steps
+* suggest how the commits should be grouped before committing
+
+Commit messages should use clear conventional prefixes such as:
+
+* `test:`
+* `fix:`
+* `feat:`
+* `refactor:`
+* `docs:`
+* `chore:`
+* `ci:`
+
+Codex must not, unless the user explicitly requests that exact operation:
+
+* push commits
+* create pull requests
+* merge branches
+* merge into `master`
+* force-push
+* rebase or rewrite shared history
+* delete local or remote branches
+* create tags
+* create releases
+* modify repository settings
+
+The normal task ends with verified local commits ready for the user to inspect and push.
+
+## Pull requests and integration
+
+All pull requests are internal SpeakerLab pull requests.
+
+Both base and head repositories must be:
+
+`Heineb/speakerlab`
+
+Never create or recommend a pull request with `bang-olufsen/create` as the base repository.
+
+Routine work may accumulate on `develop`.
+
+Create a pull request from `develop` to `master` when a coherent milestone or feature slice is complete and the applicable verification passes.
+
+Examples of suitable integration slices include:
+
+* configuration-read foundation
+* configuration-write safety
+* backup and restore
+* DSP transport simulation
+* Node server modernisation
+* Electron modernisation
+* crossover editor
+* measurement import
+
+A pull request may contain multiple focused commits.
 
 ## User-interface principles
 
 * Keep the default interface simple.
 * Preserve familiar Beocreate navigation and interaction patterns.
 * Use progressive disclosure for advanced functionality.
-* Express controls using loudspeaker concepts rather than DSP implementation jargon.
+* Express controls using loudspeaker concepts rather than DSP jargon.
 * Avoid adding controls merely because they are technically available.
-* Prefer guided workflows over large technical control panels.
-* Provide safe defaults.
-* Make potentially destructive actions reversible.
+* Prefer guided workflows over dense technical control panels.
+* Provide safe and useful defaults.
+* Make destructive or potentially dangerous actions reversible.
 * Advanced mode must not make basic mode harder to understand.
 * Include loading, empty, error and disconnected states.
-* Add or update end-to-end tests when navigation or important workflows change.
+* Add or update end-to-end tests when important user workflows change.
 
 ## Testing requirements
 
-Every behaviour change must have tests.
+Every intentional behaviour change must have appropriate tests.
 
-Use the smallest appropriate test level:
+Use the smallest suitable test level:
 
-* Unit tests for pure logic.
-* Characterization tests for undocumented legacy behaviour.
-* Contract tests for UI, backend and DSP-transport boundaries.
-* Integration tests for multi-component workflows.
-* End-to-end tests for important user journeys.
-* Golden fixtures for DSP coefficients, DSP messages and serialized configurations.
+* unit tests for pure logic
+* characterization tests for undocumented legacy behaviour
+* contract tests for component boundaries
+* integration tests for multi-component workflows
+* end-to-end tests for important user journeys
+* golden fixtures for DSP coefficients, messages and serialized configurations
 
 The normal automated test suite must not require physical hardware.
 
@@ -111,39 +271,48 @@ Hardware-in-the-loop tests must be explicitly marked and run separately.
 Tests must:
 
 * be deterministic
-* avoid external network access
+* avoid external network access unless explicitly marked
+* use isolated temporary state
 * include relevant failure cases
 * restore altered state
-* use defined floating-point tolerances
+* use defined floating-point tolerances where applicable
 * provide useful failure output
 
-Do not weaken or delete a failing test merely to make a change pass.
+Do not weaken or delete a failing test merely to make an implementation pass.
 
-A task is not complete until required tests, linting, type checks and builds pass.
+A task is not complete until the applicable focused tests and repository verification pass.
 
-If a required verification command cannot run, report that explicitly and do not claim complete success.
+The current repository-level verification command is:
+
+```sh
+npm run verify
+```
+
+Do not describe it as complete application verification until the documented gaps have been closed.
+
+If a required command cannot run, report that explicitly and do not claim complete success.
 
 ## Dependency upgrades
 
-Do not perform a broad dependency update.
+Do not perform broad dependency updates.
 
 Before upgrading a dependency:
 
-1. Identify why the upgrade is needed.
-2. Identify affected runtime paths.
+1. Explain why the upgrade is needed.
+2. Identify the affected runtime paths.
 3. Add or confirm tests for those paths.
-4. Upgrade the smallest reasonable dependency group.
+4. Upgrade the smallest coherent dependency group.
 5. Run focused and full verification.
 6. Document changed runtime requirements.
-7. Review the resulting lockfile for unrelated changes.
+7. Review lockfile changes for unrelated updates.
 
-Electron upgrades must be separate from unrelated Node.js or application feature changes.
+Electron upgrades must remain separate from unrelated server or feature development.
 
-Major-version upgrades must normally have their own pull request.
+Major runtime upgrades should normally use a dedicated topic branch.
 
 ## DSP and audio safety
 
-Treat these as safety-sensitive:
+Treat these areas as safety-sensitive:
 
 * output gain
 * routing
@@ -159,10 +328,10 @@ Treat these as safety-sensitive:
 
 Changes in these areas require:
 
-* explicit validation
+* explicit input validation
 * automated tests
 * defined safe defaults
-* failure behaviour
+* documented failure behaviour
 * rollback considerations
 * documentation of audible changes
 * review of startup and disconnected states
@@ -173,157 +342,92 @@ Do not replace a last-known-good configuration until the new configuration has b
 
 ## Change workflow
 
-For each task:
+For each coherent task or feature slice:
 
 1. Read the required project documents.
 2. Inspect the relevant existing code and tests.
 3. Describe the current behaviour.
 4. State the intended behaviour.
-5. Identify regression and audio-safety risks.
-6. Add characterization tests where behaviour is not already protected.
-7. Implement the smallest viable change.
-8. Run focused tests.
-9. Run the complete available verification suite.
+5. Identify regression, compatibility and audio-safety risks.
+6. Add characterization tests where existing behaviour is not protected.
+7. Implement the smallest coherent solution.
+8. Run focused tests while developing.
+9. Run `npm run verify`.
 10. Review the diff for unrelated changes.
 11. Update relevant documentation.
 12. Update `docs/CURRENT_STATUS.md`.
+13. Create one or more focused local commits when authorised by these instructions.
 
-For exploratory tasks, produce findings and recommendations before implementing production changes.
+For exploratory tasks, document findings and recommendations before implementing broad production changes.
 
 ## Documentation
 
-Update `docs/CURRENT_STATUS.md` after meaningful work with:
+Update `docs/CURRENT_STATUS.md` after meaningful work.
+
+Keep it concise and forward-looking.
+
+It should contain:
 
 * current milestone
-* completed work
-* files changed
-* commands run
-* test results
-* known issues
-* remaining risks
-* next recommended task
+* current working branch
+* latest completed slice
+* verification status
+* active work
+* known blockers and risks
+* next planned slice
+* deferred work
+
+Do not turn `CURRENT_STATUS.md` into a permanent command log or complete history.
+
+Detailed historical findings belong in:
+
+* Git commits
+* pull requests
+* architecture decision records
+* `docs/TESTING.md`
+* `docs/ARCHITECTURE.md`
+* issue tracking
 
 Create an architecture decision record before difficult-to-reverse decisions involving:
 
 * frameworks
 * public APIs
-* configuration formats
-* storage formats
+* configuration or storage formats
 * test frameworks
 * DSP deployment design
 * major package boundaries
 * licensing
+* branch or release policy
 
-Do not create an architecture decision record for ordinary small implementation details.
+Do not create an architecture decision record for ordinary implementation details.
 
-## Git discipline
+## README policy
 
-* Do not commit directly to the protected default branch.
-* Use focused branches.
-* Use clear conventional commit messages.
-* Do not combine unrelated changes.
-* Do not rewrite upstream history.
-* Do not commit secrets or local credentials.
-* Do not commit local machine paths.
-* Do not commit generated build artifacts unless required.
-* Preserve attribution to the upstream Beocreate project.
+The root `README.md` must be updated when the development setup, verification commands, runtime assumptions, licensing, upstream relationship and public project status are sufficiently accurate.
+
+The future README must clearly state that:
+
+* SpeakerLab is independent
+* SpeakerLab is based on the original Beocreate codebase
+* SpeakerLab is not an official Bang & Olufsen project
+* current production readiness and limitations are accurately described
+
+Do not present SpeakerLab as production-ready before the relevant Phase 1 acceptance criteria are met.
 
 ## Completion response
 
 At the end of a task, report:
 
 * current milestone
+* current branch
 * what changed
+* local commits created
 * tests added or changed
 * commands run
 * results
+* production behaviour changed or unchanged
 * remaining risks
 * documentation updated
 * suggested next task
 
 Do not claim that a task is complete when required verification failed or was not executed.
-
-## Repository ownership and Git safety
-
-SpeakerLab is an independent project developed in:
-
-`Heineb/speakerlab`
-
-The original Bang & Olufsen Beocreate repository is historical source material only.
-
-SpeakerLab changes must never be submitted, pushed or proposed to:
-
-`bang-olufsen/create`
-
-### Remote requirements
-
-* `origin` must point to `Heineb/speakerlab`.
-* No Beocreate remote is required.
-* Do not add, remove, rename or modify Git remotes.
-* If `origin` does not point to `Heineb/speakerlab`, stop and report the problem before changing files.
-* Do not synchronise SpeakerLab with the original Beocreate repository unless the user explicitly introduces a new policy in the future.
-
-### Branch requirements
-
-Before changing files, run:
-
-* `git status --short`
-* `git branch --show-current`
-* `git remote -v`
-
-Never implement changes directly on the SpeakerLab default branch.
-
-Create or use one focused SpeakerLab topic branch for each task.
-
-Approved branch prefixes are:
-
-* `docs/`
-* `chore/`
-* `test/`
-* `fix/`
-* `feature/`
-* `refactor/`
-
-Do not create branches in any other repository.
-
-Do not combine unrelated roadmap tasks on one branch.
-
-### Push and merge restrictions
-
-Codex must not:
-
-* push branches
-* create pull requests
-* merge pull requests
-* merge into the default branch
-* rebase or rewrite the default branch
-* force-push
-* delete remote branches
-* create tags or releases
-* change repository settings
-
-unless the user explicitly requests that exact Git operation.
-
-The normal Codex task ends with local changes, test results and a suggested commit message. The user reviews and performs the push and merge.
-
-### Pull request destination
-
-All pull requests are internal SpeakerLab pull requests.
-
-The required base repository is:
-
-`Heineb/speakerlab`
-
-The head repository is also:
-
-`Heineb/speakerlab`
-
-Never create or recommend a pull request with `bang-olufsen/create` as the base repository.
-
-### Relationship to Beocreate
-
-Do not describe SpeakerLab changes as candidates for contribution back to Beocreate.
-
-Do not add roadmap items for upstream synchronisation.
-
-Preserve applicable original copyright and licence notices, but maintain an independent roadmap, release process and project identity.
