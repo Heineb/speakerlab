@@ -56,7 +56,53 @@ The characterized behavior is:
 
 Directly requiring `beo-server.js` is unsafe in an ordinary development test because module evaluation creates the production data directory when absent, loads extensions, starts the HTTP/WebSocket server and imports OS/hardware-dependent modules. A small `settings-store.js` seam therefore contains the existing read and shallow-merge operations; the server calls it with the same production directory, defaults, debug level and console logger. No file format, default, path, error outcome or merge behavior was intentionally changed.
 
-The tests do not characterize writes, the ten-second shared save queue, shutdown flushing, path traversal through an untrusted extension name, extension-specific validation/merging, speaker-preset or listening-mode discovery, preset application, atomicity, recovery, or concurrent access. Settings writes remain synchronous, unversioned and non-atomic.
+The settings-store tests do not characterize writes, the ten-second shared save queue, shutdown flushing, path traversal through an untrusted extension name, extension-specific validation/merging, resource application, atomicity, recovery, or concurrent access. Settings writes remain synchronous, unversioned and non-atomic. Speaker-preset and listening-mode discovery are covered separately below.
+
+## Configuration read characterization
+
+The configuration-read suite exercises the discovery logic extracted from the existing `speaker-preset` and `beosonic` extensions. It uses only Node built-ins and isolated temporary system/user directories. It does not import either complete extension, start the server, use the process working directory, access deployed `/opt` or `/etc` paths, save fixture data outside the temporary tree, contact hardware or apply any resource.
+
+Run the focused commands:
+
+```sh
+npm run test:speaker-presets
+npm run test:listening-modes
+npm run test:configuration-read
+```
+
+Production resolves the directories as follows:
+
+| Resource | System directory | User directory |
+| --- | --- | --- |
+| Speaker presets | `<beo.systemDirectory>/beo-speaker-presets` (normally `/opt/beocreate/beo-speaker-presets`) | `<beo.dataDirectory>/beo-speaker-presets` (normally `/etc/beocreate/beo-speaker-presets`) |
+| Listening modes | `<beo.systemDirectory>/beo-listening-modes` (normally `/opt/beocreate/beo-listening-modes`) | `<beo.dataDirectory>/beo-listening-modes` (normally `/etc/beocreate/beo-listening-modes`) |
+
+Both extensions create the user directory during module evaluation if it is missing, then discover resources on the `general/startup` event. The extracted seams preserve the discovery functions only; startup creation, event handling, settings saving and application remain in the original extensions.
+
+### Speaker-preset behavior
+
+- Every entry returned by `fs.readdirSync` is attempted; files are not filtered by extension.
+- Identity is the filename with only its final extension removed. The display name is `speaker-preset.presetName`, falling back to `product-information.modelName`, but a truthy `speaker-preset` object is still required.
+- System resources are read before user resources. The first accepted filename identity wins, so a user file cannot override a system file with the same filename. Different identities may share a display name.
+- Compact/full objects retain insertion order derived from the platform's `readdirSync` results: accepted system entries followed by new user entries. The code performs no explicit sort.
+- Missing system or user directories throw synchronously. A missing user directory can therefore leave system entries added before the throw.
+- Read errors, empty/whitespace files, malformed JSON and JSON `null` are caught per file. Arrays and primitive JSON values are parsed but do not qualify. Errors and skips are logged only when extension debug logging is enabled.
+- Unknown properties are retained in the full object without schema validation.
+- Module-level lists are not cleared. Repeated discovery does not refresh an existing identity and does not remove stale entries whose files disappeared.
+
+### Listening-mode behavior
+
+- Identity is likewise the filename without its final extension. A truthy `beosonic.presetName` is required; other top-level adjustments and unknown properties are retained.
+- System resources are read before user resources, but every accepted resource is assigned unconditionally. A user file with the same filename therefore overwrites the system value and becomes writable. Different identities may share a display name.
+- Object insertion order follows first insertion from `readdirSync`; overwriting a duplicate does not move its key. Newly seen identities are appended to `settings.presetOrder` in discovery order and trigger the existing settings-save callback.
+- Missing directories throw synchronously. Per-file malformed, empty, whitespace, JSON `null`, array and primitive handling matches the speaker loader's broad parse/skip behavior.
+- Repeated discovery refreshes identities whose files still exist, but module-level full/compact lists retain identities for files that were removed. Missing entries in `presetOrder` are deleted and the existing settings-save callback runs.
+
+The seams are `Beocreate2/beo-extensions/speaker-preset/preset-discovery.js` and `Beocreate2/beo-extensions/beosonic/preset-discovery.js`. They are extension-specific and intentionally do not define a generic configuration API, schema, storage format or hardware abstraction.
+
+The 27 focused cases cover valid system/user resources, missing and empty directories, unreadable entries, malformed/empty/whitespace files, JSON `null`, arrays and primitives, required names, unknown properties, duplicate identities and display names, precedence, observed filesystem order, repeated discovery, stale state and paths containing spaces.
+
+Still untested are speaker-preset/listening-mode upload, rename, delete and save paths; migration from old sound presets; product-identity enrichment; `presetOrder` interactions beyond discovery cleanup; concurrent filesystem changes; permissions on the target HiFiBerryOS image; and all preview/application/DSP behavior.
 
 ## Provisional development-tooling runtime
 
@@ -93,7 +139,7 @@ Run the current repository-level verification:
 npm run verify
 ```
 
-`npm run verify` runs the 25 focused tests and then checks every repository `.js` file selected by `scripts/verify-javascript-syntax.js`. Selection is deterministic; `.git`, `node_modules`, `.speakerlab-local` and symbolic-link directories are not traversed. Each file is passed as a separate argument to the active Node executable's `--check` mode, so paths containing spaces are safe and failures identify the affected relative path.
+`npm run verify` runs the 52 focused tests and then checks every repository `.js` file selected by `scripts/verify-javascript-syntax.js`. Selection is deterministic; `.git`, `node_modules`, `.speakerlab-local` and symbolic-link directories are not traversed. Each file is passed as a separate argument to the active Node executable's `--check` mode, so paths containing spaces are safe and failures identify the affected relative path.
 
 This is not complete application verification. It does not run legacy placeholder test commands, install nested application dependencies, start the Beocreate server, access hardware or HiFiBerryOS, communicate with SigmaTCP, package Electron, test the UI, lint, type-check or audit dependencies.
 
@@ -112,6 +158,7 @@ The root tooling has no dependencies, so CI does not run an installation step or
 | Beocreate Connect | `cd BeocreateConnect && npm ci` | `npm start` | `npm run pack`, `npm run dist` | no test or lint |
 | Repository layout harness | none | `node scripts/prepare-local-beocreate-layout.js <destination>` | none | `npm test` or `npm run test:local-layout` |
 | Settings loading characterization | none | library seam only | none | `npm run test:settings-store` |
+| Configuration read characterization | none | extension-specific discovery seams only | none | `npm run test:configuration-read`; focused: `test:speaker-presets`, `test:listening-modes` |
 | Repository verification | none | not applicable | none | `npm run verify`; syntax only: `npm run check:syntax` |
 
 `npm install` is documented for Beocreate Connect in the upstream README; `npm ci` is the reproducibility check where a committed lockfile exists.

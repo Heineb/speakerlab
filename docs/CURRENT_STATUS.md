@@ -19,22 +19,22 @@ The broader M0 and M1 acceptance criteria are not yet complete.
 
 ## Latest completed slice
 
-### Settings loading characterization
+### Configuration Read Foundation
 
-The central settings-file reader and server default-merging behaviour are now isolated behind a small testable seam.
+Speaker-preset and listening-mode discovery are now isolated behind extension-specific, hardware-free seams and protected by characterization tests.
 
 Characterized behaviour includes:
 
-* settings paths under `/etc/beocreate`
-* missing, empty, whitespace-only, malformed and JSON `null` files
-* valid JSON without schema validation
-* preservation of unknown properties
-* repeated loading returning newly parsed objects
-* shallow `Object.assign` merging
-* mutation of the defaults object
-* operation without hardware or HiFiBerryOS services
+* system and user directory paths
+* filename identities and display-name rules
+* system/user precedence and duplicate handling
+* unsorted filesystem ordering
+* missing directories and unreadable entries
+* malformed, empty, whitespace, JSON `null`, array and primitive resources
+* unknown-property preservation
+* repeated discovery and stale module-level state
 
-Production paths, formats, defaults, logging outcomes and shallow merge behaviour were intentionally preserved.
+Production startup, paths, formats, logging, precedence, ordering and malformed-resource behaviour were intentionally preserved. No preset or listening mode is applied by these tests.
 
 ## Foundation currently available
 
@@ -90,13 +90,15 @@ Run the complete currently available repository verification with:
 npm run verify
 ```
 
-The current suite contains 25 focused tests covering:
+The current suite contains 52 focused tests covering:
 
 * local deployed-layout preparation
 * JavaScript syntax-verifier behaviour
 * central settings loading and default merging
+* speaker-preset discovery
+* listening-mode discovery
 
-Repository-wide JavaScript syntax verification currently passes for 134 JavaScript files.
+Repository-wide JavaScript syntax verification currently covers 139 JavaScript files.
 
 GitHub Actions runs the available verification on:
 
@@ -111,6 +113,8 @@ The current suite does not constitute complete application verification.
 * `scripts/prepare-local-beocreate-layout.js`
 * `scripts/verify-javascript-syntax.js`
 * `Beocreate2/beo-system/settings-store.js`
+* `Beocreate2/beo-extensions/speaker-preset/preset-discovery.js`
+* `Beocreate2/beo-extensions/beosonic/preset-discovery.js`
 
 These seams are specific to the existing Beocreate platform.
 
@@ -120,28 +124,22 @@ No generic future-hardware abstraction has been introduced.
 
 The next coherent development slice is:
 
-### Configuration Read Foundation
+### Configuration Write Safety
 
 This slice should cover:
 
-* speaker-preset discovery and loading
-* listening-mode discovery and loading
-* system and user directories
-* precedence behaviour
-* malformed and incomplete resources
-* duplicate handling
-* repeated discovery
-* deterministic or observed filesystem ordering
-* isolated temporary fixtures
-* shared test helpers where useful
+* the central immediate and delayed settings-save paths
+* delayed save coalescing
+* shutdown flushing
+* isolated destination paths
+* write failures and partial-state characterization
+* focused behavior-preserving seams before atomic-write design
 
 It must not include:
 
-* preset application to the DSP
-* configuration writes
-* atomic storage
+* speaker-preset or listening-mode application
+* atomic-write behavior changes
 * import or export
-* schema enforcement
 * UI changes
 * dependency upgrades
 
@@ -171,8 +169,8 @@ The following remain unprotected or untested:
 * concurrent writes
 * atomicity
 * recovery after partial writes
-* speaker-preset discovery and application
-* listening-mode discovery and application
+* speaker-preset application
+* listening-mode application
 
 ### DSP and audio
 
@@ -208,6 +206,7 @@ No broad audit fix or dependency upgrade has been applied.
 * Node.js 24 development-tooling selection.
 * Minimal Ubuntu/macOS continuous integration.
 * Initial settings characterization tests.
+* Speaker-preset and listening-mode discovery characterization.
 * Independent SpeakerLab repository governance.
 
 ### Partially complete
@@ -221,7 +220,7 @@ No broad audit fix or dependency upgrade has been applied.
 
 * Safe local server startup.
 * Simulated or disconnected DSP transport.
-* Broader configuration and preset characterization.
+* Configuration write and resource-application characterization.
 * General application test framework or coverage reporting.
 * Linting, formatting and type checking.
 * Reproducible Beocreate Connect installation and packaging.
@@ -229,12 +228,11 @@ No broad audit fix or dependency upgrade has been applied.
 
 ## Next planned slices
 
-1. Configuration Read Foundation.
-2. Configuration Write Safety.
-3. Configuration backup, export, import and restore.
-4. Isolated server startup with disconnected or simulated current Beocreate DSP transport.
-5. Controlled dependency modernisation.
-6. Safe DSP deployment and rollback.
+1. Configuration Write Safety.
+2. Configuration backup, export, import and restore.
+3. Isolated server startup with disconnected or simulated current Beocreate DSP transport.
+4. Controlled dependency modernisation.
+5. Safe DSP deployment and rollback.
 
 The ordering may be adjusted when repository evidence reveals a stronger dependency between these slices.
 
