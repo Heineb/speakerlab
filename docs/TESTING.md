@@ -104,6 +104,55 @@ The 27 focused cases cover valid system/user resources, missing and empty direct
 
 Still untested are speaker-preset/listening-mode upload, rename, delete and save paths; migration from old sound presets; product-identity enrichment; `presetOrder` interactions beyond discovery cleanup; concurrent filesystem changes; permissions on the target HiFiBerryOS image; and all preview/application/DSP behavior.
 
+## Configuration write characterization
+
+The focused write suite exercises the central settings writer used by `beo-server.js`. The writer is isolated in `settings-store.js` because importing the complete server starts network services and hardware/OS-dependent extensions. Production supplies `/etc/beocreate`, the global console and real timers; tests supply an isolated temporary directory and controllable built-in-only timers.
+
+Run:
+
+```sh
+npm run test:settings-write
+npm run test:configuration-write
+```
+
+### Write entry points found
+
+| Owner | Target and behavior |
+| --- | --- |
+| Central settings broker | `/etc/beocreate/<extension>.json`; direct `beo.saveSettings` calls and `settings/saveSettings` bus events from system/UI and extensions including sound, channels, equaliser, Beosonic, speaker preset, sources, network, setup, privacy, DSP programs and others |
+| `configure.js` | Directly reads and synchronously rewrites `/etc/beocreate/<extension>.json`; catches read/write errors but always exits with status 0 |
+| Beosonic | Direct synchronous compact JSON writes for new/renamed user listening modes under `/etc/beocreate/beo-listening-modes`, in addition to central Beosonic settings saves |
+| Speaker preset | Uploaded presets are moved into `/etc/beocreate/beo-speaker-presets`; legacy sound-preset migration rewrites files synchronously and saves selected-preset settings through the central broker |
+| Room compensation | Direct compact JSON writes for measurements and generated compensation presets under `/etc/beocreate/beo-room-compensation` |
+| ALSA loop and Squeezelite | Direct compact rewrites of `/etc/alsaloop.json` and `/etc/squeezelite.json`, followed by `statSync` |
+| MPD | Direct compact rewrites of `beo-cache.json` below the active music library |
+| Other platform configuration | Several extensions synchronously rewrite non-JSON `/etc` service/configuration files; these are configuration sources but are outside the JSON writer seam |
+
+### Central immediate writes
+
+- The target is constructed by direct string concatenation: `<dataDirectory>/<extension>.json`. Extension names are not validated, so path traversal is possible.
+- `JSON.stringify` is called without a replacer or indentation. Property insertion order is used. Existing files are opened with the default `writeFileSync` behavior, truncated and overwritten; missing files are created, but missing parent directories are not.
+- Nested `undefined`, functions and symbols are omitted from objects and become `null` in arrays. Top-level `undefined`, BigInt and circular structures fail according to native `JSON.stringify`/`writeFileSync` behavior.
+- Immediate serialization observes state at the call and does not mutate the object. Errors from serialization or the filesystem propagate synchronously; there is no failure log, callback or event. Success is logged only at debug level 2 or higher and only after the write returns.
+- There is no temporary file, rename, backup, `fsync`, schema check or readback. Truncation and writing happen in place, so another reader or a crash can observe an empty or partial file.
+
+### Delayed and coalesced writes
+
+- Non-immediate calls store the supplied object reference in one process-global pending object keyed by extension and reset one global 10,000 ms timer.
+- A later save for the same extension replaces its queued reference. Saves for different extensions accumulate, but every call cancels and replaces the shared timer; activity from any extension postpones all pending writes.
+- Because references are retained, mutation after scheduling changes the eventual serialized data. An immediate save does not remove an older queued value, so the queued value can later overwrite the immediate file.
+- On timer expiry, pending extensions are synchronously serialized/written in object-property order. The queue is cleared only after the complete loop succeeds. A serialization or write failure aborts the loop, produces no broker error log, leaves the complete queue available in memory for a later retry, and escapes the timer callback as an uncaught exception.
+
+### Shutdown and flush behavior
+
+`SIGINT`/`SIGTERM` start the server's graceful shutdown sequence. Extensions may delay it for at most five seconds. After WebSocket shutdown completes, `completeShutdown` calls the same synchronous pending-write flush before closing HTTP and exiting or invoking the power command. The process therefore waits for each synchronous write that is reached, but not for durability beyond `writeFileSync` returning.
+
+Manual/graceful flushing does not cancel the existing ten-second timer; it empties the queue after a successful loop, so the later timer normally performs an empty flush. Repeated flushes are otherwise harmless. A flush failure prevents the remaining shutdown callback steps from running and may terminate the process through an uncaught exception. Abrupt exit, kill, crash, power loss, a second unhandled signal or failure before the WebSocket callback can lose pending state.
+
+The 18 focused tests cover exact compact output, nested data, `null`, unsupported values, overwrite/truncation, missing files/directories, controlled write failure, spaces, unsafe filename construction, repeated writes, immediate/delayed mutation, one and multiple extensions, timer replacement, success logging, queued-versus-immediate ordering, synchronous flush, repeated flush and failure/retry behavior. They do not access `/etc`, `/opt`, deployed user data, hardware or network services.
+
+Still untested are the independent extension/CLI writers listed above, real ten-second timing under load, real signals and complete-server shutdown, OS page-cache/disk durability, concurrent processes, disk-full behavior, ownership/mode preservation, and observation of an actual partial write. Those paths remain non-atomic and require a later intentional behavior-change slice.
+
 ## Provisional development-tooling runtime
 
 Node.js 24 is the provisional baseline only for root repository scripts, the local layout harness, current zero-dependency tests, the syntax verifier and GitHub Actions. `.nvmrc` and `.node-version` both select major version 24.
@@ -139,7 +188,7 @@ Run the current repository-level verification:
 npm run verify
 ```
 
-`npm run verify` runs the 52 focused tests and then checks every repository `.js` file selected by `scripts/verify-javascript-syntax.js`. Selection is deterministic; `.git`, `node_modules`, `.speakerlab-local` and symbolic-link directories are not traversed. Each file is passed as a separate argument to the active Node executable's `--check` mode, so paths containing spaces are safe and failures identify the affected relative path.
+`npm run verify` runs the 70 focused tests and then checks every repository `.js` file selected by `scripts/verify-javascript-syntax.js`. Selection is deterministic; `.git`, `node_modules`, `.speakerlab-local` and symbolic-link directories are not traversed. Each file is passed as a separate argument to the active Node executable's `--check` mode, so paths containing spaces are safe and failures identify the affected relative path.
 
 This is not complete application verification. It does not run legacy placeholder test commands, install nested application dependencies, start the Beocreate server, access hardware or HiFiBerryOS, communicate with SigmaTCP, package Electron, test the UI, lint, type-check or audit dependencies.
 
@@ -159,6 +208,7 @@ The root tooling has no dependencies, so CI does not run an installation step or
 | Repository layout harness | none | `node scripts/prepare-local-beocreate-layout.js <destination>` | none | `npm test` or `npm run test:local-layout` |
 | Settings loading characterization | none | library seam only | none | `npm run test:settings-store` |
 | Configuration read characterization | none | extension-specific discovery seams only | none | `npm run test:configuration-read`; focused: `test:speaker-presets`, `test:listening-modes` |
+| Configuration write characterization | none | central settings writer seam only | none | `npm run test:configuration-write`; focused: `test:settings-write` |
 | Repository verification | none | not applicable | none | `npm run verify`; syntax only: `npm run check:syntax` |
 
 `npm install` is documented for Beocreate Connect in the upstream README; `npm ci` is the reproducibility check where a committed lockfile exists.

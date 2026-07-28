@@ -63,9 +63,15 @@ Extensions communicate through the global `beo.bus`, call explicitly exported fu
 
 ## Settings and configuration storage
 
-The central settings convention is one unversioned JSON file per extension at `/etc/beocreate/<extension>.json`. `getSettings` returns `null` for missing, empty or invalid files and logs parse errors. Extensions merge their own defaults. Saves are synchronous JSON writes, either immediate or coalesced globally ten seconds after the last request. Pending writes are flushed at graceful shutdown.
+The central settings convention is one unversioned JSON file per extension at `/etc/beocreate/<extension>.json`. `getSettings` returns `null` for missing, empty or invalid files and logs parse errors. Extensions merge their own defaults. The existing read, immediate-write, delayed-write and flush mechanics are isolated in `settings-store.js` so they can be characterized without starting the server.
+
+Central saves are synchronous compact `JSON.stringify` writes, either immediate or queued by extension behind one global ten-second timer. Every delayed request resets that timer, including requests for different extensions. Queued values are object references rather than snapshots. Immediate saves neither clear nor replace a queued value. A successful flush writes every pending extension synchronously and then clears the queue; it does not cancel the timer. Serialization and filesystem failures propagate without broker callbacks or failure logging and abort a flush before the queue is cleared.
+
+Graceful shutdown flushes only after extension shutdown coordination and WebSocket closure, before HTTP closure and process exit/power control. Abrupt termination or a failure earlier in that sequence can lose queued state. A flush failure interrupts shutdown. Writes use direct filename concatenation and in-place truncation with no validation, temporary file, rename, backup, `fsync` or readback.
 
 Writes are not atomic, files are not schema-validated, and there is no backup or last-known-good copy. An interrupted/truncated write therefore becomes `null` on next load. `configure.js` edits the same files directly and has the same non-atomic behaviour.
+
+JSON-backed writes also bypass the central broker: Beosonic user modes, room-compensation measurements/presets, ALSA loop and Squeezelite configuration, MPD cache data and speaker-preset migration/upload paths perform their own synchronous writes or moves. Several extensions also write non-JSON service configuration under `/etc`. These paths differ in directory creation, in-memory mutation, error handling and follow-up events and are not unified by the central seam.
 
 Additional configuration is spread across `/etc` and HiFiBerryOS helpers, including SigmaTCP, AudioControl, network, service and source configuration. This is outside the central settings broker and is important for future complete configuration backup.
 

@@ -19,22 +19,21 @@ The broader M0 and M1 acceptance criteria are not yet complete.
 
 ## Latest completed slice
 
-### Configuration Read Foundation
+### Configuration Write Safety
 
-Speaker-preset and listening-mode discovery are now isolated behind extension-specific, hardware-free seams and protected by characterization tests.
+The central settings writer is now isolated behind a hardware-free seam and protected by characterization tests for immediate, delayed and shutdown-style flush behavior.
 
 Characterized behaviour includes:
 
-* system and user directory paths
-* filename identities and display-name rules
-* system/user precedence and duplicate handling
-* unsorted filesystem ordering
-* missing directories and unreadable entries
-* malformed, empty, whitespace, JSON `null`, array and primitive resources
-* unknown-property preservation
-* repeated discovery and stale module-level state
+* compact synchronous JSON output and overwrite behavior
+* missing directories, serialization errors and write failures
+* unsupported values and mutable object references
+* one global ten-second timer and cross-extension coalescing
+* immediate writes followed by older queued state
+* synchronous graceful-shutdown flushing and failure/retry behavior
+* unsanitized filename construction and partial-write risk
 
-Production startup, paths, formats, logging, precedence, ordering and malformed-resource behaviour were intentionally preserved. No preset or listening mode is applied by these tests.
+Production paths, filenames, JSON output, delay, coalescing, logging and failure behavior were intentionally preserved. Atomic writes, backups and recovery were not introduced.
 
 ## Foundation currently available
 
@@ -90,15 +89,16 @@ Run the complete currently available repository verification with:
 npm run verify
 ```
 
-The current suite contains 52 focused tests covering:
+The current suite contains 70 focused tests covering:
 
 * local deployed-layout preparation
 * JavaScript syntax-verifier behaviour
 * central settings loading and default merging
 * speaker-preset discovery
 * listening-mode discovery
+* central configuration writes and flushes
 
-Repository-wide JavaScript syntax verification currently covers 139 JavaScript files.
+Repository-wide JavaScript syntax verification currently covers 140 JavaScript files.
 
 GitHub Actions runs the available verification on:
 
@@ -112,7 +112,7 @@ The current suite does not constitute complete application verification.
 
 * `scripts/prepare-local-beocreate-layout.js`
 * `scripts/verify-javascript-syntax.js`
-* `Beocreate2/beo-system/settings-store.js`
+* `Beocreate2/beo-system/settings-store.js` (read, merge and write mechanics)
 * `Beocreate2/beo-extensions/speaker-preset/preset-discovery.js`
 * `Beocreate2/beo-extensions/beosonic/preset-discovery.js`
 
@@ -124,22 +124,21 @@ No generic future-hardware abstraction has been introduced.
 
 The next coherent development slice is:
 
-### Configuration Write Safety
+### Atomic Settings Persistence
 
 This slice should cover:
 
-* the central immediate and delayed settings-save paths
-* delayed save coalescing
-* shutdown flushing
-* isolated destination paths
-* write failures and partial-state characterization
-* focused behavior-preserving seams before atomic-write design
+* an explicit atomic-write contract for central settings
+* temporary-file placement, permissions and rename behavior
+* serialization-before-truncation and failure cleanup
+* durability expectations and last-known-good considerations
+* migration from the characterized non-atomic path
 
 It must not include:
 
 * speaker-preset or listening-mode application
-* atomic-write behavior changes
 * import or export
+* broad unification of extension-owned configuration writers
 * UI changes
 * dependency upgrades
 
@@ -163,12 +162,10 @@ The complete server cannot yet start safely in an ordinary local development env
 
 The following remain unprotected or untested:
 
-* settings writes
-* delayed save coalescing
-* shutdown flushing
 * concurrent writes
 * atomicity
 * recovery after partial writes
+* independent extension and CLI write paths
 * speaker-preset application
 * listening-mode application
 
@@ -207,6 +204,7 @@ No broad audit fix or dependency upgrade has been applied.
 * Minimal Ubuntu/macOS continuous integration.
 * Initial settings characterization tests.
 * Speaker-preset and listening-mode discovery characterization.
+* Central immediate, delayed and shutdown-flush write characterization.
 * Independent SpeakerLab repository governance.
 
 ### Partially complete
@@ -220,7 +218,7 @@ No broad audit fix or dependency upgrade has been applied.
 
 * Safe local server startup.
 * Simulated or disconnected DSP transport.
-* Configuration write and resource-application characterization.
+* Atomic settings persistence and resource-application characterization.
 * General application test framework or coverage reporting.
 * Linting, formatting and type checking.
 * Reproducible Beocreate Connect installation and packaging.
@@ -228,7 +226,7 @@ No broad audit fix or dependency upgrade has been applied.
 
 ## Next planned slices
 
-1. Configuration Write Safety.
+1. Atomic Settings Persistence.
 2. Configuration backup, export, import and restore.
 3. Isolated server startup with disconnected or simulated current Beocreate DSP transport.
 4. Controlled dependency modernisation.
