@@ -19,21 +19,19 @@ The broader M0 and M1 acceptance criteria are not yet complete.
 
 ## Latest completed slice
 
-### Configuration Write Safety
+### Atomic Settings Persistence
 
-The central settings writer is now isolated behind a hardware-free seam and protected by characterization tests for immediate, delayed and shutdown-style flush behavior.
+The central settings writer now uses tested same-directory atomic replacement. A complete compact JSON value is written to a unique temporary file, permissions are applied, file contents are synced and closed, and the file is renamed over the target before the containing directory is synced where supported.
 
-Characterized behaviour includes:
+The persistence contract protects:
 
-* compact synchronous JSON output and overwrite behavior
-* missing directories, serialization errors and write failures
-* unsupported values and mutable object references
-* one global ten-second timer and cross-extension coalescing
-* immediate writes followed by older queued state
-* synchronous graceful-shutdown flushing and failure/retry behavior
-* unsanitized filename construction and partial-write risk
+* the prior valid target for every reported pre-rename failure
+* complete and short writes, permissions, `umask`, sync, close, rename and cleanup failures
+* existing delayed/coalesced save ordering and mutable-reference behavior
+* synchronous repeated shutdown-style flush and failure/retry behavior
+* paths containing spaces without `/etc`, `/opt`, hardware, network or root access in tests
 
-Production paths, filenames, JSON output, delay, coalescing, logging and failure behavior were intentionally preserved. Atomic writes, backups and recovery were not introduced.
+Production paths, filenames, compact JSON, delay, coalescing, logging and synchronous application-facing behavior remain compatible. This intentionally replaces unsafe in-place truncation. It does not add backups, schemas, export/import or recovery.
 
 ## Foundation currently available
 
@@ -89,7 +87,7 @@ Run the complete currently available repository verification with:
 npm run verify
 ```
 
-The current suite contains 70 focused tests covering:
+The current suite contains 90 focused tests covering:
 
 * local deployed-layout preparation
 * JavaScript syntax-verifier behaviour
@@ -97,8 +95,9 @@ The current suite contains 70 focused tests covering:
 * speaker-preset discovery
 * listening-mode discovery
 * central configuration writes and flushes
+* central atomic JSON persistence and deterministic failure injection
 
-Repository-wide JavaScript syntax verification currently covers 140 JavaScript files.
+Repository-wide JavaScript syntax verification currently covers 142 JavaScript files.
 
 GitHub Actions runs the available verification on:
 
@@ -113,6 +112,7 @@ The current suite does not constitute complete application verification.
 * `scripts/prepare-local-beocreate-layout.js`
 * `scripts/verify-javascript-syntax.js`
 * `Beocreate2/beo-system/settings-store.js` (read, merge and write mechanics)
+* `Beocreate2/beo-system/atomic-json-file.js` (central atomic JSON persistence)
 * `Beocreate2/beo-extensions/speaker-preset/preset-discovery.js`
 * `Beocreate2/beo-extensions/beosonic/preset-discovery.js`
 
@@ -122,24 +122,21 @@ No generic future-hardware abstraction has been introduced.
 
 ## Active work
 
-The next coherent development slice is:
+The next coherent feature slice is:
 
-### Atomic Settings Persistence
+### Configuration backup, export, import and restore
 
 This slice should cover:
 
-* an explicit atomic-write contract for central settings
-* temporary-file placement, permissions and rename behavior
-* serialization-before-truncation and failure cleanup
-* durability expectations and last-known-good considerations
-* migration from the characterized non-atomic path
+* a complete inventory and versioned configuration bundle
+* validation before applying imported data
+* last-known-good backup and rollback
+* round-trip and malformed/partial backup fixtures
 
 It must not include:
 
-* speaker-preset or listening-mode application
-* import or export
-* broad unification of extension-owned configuration writers
-* UI changes
+* DSP-program changes or preset application
+* generic future-hardware storage
 * dependency upgrades
 
 The slice may be implemented directly on `develop` through several focused local commits.
@@ -162,9 +159,8 @@ The complete server cannot yet start safely in an ordinary local development env
 
 The following remain unprotected or untested:
 
-* concurrent writes
-* atomicity
-* recovery after partial writes
+* cross-process writes
+* recovery and last-known-good backups
 * independent extension and CLI write paths
 * speaker-preset application
 * listening-mode application
@@ -205,6 +201,7 @@ No broad audit fix or dependency upgrade has been applied.
 * Initial settings characterization tests.
 * Speaker-preset and listening-mode discovery characterization.
 * Central immediate, delayed and shutdown-flush write characterization.
+* Atomic central settings persistence with failure injection.
 * Independent SpeakerLab repository governance.
 
 ### Partially complete
@@ -218,7 +215,7 @@ No broad audit fix or dependency upgrade has been applied.
 
 * Safe local server startup.
 * Simulated or disconnected DSP transport.
-* Atomic settings persistence and resource-application characterization.
+* Resource-application characterization.
 * General application test framework or coverage reporting.
 * Linting, formatting and type checking.
 * Reproducible Beocreate Connect installation and packaging.
@@ -226,11 +223,10 @@ No broad audit fix or dependency upgrade has been applied.
 
 ## Next planned slices
 
-1. Atomic Settings Persistence.
-2. Configuration backup, export, import and restore.
-3. Isolated server startup with disconnected or simulated current Beocreate DSP transport.
-4. Controlled dependency modernisation.
-5. Safe DSP deployment and rollback.
+1. Configuration backup, export, import and restore.
+2. Isolated server startup with disconnected or simulated current Beocreate DSP transport.
+3. Controlled dependency modernisation.
+4. Safe DSP deployment and rollback.
 
 The ordering may be adjusted when repository evidence reveals a stronger dependency between these slices.
 

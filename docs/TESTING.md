@@ -112,6 +112,7 @@ Run:
 
 ```sh
 npm run test:settings-write
+npm run test:atomic-settings
 npm run test:configuration-write
 ```
 
@@ -128,13 +129,16 @@ npm run test:configuration-write
 | MPD | Direct compact rewrites of `beo-cache.json` below the active music library |
 | Other platform configuration | Several extensions synchronously rewrite non-JSON `/etc` service/configuration files; these are configuration sources but are outside the JSON writer seam |
 
-### Central immediate writes
+### Central atomic writes
 
 - The target is constructed by direct string concatenation: `<dataDirectory>/<extension>.json`. Extension names are not validated, so path traversal is possible.
-- `JSON.stringify` is called without a replacer or indentation. Property insertion order is used. Existing files are opened with the default `writeFileSync` behavior, truncated and overwritten; missing files are created, but missing parent directories are not.
+- `JSON.stringify` is called without a replacer, indentation or trailing newline. Property insertion order is used. Serialization completes before a filesystem replacement is attempted.
 - Nested `undefined`, functions and symbols are omitted from objects and become `null` in arrays. Top-level `undefined`, BigInt and circular structures fail according to native `JSON.stringify`/`writeFileSync` behavior.
-- Immediate serialization observes state at the call and does not mutate the object. Errors from serialization or the filesystem propagate synchronously; there is no failure log, callback or event. Success is logged only at debug level 2 or higher and only after the write returns.
-- There is no temporary file, rename, backup, `fsync`, schema check or readback. Truncation and writing happen in place, so another reader or a crash can observe an empty or partial file.
+- A unique temporary file is opened exclusively in the target directory as `.<target-name>.speakerlab-<process-id>-<counter>.tmp`. Complete bytes are written in a loop, permissions are applied, the file is synced and closed, then renamed over the target. The directory is synced where supported. No target is deleted or truncated first.
+- Existing permission bits are copied to the replacement. A new file uses `0666` filtered by the current process `umask`. Because rename installs a new inode, ownership becomes the writer's identity; this matches the normal root-owned deployed-service case but may differ for an unusually owned pre-existing file. Tests require no ownership changes, root or `sudo`.
+- Immediate serialization observes state at the call and does not mutate the object. Errors propagate synchronously with their native code plus `atomicWriteStage` and `atomicWriteTarget`; a cleanup error is attached as `atomicWriteCleanupError`. Success is logged only at debug level 2 or higher and only after the write returns.
+- Every failure before rename preserves the previous target and attempts to remove only the current write's temporary file. A directory-sync failure is reported after the complete replacement is visible and cannot be rolled back safely. Known unsupported directory-sync errors are tolerated.
+- Stale temporary files are ignored, left untouched and never treated as authoritative. A new write uses another exclusive name. Automatic restoration and broad stale-file cleanup belong to later recovery work.
 
 ### Delayed and coalesced writes
 
@@ -145,13 +149,15 @@ npm run test:configuration-write
 
 ### Shutdown and flush behavior
 
-`SIGINT`/`SIGTERM` start the server's graceful shutdown sequence. Extensions may delay it for at most five seconds. After WebSocket shutdown completes, `completeShutdown` calls the same synchronous pending-write flush before closing HTTP and exiting or invoking the power command. The process therefore waits for each synchronous write that is reached, but not for durability beyond `writeFileSync` returning.
+`SIGINT`/`SIGTERM` start the server's graceful shutdown sequence. Extensions may delay it for at most five seconds. After WebSocket shutdown completes, `completeShutdown` calls the same synchronous pending-write flush before closing HTTP and exiting or invoking the power command. The process waits for every file sync, close, rename and supported directory sync reached by that synchronous flush.
 
 Manual/graceful flushing does not cancel the existing ten-second timer; it empties the queue after a successful loop, so the later timer normally performs an empty flush. Repeated flushes are otherwise harmless. A flush failure prevents the remaining shutdown callback steps from running and may terminate the process through an uncaught exception. Abrupt exit, kill, crash, power loss, a second unhandled signal or failure before the WebSocket callback can lose pending state.
 
-The 18 focused tests cover exact compact output, nested data, `null`, unsupported values, overwrite/truncation, missing files/directories, controlled write failure, spaces, unsafe filename construction, repeated writes, immediate/delayed mutation, one and multiple extensions, timer replacement, success logging, queued-versus-immediate ordering, synchronous flush, repeated flush and failure/retry behavior. They do not access `/etc`, `/opt`, deployed user data, hardware or network services.
+The 18 scheduling/compatibility tests cover exact compact output, nested data, `null`, unsupported values, overwrite behavior, missing files/directories, controlled write failure, spaces, unsafe filename construction, repeated writes, immediate/delayed mutation, one and multiple extensions, timer replacement, success logging, queued-versus-immediate ordering, synchronous flush, repeated flush and failure/retry behavior.
 
-Still untested are the independent extension/CLI writers listed above, real ten-second timing under load, real signals and complete-server shutdown, OS page-cache/disk durability, concurrent processes, disk-full behavior, ownership/mode preservation, and observation of an actual partial write. Those paths remain non-atomic and require a later intentional behavior-change slice.
+The 20 atomic-persistence tests cover same-directory temporary placement, compact output, existing/new modes and `umask`, existing and stale files, spaces, serialization, exclusive creation/permission denial, complete and short writes, zero-progress writes, `chmod`, file sync, close, rename, directory sync, unsupported directory sync, cleanup, missing directories and delayed-flush failure/retry. Failures are injected through the module's narrow filesystem test seam. Tests use isolated operating-system temporary directories and never access real `/etc`, `/opt`, hardware or network services.
+
+Still untested are the independent extension/CLI writers listed above, real ten-second timing under load, real signals and complete-server shutdown, true disk-full behavior, deployed filesystem and power-loss behavior, cross-process writers and unusual ownership. Those independent paths remain non-atomic.
 
 ## Provisional development-tooling runtime
 
@@ -208,7 +214,7 @@ The root tooling has no dependencies, so CI does not run an installation step or
 | Repository layout harness | none | `node scripts/prepare-local-beocreate-layout.js <destination>` | none | `npm test` or `npm run test:local-layout` |
 | Settings loading characterization | none | library seam only | none | `npm run test:settings-store` |
 | Configuration read characterization | none | extension-specific discovery seams only | none | `npm run test:configuration-read`; focused: `test:speaker-presets`, `test:listening-modes` |
-| Configuration write characterization | none | central settings writer seam only | none | `npm run test:configuration-write`; focused: `test:settings-write` |
+| Configuration write and atomic persistence | none | central settings writer seam only | none | `npm run test:configuration-write`; focused: `test:settings-write`, `test:atomic-settings` |
 | Repository verification | none | not applicable | none | `npm run verify`; syntax only: `npm run check:syntax` |
 
 `npm install` is documented for Beocreate Connect in the upstream README; `npm ci` is the reproducibility check where a committed lockfile exists.
