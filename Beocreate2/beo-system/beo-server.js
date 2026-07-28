@@ -182,8 +182,7 @@ beoBus.on('dsp', function(event) {
 
 // GET AND STORE SETTINGS
 
-settingsToBeSaved = {};
-settingsSaveTimeout = null;
+var settingsWriter = settingsStore.createSettingsWriter(dataDirectory, debugMode);
 
 beoBus.on("settings", function(event) {
 	// Handles the saving and retrieval of configuration files for extensions.
@@ -206,26 +205,11 @@ function getSettings(extension) {
 }
 
 function saveSettings(extension, settings, immediately) {
-	if (immediately) { // Save immediately.
-		fs.writeFileSync(dataDirectory+"/"+extension+".json", JSON.stringify(settings));
-		if (debugMode >= 2) console.log("Settings saved for '"+extension+"' (immediately).");
-	} else { // Add to the queue.
-		settingsToBeSaved[extension] = settings;
-		clearTimeout(settingsSaveTimeout);
-		settingsSaveTimeout = setTimeout(function() {
-			savePendingSettings();
-		}, 10000);
-	}
+	settingsWriter.saveSettings(extension, settings, immediately);
 }
 
 function savePendingSettings() {
-	for (var extension in settingsToBeSaved) {
-	    if (settingsToBeSaved.hasOwnProperty(extension)) {
-	        fs.writeFileSync(dataDirectory+"/"+extension+".json", JSON.stringify(settingsToBeSaved[extension]));
-			if (debugMode >= 2) console.log("Settings saved for '"+extension+"'.");
-	    }
-	}
-	settingsToBeSaved = {}; // Clear settings from the queue.
+	settingsWriter.savePendingSettings();
 }
 
 function getAllSettings() {

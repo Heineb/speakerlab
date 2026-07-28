@@ -53,7 +53,46 @@ function mergeSettings(defaultSettings, loadedSettings) {
 	return defaultSettings;
 }
 
+function createSettingsWriter(dataDirectory, debugMode, logger, timers) {
+	var settingsToBeSaved = {};
+	var settingsSaveTimeout = null;
+	logger = logger || console;
+	timers = timers || {
+		setTimeout: setTimeout,
+		clearTimeout: clearTimeout
+	};
+
+	function saveSettings(extension, settings, immediately) {
+		if (immediately) {
+			fs.writeFileSync(dataDirectory+"/"+extension+".json", JSON.stringify(settings));
+			if (debugMode >= 2) logger.log("Settings saved for '"+extension+"' (immediately).");
+		} else {
+			settingsToBeSaved[extension] = settings;
+			timers.clearTimeout(settingsSaveTimeout);
+			settingsSaveTimeout = timers.setTimeout(function() {
+				savePendingSettings();
+			}, 10000);
+		}
+	}
+
+	function savePendingSettings() {
+		for (var extension in settingsToBeSaved) {
+			if (settingsToBeSaved.hasOwnProperty(extension)) {
+				fs.writeFileSync(dataDirectory+"/"+extension+".json", JSON.stringify(settingsToBeSaved[extension]));
+				if (debugMode >= 2) logger.log("Settings saved for '"+extension+"'.");
+			}
+		}
+		settingsToBeSaved = {};
+	}
+
+	return {
+		saveSettings: saveSettings,
+		savePendingSettings: savePendingSettings
+	};
+}
+
 module.exports = {
 	getSettings: getSettings,
-	mergeSettings: mergeSettings
+	mergeSettings: mergeSettings,
+	createSettingsWriter: createSettingsWriter
 };
