@@ -2,7 +2,7 @@
   "name": "speakerlab-workspace",
   "private": true,
   "scripts": {
-    "test": "npm run test:local-layout && npm run test:syntax-verification && npm run test:settings-store && npm run test:configuration-read && npm run test:configuration-write",
+    "test": "npm run test:local-layout && npm run test:syntax-verification && npm run test:settings-store && npm run test:configuration-read && npm run test:configuration-write && npm run test:configuration-backup && npm run test:configuration-restore && npm run test:configuration-api && npm run test:configuration-ui",
     "test:local-layout": "node test/local-beocreate-layout.test.js",
     "test:syntax-verification": "node test/verify-javascript-syntax.test.js",
     "test:settings-store": "node test/settings-store.test.js",
@@ -12,6 +12,10 @@
     "test:settings-write": "node test/settings-write.test.js",
     "test:atomic-settings": "node test/atomic-settings.test.js",
     "test:configuration-write": "npm run test:settings-write && npm run test:atomic-settings",
+    "test:configuration-backup": "node test/configuration-backup.test.js",
+    "test:configuration-restore": "node test/configuration-restore.test.js",
+    "test:configuration-api": "node test/configuration-api.test.js",
+    "test:configuration-ui": "node test/configuration-ui.test.js",
     "check:syntax": "node scripts/verify-javascript-syntax.js",
     "verify": "npm test && npm run check:syntax"
   }

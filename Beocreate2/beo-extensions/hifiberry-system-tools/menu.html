@@ -10,13 +10,36 @@
 			
 			<h2>Back up and restore</h2>
 			
-			<p>Download all settings to your <span class="device">device</span> for safekeeping or for transferring them to another product.</p>
+			<p>Keep a portable copy of your loudspeaker configuration or restore one after reviewing what will change.</p>
 			<div id="backup-controls">
-			<div class="button pill black" onclick="hifiberry_system_tools.backup();" id="backup-button">Create New Backup</div>
-			<p class="loading hidden margin-top" id="backup-collecting">Archiving settings, please wait...</p>
-			<div class="button pill black hidden" onclick="hifiberry_system_tools.downloadBackup();" id="backup-download-button">Download Backup</div>
-			<div class="button pill grey" id="restore-button" onclick="beo.uploadFile({title: 'Import settings', uploadMessage: 'Uploading settings...', fileExtensions: ['.gz'], types: ['application/x-gzip']}, 'hifiberry-system-tools');">Restore...</div>
-			<p>The settings that will be restored must be from a product with the same or older software version.</p>
+				<div class="button pill black" onclick="hifiberry_system_tools.downloadBackup();" id="backup-download-button">Download Configuration Backup</div>
+				<div class="button pill grey" id="restore-button" onclick="hifiberry_system_tools.chooseBackup();">Restore Configuration Backup…</div>
+				<input class="hidden" type="file" id="configuration-backup-file" accept=".json,application/json">
+				<p class="privacy margin-top">Passwords, network credentials, device identity, DSP programs and operating-system state are not included.</p>
+			</div>
+
+			<div id="configuration-restore-status" class="hidden">
+				<hr>
+				<h2 id="configuration-restore-title"></h2>
+				<p id="configuration-restore-message"></p>
+				<p class="loading hidden" id="configuration-restore-progress">Please wait…</p>
+				<div id="configuration-restore-preview" class="hidden">
+					<div class="menu-item static">
+						<div class="menu-text-wrap">
+							<div class="menu-label">Backup created</div>
+							<div class="menu-value" id="configuration-backup-created"></div>
+						</div>
+					</div>
+					<div class="menu-item static">
+						<div class="menu-text-wrap">
+							<div class="menu-label">Configuration changes</div>
+							<div class="menu-value" id="configuration-backup-changes"></div>
+						</div>
+					</div>
+					<div id="configuration-backup-warnings"></div>
+					<div class="button pill grey" id="configuration-restore-confirm" onclick="hifiberry_system_tools.confirmRestore();">Confirm Restore</div>
+					<div class="button pill black" onclick="hifiberry_system_tools.cancelRestore();">Cancel</div>
+				</div>
 			</div>
 			
 			
@@ -32,17 +55,6 @@
 		
 	</div>
 	
-	<div class="ask-menu" id="restore-backup-prompt">
-		<h2>Restore backup?</h2>
-		<p class="warning">All current settings on the product will be replaced by settings contained in the backup. This includes product name and network settings.</p>
-		<p>Are you sure you want to continue?</p>
-		<div class="ask-buttons">
-			
-			<div class="button pill grey" onclick="hifiberry_system_tools.restore(true);">Restore</div>
-			<div class="button pill black cancel default" onclick="beo.ask();">Cancel</div>
-		</div>
-	</div>
-
 </div>
 
 <div class="menu-screen" id="hifiberry-debug" data-icon="diagnose.svg" data-menu-title="Diagnostics" data-parent-extension="hifiberry-system-tools">
@@ -78,4 +90,5 @@
 
 </div>
 
+<script type="text/javascript" charset="utf-8" src="€/configuration-backup-ui.js"></script>
 <script type="text/javascript" charset="utf-8" src="€/hifiberry-system-tools-client.js"></script>
