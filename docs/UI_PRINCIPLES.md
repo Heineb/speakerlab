@@ -24,6 +24,8 @@ UI acknowledgement is not proof that a DSP write succeeded. Safety-sensitive wor
 
 Preset previews should continue to disclose unsupported content and fallback DSP requirements. Future recovery work must protect the last-known-good configuration and present a clear way back.
 
+Configuration restore establishes a reusable destructive-workflow pattern: selecting a file or resource performs validation only; the interface then shows a plain-language change summary and warnings, requires a separate explicit confirmation, prevents duplicate submission, and waits for server verification. Failure states must distinguish successful automatic rollback from critical incomplete recovery. Raw JSON and filesystem paths remain hidden from the default flow.
+
 ## Change rules
 
 - Add or update end-to-end tests for navigation and important workflows.

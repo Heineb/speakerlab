@@ -2,9 +2,9 @@
 
 ## Current milestone
 
-**M0/M1 — Reproducible baseline and characterization foundation**
+**M3 foundation — Configuration portability and recovery**
 
-The repository now has a reproducible local layout harness, provisional development tooling, minimal continuous integration and initial characterization tests.
+The M0/M1 baseline remains incomplete, but the characterized settings boundaries now support the first versioned configuration backup and recovery workflow.
 
 The broader M0 and M1 acceptance criteria are not yet complete.
 
@@ -19,19 +19,21 @@ The broader M0 and M1 acceptance criteria are not yet complete.
 
 ## Latest completed slice
 
-### Atomic Settings Persistence
+### Configuration Backup, Export, Import and Last-Known-Good Restore
 
-The central settings writer now uses tested same-directory atomic replacement. A complete compact JSON value is written to a unique temporary file, permissions are applied, file contents are synced and closed, and the file is renamed over the target before the containing directory is synced where supported.
+System Tools now exports a human-inspectable, versioned JSON backup containing safe central settings, user speaker presets and user listening modes. Passwords, credentials, network/device identity, DSP programs, transient data and operating-system state are explicitly excluded.
 
-The persistence contract protects:
+Restore now provides:
 
-* the prior valid target for every reported pre-rename failure
-* complete and short writes, permissions, `umask`, sync, close, rename and cleanup failures
-* existing delayed/coalesced save ordering and mutable-reference behavior
-* synchronous repeated shutdown-style flush and failure/retry behavior
-* paths containing spaces without `/etc`, `/opt`, hardware, network or root access in tests
+* strict format, version, structure, size and checksum validation
+* a create/replace/unchanged/absent/unsupported preview before confirmation
+* single-use confirmation and concurrent-restore rejection
+* pending-save flush/cancellation and ordinary-write locking
+* atomic per-file replacement, readback verification and reverse rollback
+* a verified immediate pre-restore `.speakerlab-last-known-good.json`
+* distinct success, rollback-success and critical rollback-failure UI states
 
-Production paths, filenames, compact JSON, delay, coalescing, logging and synchronous application-facing behavior remain compatible. This intentionally replaces unsafe in-place truncation. It does not add backups, schemas, export/import or recovery.
+Existing live JSON formats, paths, delayed-save behavior outside restore, preset formats and DSP/audio behavior remain unchanged. Restored files require a product restart; they are not applied to the DSP during import.
 
 ## Foundation currently available
 
@@ -87,7 +89,7 @@ Run the complete currently available repository verification with:
 npm run verify
 ```
 
-The current suite contains 90 focused tests covering:
+The current suite contains 135 focused tests covering:
 
 * local deployed-layout preparation
 * JavaScript syntax-verifier behaviour
@@ -96,8 +98,10 @@ The current suite contains 90 focused tests covering:
 * listening-mode discovery
 * central configuration writes and flushes
 * central atomic JSON persistence and deterministic failure injection
+* backup format, export, validation, preview, restore and rollback
+* configuration API contracts and client workflow states
 
-Repository-wide JavaScript syntax verification currently covers 142 JavaScript files.
+Repository-wide JavaScript syntax verification currently covers 149 JavaScript files.
 
 GitHub Actions runs the available verification on:
 
@@ -113,6 +117,7 @@ The current suite does not constitute complete application verification.
 * `scripts/verify-javascript-syntax.js`
 * `Beocreate2/beo-system/settings-store.js` (read, merge and write mechanics)
 * `Beocreate2/beo-system/atomic-json-file.js` (central atomic JSON persistence)
+* `Beocreate2/beo-system/configuration-backup.js` (portable format and restore transaction)
 * `Beocreate2/beo-extensions/speaker-preset/preset-discovery.js`
 * `Beocreate2/beo-extensions/beosonic/preset-discovery.js`
 
@@ -122,21 +127,21 @@ No generic future-hardware abstraction has been introduced.
 
 ## Active work
 
-The next coherent feature slice is:
+The next coherent foundation slice is:
 
-### Configuration backup, export, import and restore
+### Isolated server startup and current-Beocreate DSP transport simulation
 
 This slice should cover:
 
-* a complete inventory and versioned configuration bundle
-* validation before applying imported data
-* last-known-good backup and rollback
-* round-trip and malformed/partial backup fixtures
+* safe local startup without root, systemd or physical hardware
+* the existing SigmaTCP/DSPToolkit transport boundary
+* connected, disconnected, timeout and malformed-response fixtures
+* contract protection before runtime/dependency modernisation
 
 It must not include:
 
-* DSP-program changes or preset application
-* generic future-hardware storage
+* a generic future-hardware abstraction
+* audible DSP-program changes
 * dependency upgrades
 
 The slice may be implemented directly on `develop` through several focused local commits.
@@ -160,10 +165,12 @@ The complete server cannot yet start safely in an ordinary local development env
 The following remain unprotected or untested:
 
 * cross-process writes
-* recovery and last-known-good backups
 * independent extension and CLI write paths
 * speaker-preset application
 * listening-mode application
+* process or power loss during the best-effort multi-file transaction
+* full-browser/API integration and deployed filesystem permissions
+* authentication and CSRF protection for the existing local-product API trust model
 
 ### DSP and audio
 
@@ -202,6 +209,7 @@ No broad audit fix or dependency upgrade has been applied.
 * Speaker-preset and listening-mode discovery characterization.
 * Central immediate, delayed and shutdown-flush write characterization.
 * Atomic central settings persistence with failure injection.
+* Versioned safe configuration backup, preview, restore and rollback.
 * Independent SpeakerLab repository governance.
 
 ### Partially complete
@@ -223,10 +231,9 @@ No broad audit fix or dependency upgrade has been applied.
 
 ## Next planned slices
 
-1. Configuration backup, export, import and restore.
-2. Isolated server startup with disconnected or simulated current Beocreate DSP transport.
-3. Controlled dependency modernisation.
-4. Safe DSP deployment and rollback.
+1. Isolated server startup with disconnected or simulated current Beocreate DSP transport.
+2. Controlled dependency modernisation.
+3. Safe DSP deployment and rollback.
 
 The ordering may be adjusted when repository evidence reveals a stronger dependency between these slices.
 

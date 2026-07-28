@@ -71,11 +71,32 @@ Every delayed request resets the timer, including requests for different extensi
 
 Graceful shutdown flushes only after extension shutdown coordination and WebSocket closure, before HTTP closure and process exit/power control. The synchronous flush waits for each atomic write it reaches, and repeated flush calls after success are harmless. Abrupt termination or a failure earlier in the shutdown sequence can still lose queued in-memory state. A flush failure retains the queue but interrupts the existing shutdown callback.
 
-Central broker writes are atomic at rename, but files are not schema-validated and there is no backup, readback or last-known-good copy. File and directory syncing improves durability but cannot guarantee a particular result across every filesystem or physical power loss. The target filename is still built by direct extension-name concatenation. `configure.js` edits the same files independently and remains non-atomic.
+Central broker writes are atomic at rename, but ordinary saves are not schema-validated or read back. Configuration restore now creates a verified immediate pre-restore last-known-good snapshot, described below; ordinary settings changes do not create snapshot history. File and directory syncing improves durability but cannot guarantee a particular result across every filesystem or physical power loss. The target filename is still built by direct extension-name concatenation. `configure.js` edits the same files independently and remains non-atomic.
 
 JSON-backed writes also bypass the central broker: Beosonic user modes, room-compensation measurements/presets, ALSA loop and Squeezelite configuration, MPD cache data and speaker-preset migration/upload paths perform their own synchronous writes or moves. Several extensions also write non-JSON service configuration under `/etc`. These paths differ in directory creation, in-memory mutation, error handling and follow-up events and are not unified by the central seam.
 
 Additional configuration is spread across `/etc` and HiFiBerryOS helpers, including SigmaTCP, AudioControl, network, service and source configuration. This is outside the central settings broker and is important for future complete configuration backup.
+
+## Configuration backup and restore
+
+`configuration-backup.js` implements the versioned `org.speakerlab.configuration-backup` JSON format for the current Beocreate platform. It collects safe top-level central settings plus user speaker presets and listening modes. Items are sorted by filename and retain their existing parsed JSON payloads. SHA-256 checksums cover each payload, each section and the complete backup wrapper.
+
+The collector excludes credential-bearing or machine-specific categories, hidden/temporary files, symlinks, non-JSON resources and known service/DSP/update state. A recursive sensitive-key check excludes a complete file when it encounters password, passphrase, credential, secret, token, private-key or API-key fields. Malformed or unreadable in-scope files fail the export rather than producing an unreported partial backup.
+
+System Tools registers four REST routes:
+
+| Method | Route | Contract |
+| --- | --- | --- |
+| `GET` | `/hifiberry-system-tools/configuration-backup/capabilities` | Format, version, 5 MiB limit, sections and current restore state |
+| `GET` | `/hifiberry-system-tools/configuration-backup/export` | Validated JSON download assembled in memory |
+| `POST` | `/hifiberry-system-tools/configuration-backup/preview` | Parse, validate and return metadata, change plan, warnings and single-use token |
+| `POST` | `/hifiberry-system-tools/configuration-backup/restore` | Confirm with the preview token, apply synchronously, verify and report rollback |
+
+The endpoints use the existing unauthenticated local-product trust model. They accept no filesystem path. Section names map to fixed data-directory paths, item names must be safe `.json` basenames, and request bodies are limited to 5 MiB.
+
+Before restore, the settings coordinator synchronously flushes pending saves, cancels the shared timer and rejects ordinary saves until the operation finishes. A second restore is rejected. The service validates and atomically stores the current in-scope configuration as `.speakerlab-last-known-good.json`, stages target/rollback values in memory, then atomically writes and verifies each changed file. On failure it rolls every attempted item back in reverse order and verifies the rollback. Items absent from the backup are left unchanged; no implicit deletion occurs.
+
+This is a best-effort multi-file transaction, not filesystem-wide atomicity. Process or power loss between replacements, rollback deletion of newly created files and independent cross-process writers remain limitations. Restored files are not applied to extension memory or the DSP; the UI reports that a restart is required.
 
 ## Presets and identities
 

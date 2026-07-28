@@ -56,7 +56,7 @@ The characterized behavior is:
 
 Directly requiring `beo-server.js` is unsafe in an ordinary development test because module evaluation creates the production data directory when absent, loads extensions, starts the HTTP/WebSocket server and imports OS/hardware-dependent modules. A small `settings-store.js` seam therefore contains the existing read and shallow-merge operations; the server calls it with the same production directory, defaults, debug level and console logger. No file format, default, path, error outcome or merge behavior was intentionally changed.
 
-The settings-store tests do not characterize writes, the ten-second shared save queue, shutdown flushing, path traversal through an untrusted extension name, extension-specific validation/merging, resource application, atomicity, recovery, or concurrent access. Settings writes remain synchronous, unversioned and non-atomic. Speaker-preset and listening-mode discovery are covered separately below.
+The settings-loading suite does not itself characterize writes, the ten-second shared save queue, shutdown flushing, path traversal through an untrusted extension name, extension-specific validation/merging or resource application. Central writes, atomicity and configuration recovery are covered by the focused suites below. Speaker-preset and listening-mode discovery are covered separately.
 
 ## Configuration read characterization
 
@@ -159,6 +159,37 @@ The 20 atomic-persistence tests cover same-directory temporary placement, compac
 
 Still untested are the independent extension/CLI writers listed above, real ten-second timing under load, real signals and complete-server shutdown, true disk-full behavior, deployed filesystem and power-loss behavior, cross-process writers and unusual ownership. Those independent paths remain non-atomic.
 
+## Configuration backup and restore
+
+The configuration-portability slice uses the existing zero-dependency Node test style and isolated temporary directories. It does not load the complete server or contact hardware, SigmaTCP, HiFiBerryOS services or the network.
+
+Run the focused suites:
+
+```sh
+npm run test:configuration-backup
+npm run test:configuration-restore
+npm run test:configuration-api
+npm run test:configuration-ui
+```
+
+The v1 backup format is `org.speakerlab.configuration-backup`, schema version 1. It is a formatted JSON document with source/creation metadata, explicit included and excluded categories, opaque legacy JSON payloads, deterministic filename ordering, and SHA-256 checksums for items, sections and overall integrity.
+
+Included configuration:
+
+- safe top-level central settings files;
+- user speaker presets under `beo-speaker-presets`; and
+- user listening modes under `beo-listening-modes`.
+
+Explicit exclusions include network/device identity, authentication-bearing services, DSP program state, first-run/update state, operating-system configuration, packages, logs, caches, uploads and temporary files. Files with sensitive key names are excluded as complete units and reported in backup metadata. `system.json` is included unless `runAtStart` is present. Malformed or unreadable in-scope files fail export.
+
+Restore validation covers the 5 MiB input limit, JSON parsing, format and schema versions, required metadata/sections, safe `.json` basenames, duplicate items, per-item/section/overall checksums, unknown required sections and optional-section warnings. Preview classifies created, replaced, unchanged, absent and unsupported content. Absent active items are left unchanged.
+
+The restore tests cover multi-file success, overwrite/create, validation and staging failures, first/later replacement failures, readback failure, reverse rollback, rollback verification/failure reporting, last-known-good verification, pending-save flush/cancellation, ordinary-write locking, concurrent/repeated restore, paths containing spaces and full export/change/restore semantic round trip.
+
+API contract tests exercise capabilities, download, preview, confirmation, invalid/unsupported/oversized input and rollback results. Client-state tests cover selection/validation, summary rendering, explicit confirmation, double-submit prevention, verified success, disconnected state, successful rollback and critical rollback failure.
+
+The UI tests exercise the pure state/rendering seam in `configuration-backup-ui.js`; there is still no full browser automation, DOM layout, keyboard/accessibility or live client/server end-to-end test. The API tests call route handlers directly rather than starting Express. Real signal/restart behavior, HiFiBerryOS filesystem permissions, cross-process writers and physical power-loss recovery remain unverified.
+
 ## Provisional development-tooling runtime
 
 Node.js 24 is the provisional baseline only for root repository scripts, the local layout harness, current zero-dependency tests, the syntax verifier and GitHub Actions. `.nvmrc` and `.node-version` both select major version 24.
@@ -194,7 +225,7 @@ Run the current repository-level verification:
 npm run verify
 ```
 
-`npm run verify` runs the 70 focused tests and then checks every repository `.js` file selected by `scripts/verify-javascript-syntax.js`. Selection is deterministic; `.git`, `node_modules`, `.speakerlab-local` and symbolic-link directories are not traversed. Each file is passed as a separate argument to the active Node executable's `--check` mode, so paths containing spaces are safe and failures identify the affected relative path.
+`npm run verify` runs the 135 focused tests and then checks every repository `.js` file selected by `scripts/verify-javascript-syntax.js`. Selection is deterministic; `.git`, `node_modules`, `.speakerlab-local` and symbolic-link directories are not traversed. Each file is passed as a separate argument to the active Node executable's `--check` mode, so paths containing spaces are safe and failures identify the affected relative path.
 
 This is not complete application verification. It does not run legacy placeholder test commands, install nested application dependencies, start the Beocreate server, access hardware or HiFiBerryOS, communicate with SigmaTCP, package Electron, test the UI, lint, type-check or audit dependencies.
 
@@ -215,6 +246,7 @@ The root tooling has no dependencies, so CI does not run an installation step or
 | Settings loading characterization | none | library seam only | none | `npm run test:settings-store` |
 | Configuration read characterization | none | extension-specific discovery seams only | none | `npm run test:configuration-read`; focused: `test:speaker-presets`, `test:listening-modes` |
 | Configuration write and atomic persistence | none | central settings writer seam only | none | `npm run test:configuration-write`; focused: `test:settings-write`, `test:atomic-settings` |
+| Configuration backup and restore | none | service, REST-handler and client-state seams | none | focused: `test:configuration-backup`, `test:configuration-restore`, `test:configuration-api`, `test:configuration-ui` |
 | Repository verification | none | not applicable | none | `npm run verify`; syntax only: `npm run check:syntax` |
 
 `npm install` is documented for Beocreate Connect in the upstream README; `npm ci` is the reproducibility check where a committed lockfile exists.
