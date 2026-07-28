@@ -267,7 +267,9 @@ global.beo = {
 	addDownloadRoute: addDownloadRoute,
 	removeDownloadRoute: removeDownloadRoute,
 	underscore: _,
-	expressServer: expressServer
+	expressServer: expressServer,
+	express: express,
+	settingsCoordinator: settingsWriter
 };
 loadAllServerExtensions();
 var selectedExtension = null;

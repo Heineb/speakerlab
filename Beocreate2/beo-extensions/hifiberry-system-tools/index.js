@@ -20,6 +20,8 @@ SOFTWARE.*/
 const fetch = require("node-fetch");
 var exec = require("child_process").exec;
 var fs = require("fs");
+var configurationBackup = require("../../beo-system/configuration-backup");
+var configurationAPI = require("./configuration-api");
 
 var debug = beo.debug;
 var version = require("./package.json").version;
@@ -28,12 +30,16 @@ var collecting = false;
 var archive = null;
 var archiveDownloadTimeout;
 
-var backingUp = false;
-var backup = null;
-var backupDownloadTimeout;
-
 var hifiberryState = {};
 var previousExtension = null
+
+var configurationService = configurationBackup.createConfigurationService({
+	dataDirectory: beo.dataDirectory,
+	systemVersion: beo.systemVersion,
+	systemConfiguration: beo.systemConfiguration,
+	settingsCoordinator: beo.settingsCoordinator
+});
+configurationAPI.registerConfigurationRoutes(beo, configurationService);
 
 beo.bus.on('general', function(event) {
 	
@@ -55,16 +61,6 @@ beo.bus.on('general', function(event) {
 				beo.sendToUI("hifiberry-system-tools", {header: "collecting"});
 			}
 			
-			if (!backingUp) {
-				if (backup) {
-					beo.sendToUI("hifiberry-system-tools", {header: "backup", content: {backupURL: backup}});
-				} else {
-					beo.sendToUI("hifiberry-system-tools", {header: "backup"});
-				}
-			} else {
-				beo.sendToUI("hifiberry-system-tools", {header: "backingUp"});
-			}
-			
 			readState();
 			if (hifiberryState.CURRENT_EXCLUSIVE && hifiberryState.CURRENT_EXCLUSIVE == "1") {
 				exclusiveAudio = true;
@@ -84,18 +80,7 @@ beo.bus.on('general', function(event) {
 		}
 		
 		if (event.content.extension == "hifiberry-system-tools" && !event.content.deepMenu) {
-			
-			
-			if (!backingUp) {
-				if (backup) {
-					beo.sendToUI("hifiberry-system-tools", {header: "backup", content: {backupURL: backup}});
-				} else {
-					beo.sendToUI("hifiberry-system-tools", {header: "backup"});
-				}
-			} else {
-				beo.sendToUI("hifiberry-system-tools", {header: "backingUp"});
-			}
-			
+			beo.sendToUI("hifiberry-system-tools", {header: "configurationBackupCapabilities", content: configurationService.capabilities()});
 		}
 		
 		if (event.content.extension != previousExtension) {
@@ -140,43 +125,6 @@ beo.bus.on('hifiberry-system-tools', function(event) {
 			}
 		});
 	}
-	
-	if (event.header == "backup") {
-		beo.sendToUI("hifiberry-system-tools", {header: "backingUp"});
-		backingUp = true;
-		clearTimeout(backupDownloadTimeout);
-		beo.removeDownloadRoute("hifiberry-system-tools", "settings-backup.tar.gz");
-		if (debug) console.log("Backing up product settings...");
-		exec("/opt/hifiberry/bin/backup-config /tmp/settings-backup.tar.gz", function(error, stdout, stderr) {
-			backingUp = false;
-			if (!error) {
-				if (fs.existsSync("/tmp/settings-backup.tar.gz")) {
-					backup = beo.addDownloadRoute("hifiberry-system-tools", "settings-backup.tar.gz", "/tmp/settings-backup.tar.gz", true);
-					beo.sendToUI("hifiberry-system-tools", {header: "finishedBackup"});
-					beo.sendToUI("hifiberry-system-tools", {header: "backup", content: {backupURL: backup}});
-					backupDownloadTimeout = setTimeout(function() {
-						// Time out the archive after 5 minutes so that the data is guaranteed to be fairly fresh.
-						beo.sendToUI("hifiberry-system-tools", {header: "backup"});
-						beo.removeDownloadRoute("hifiberry-system-tools", "settings-backup.tar.gz");
-						backup = null;
-						if (debug) console.log("Settings backup archive has timed out.");
-					}, 300000);
-					if (debug) console.log("Settings backup archive is now available to download for 5 minutes.");
-				} else {
-					beo.sendToUI("hifiberry-system-tools", {header: "errorBackingUp"});
-					if (debug) console.log("Unknown error creating settings backup archive.");
-				}
-			} else {
-				beo.sendToUI("hifiberry-system-tools", {header: "errorBackingUp"});
-				if (debug) console.log("Error creating system backup archive:", error);
-			}
-		});
-	}
-	
-	if (event.header == "restoreSettings") {
-		restoreSettings();
-	}
-	
 	
 });
 
@@ -246,41 +194,8 @@ function reportSysInfo() {
 	);
 }
 
-uploadedBackupPath = null;
-function processUpload(path) {
-	//fs.renameSync(path, "/tmp/settings-backup-restore.tar.gz");
-	fs.copyFileSync(path, "/tmp/settings-backup-restore.tar.gz");
-	fs.unlink(path, (err) => {
-		if (err) console.error("Error deleting uploaded settings archive:", err);
-	});
-	beo.sendToUI("hifiberry-system-tools", "restoreSettings");
-}
-
-var restoringSettings = false;
-function restoreSettings() {
-	if (fs.existsSync("/tmp/settings-backup-restore.tar.gz") && !restoringSettings) {
-		restoringSettings = true;
-		if (debug) console.log("Restoring settings from uploaded archive.");
-		beo.sendToUI("hifiberry-system-tools", "restoreSettings", {stage: "restoring"});
-		exec("/opt/hifiberry/bin/backup-config /tmp/settings-backup-restore.tar.gz", function(error, stdout, stderr) {
-			if (debug) console.log("Restoring settings from uploaded archive.");
-			if (!error) {
-				if (debug) console.log("Settings restored.");
-				beo.sendToUI("hifiberry-system-tools", "restoreSettings", {stage: "restarting"});
-				beo.bus.emit("general", {header: "requestReboot", content: {extension: "hifiberry-system-tools"}});
-			} else {
-				beo.sendToUI("hifiberry-system-tools", {header: "errorRestoring"});
-				if (debug) console.log("Error restoring settings from backup archive:", error);
-			}
-			restoringSettings = false;
-		});
-	}
-}
-
 module.exports = {
 	reportUsage: reportUsage,
 	reportActivation: reportActivation,
-	version: version,
-	processUpload: processUpload
+	version: version
 };
-
