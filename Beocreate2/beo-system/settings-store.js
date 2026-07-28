@@ -57,6 +57,7 @@ function mergeSettings(defaultSettings, loadedSettings) {
 function createSettingsWriter(dataDirectory, debugMode, logger, timers, persistence) {
 	var settingsToBeSaved = {};
 	var settingsSaveTimeout = null;
+	var restoreInProgress = false;
 	logger = logger || console;
 	persistence = persistence || atomicJSONFile;
 	timers = timers || {
@@ -65,6 +66,11 @@ function createSettingsWriter(dataDirectory, debugMode, logger, timers, persiste
 	};
 
 	function saveSettings(extension, settings, immediately) {
+		if (restoreInProgress) {
+			var error = new Error("Settings cannot be saved while a configuration restore is in progress.");
+			error.code = "SETTINGS_RESTORE_IN_PROGRESS";
+			throw error;
+		}
 		if (immediately) {
 			persistence.writeJSONAtomic(dataDirectory+"/"+extension+".json", settings);
 			if (debugMode >= 2) logger.log("Settings saved for '"+extension+"' (immediately).");
@@ -87,9 +93,28 @@ function createSettingsWriter(dataDirectory, debugMode, logger, timers, persiste
 		settingsToBeSaved = {};
 	}
 
+	function beginRestore() {
+		if (restoreInProgress) {
+			var error = new Error("A configuration restore is already in progress.");
+			error.code = "SETTINGS_RESTORE_IN_PROGRESS";
+			throw error;
+		}
+		savePendingSettings();
+		timers.clearTimeout(settingsSaveTimeout);
+		settingsSaveTimeout = null;
+		restoreInProgress = true;
+	}
+
+	function endRestore() {
+		restoreInProgress = false;
+	}
+
 	return {
 		saveSettings: saveSettings,
-		savePendingSettings: savePendingSettings
+		savePendingSettings: savePendingSettings,
+		beginRestore: beginRestore,
+		endRestore: endRestore,
+		isRestoreInProgress: function() { return restoreInProgress; }
 	};
 }
 
