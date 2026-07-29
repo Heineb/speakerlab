@@ -68,6 +68,11 @@ jobs:
 
       - name: Test DSP compilation and simulated readback
         run: |
+          npm run test:sigmatcp-framing
+          npm run test:dsp-read-queue
+          npm run test:dsp-reconnect
+          npm run test:beocreate-mapping
+          npm run test:dsp-recovery
           npm run test:dsp-compilation
           npm run test:dsp-readback
           npm run test:dsp-deployment-preview
