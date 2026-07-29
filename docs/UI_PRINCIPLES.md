@@ -18,6 +18,7 @@ Local development must remain visually unmistakable without changing normal prod
 - Provide safe defaults and explain consequences before gain, routing, crossover, polarity, delay, limiter, protection or DSP-program changes.
 - Make destructive or audible changes reversible and show whether a change is pending, applied, failed or disconnected.
 - Distinguish a saved design, simulated state and verified hardware state. “Saved” must never imply “playing” or “deployed”.
+- Label simulated electrical graphs as electrical rather than acoustic predictions, state what physical behaviour is excluded, and provide a textual summary that does not depend on the graph or colour.
 - Design loading, empty, disconnected, partial-failure and recovery states as first-class states.
 - Keep setup guided. A user should not need to understand the underlying DSP to commission an existing Beocreate system.
 

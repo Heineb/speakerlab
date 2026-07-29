@@ -72,9 +72,15 @@ The `signal-flow` extension adds a design-only boundary alongside, not inside, t
 
 The authoritative model is `org.speakerlab.signal-flow`, version 1, stored as `signal-flow.json` below `beo.dataDirectory`. Production therefore uses `/etc/beocreate/signal-flow.json`; local development uses isolated runtime state. The default disables and unroutes all four outputs. It neither infers a loudspeaker topology nor imports the existing live `channels.json`.
 
+The same atomic design contains a nested `org.speakerlab.crossover`, version 1. Each known output has human-readable high-pass and low-pass parameters: enabled state, Butterworth or Linkwitz–Riley family, slope in dB/octave and cutoff in Hz. Existing routing-v1 files without this section remain readable and receive disabled-filter defaults in memory; legacy `equaliser.json` and speaker presets are not migrated or overwritten.
+
+`crossover-model.js` is a pure design boundary. It derives finite first/second-order digital sections, cascades their complex responses and produces deterministic logarithmic electrical-response points. The 48 kHz capability comes from the shipped current Beocreate universal DSP XML; accepted frequencies are 10–20,000 Hz and always below Nyquist. Butterworth supports orders 1–4. Linkwitz–Riley supports only defined order 2 and 4 constructions, at −6.0206 dB at cutoff.
+
 Pure model validation separates blocking structural/capability errors from advisory design warnings. Canonical serialization fixes property order and excludes transient UI state. A SHA-256 content revision provides optimistic concurrency. Save validates the complete draft, checks the edited revision, writes with the existing atomic JSON writer, reads back, revalidates and verifies the revision. A failed save attempts to preserve the previous valid file.
 
 Messages use the existing `signal-flow` extension target and ordinary WebSocket envelope. The server owns capabilities, format, validation, revision and persistence. The browser keeps only an in-memory draft and preserves it through disconnection or revision conflict.
+
+Crossover response, draft copy and per-output reset use the same envelope. Preview responses are server-authoritative and carry no deployment claim. A save validates routing and crossover together, derives every enabled filter, atomically replaces the complete file, reads it back and verifies the same content revision.
 
 `signal-flow.json` is a safe central-settings file, so configuration backup, preview, last-known-good capture, restore and rollback include it without changing backup schema v1. Export and import validation reject invalid routing and unsupported routing versions before preview or restore. The service rereads the file for each state request, allowing the editor to show a restored design without applying it to the DSP.
 

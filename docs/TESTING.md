@@ -119,7 +119,34 @@ The live local-server suite assembles the editor into the existing navigation, r
 
 Configuration backup tests prove exact `signal-flow.json` inclusion and checksum, and reject invalid or unsupported routing during export/import validation. Restore tests prove file restoration and last-known-good capture. Existing transaction/rollback failure coverage applies to every central-settings item, including routing.
 
-The feature does not test or change real DSP activation, SigmaTCP, crossover/limiter safety, summing/headroom, acoustic results, physical output or hardware restart behavior. Browser click-through and visual viewport inspection could not be performed in the implementation session because no browser-control surface was available; the automated UI-state, assembled-page and responsive CSS contracts passed.
+The feature does not test or change real DSP activation, SigmaTCP, limiter safety, summing/headroom, acoustic results, physical output or hardware restart behavior.
+
+## Crossover Editor Foundation v1
+
+Run the focused suites:
+
+```sh
+npm run test:crossover-model
+npm run test:crossover-response
+npm run test:crossover-ui
+npm run test:channel-routing
+npm run test:routing-contract
+npm run test:configuration-backup
+npm run test:configuration-restore
+npm run test:local-server
+```
+
+The nested `org.speakerlab.crossover` version 1 model records one optional high-pass and low-pass per current output. Butterworth supports 6, 12, 18 and 24 dB/octave. Linkwitz–Riley supports 12 and 24 dB/octave only. The design capability is 48 kHz, derived from the shipped Beocreate universal DSP metadata; the application range is 10–20,000 Hz and remains below Nyquist.
+
+The numeric suites use explicit tolerances rather than snapshots. They verify section count and coefficient finiteness, Butterworth −3.0103 dB and Linkwitz–Riley −6.0206 dB cutoff magnitude, matching Linkwitz–Riley phase relationships, disabled flat response, combined band-pass response, deterministic logarithmic points and finite response values.
+
+Validation tests cover version/format, known outputs, families, slopes, cutoff types/range/Nyquist, reversed filters, narrow passbands and role/disabled-output warnings. Warnings allow save; errors block the complete routing-and-crossover save.
+
+Service and contract tests cover atomic persistence without authoritative coefficients, readback derivation, revision conflicts, preview calculation, draft copy/reset and not-deployed results. UI-state/markup tests cover labelled ordinary inputs, invalid drafts, warnings, save/conflict/discard/disconnect behavior, accessible SVG/text summaries and narrow stacking.
+
+Backup tests prove exact crossover inclusion and reject unsupported crossover versions. Restore and last-known-good tests prove filter round-trip and prior-filter capture. The isolated server test requests a real WebSocket preview, saves a Linkwitz–Riley low-pass, reads it back and retains the simulated/not-deployed state.
+
+No test or implementation applies these settings to `equaliser.json`, speaker presets, DSP filter banks, SigmaTCP or physical hardware. The preview is electrical only and excludes driver, enclosure, impedance, directivity and multi-driver acoustic summation. Browser click-through and visual viewport inspection remain manual verification items.
 
 ## Settings loading characterization
 

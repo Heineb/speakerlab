@@ -2,56 +2,58 @@
 
 ## Current milestone
 
-**M7 — Signal-flow and channel-routing editor**
+**M8 — Crossover Editor Foundation**
 
 Current working branch: `develop`.
 
 ## Latest completed slice
 
-The verification workflow is stabilized for current Ubuntu and macOS runners. An Ubuntu-only WebSocket contract failure was traced to fixed 20–30 ms test delays: the server had not necessarily processed every queued frame before assertions ran. The tests now await the same characterized messages with bounded failure timeouts, preserving all assertions and production behavior.
+Crossover Editor Foundation v1 extends each existing Signal Flow output with zero or one high-pass and zero or one low-pass filter. The nested persisted model is `org.speakerlab.crossover`, version 1; it retains human-readable family, slope, cutoff Hz and enabled state and never saves coefficients or graph points as authority.
 
-GitHub Actions now uses checkout/setup-node v6, selects Node 24 from `.nvmrc`, disables automatic package-manager caching, exposes important subsystem failures in named steps and runs the complete repository verification only once.
+Supported filters are Butterworth at 6, 12, 18 and 24 dB/octave and Linkwitz–Riley at the mathematically defined 12 and 24 dB/octave alignments. The 48 kHz design capability comes from the shipped current Beocreate universal DSP metadata. Cutoffs are limited to 10–20,000 Hz and must remain below Nyquist.
 
-Signal Flow and Channel Routing Editor v1 adds a responsive design screen under Sound adjustments for the current Beocreate platform.
+Pure server-side mathematics derives finite digital sections and deterministic logarithmic magnitude responses. The UI presents labelled high-pass/low-pass controls, textual validation, per-output reset/copy, and a responsive SVG labelled **Electrical filter response · Simulated** and **Does not include driver or enclosure response**.
 
-The `org.speakerlab.signal-flow` version 1 model exposes Left, Right and Mono logical inputs and four outputs, A through D. Each output has a custom driver label, role, side/position, enabled state and at most one input. The conservative default leaves every output disabled, unrouted and unassigned.
+Errors block the complete design save. Warnings cover missing role-appropriate filters, narrow passbands, near-Nyquist cutoffs, configured filters on disabled outputs, unrouted outputs and the not-deployed state. Suggestions never add filters silently and do not guarantee driver safety.
 
-Validation blocks malformed versions, identifiers, roles, availability and connections. Warnings cover unrouted/unassigned outputs, side mismatches, repeated roles, enabled tweeters without future protection and all outputs disabled. These checks do not provide crossover, limiter or acoustic safety.
+Routing and crossover save together through the existing atomic writer, readback verification and SHA-256 revision conflict protection. Existing routing-v1 files without crossover data remain readable with disabled defaults in memory. Backup, preview, last-known-good, restore and rollback include the nested crossover through `signal-flow.json`.
 
-The server owns capabilities, validation, persistence and SHA-256 content revisions. Saves reject stale revisions, atomically replace `signal-flow.json`, read back and revalidate before success, and attempt rollback after verification failure. The UI keeps unsaved drafts in memory through disconnection or conflict.
-
-The saved design is included in configuration backup, preview, last-known-good capture, restore and rollback. Invalid or unsupported routing is rejected before export/restore. Connected/disconnected simulation is visible, but the design is always labelled **Not deployed to DSP**.
+Local connected/disconnected simulation exposes the 48 kHz capability and server-authoritative preview, but saved filters remain **Not deployed to DSP**. Legacy `equaliser.json`, speaker presets, DSP programs and SigmaTCP are unchanged.
 
 ## Verification
 
 ```sh
-npm run test:websocket-contract
+npm run test:crossover-model
+npm run test:crossover-response
+npm run test:crossover-ui
 npm run test:signal-flow
 npm run test:channel-routing
 npm run test:routing-contract
 npm run test:routing-ui
 npm run test:configuration-backup
 npm run test:configuration-restore
+npm run test:websocket-contract
 npm run test:local-server
+npm test
 npm run verify
 ```
 
-Automated tests cover model examples and failures, deterministic serialization, atomic/readback persistence, rollback, revision conflicts, WebSocket messages, UI state, narrow card layout, backup/restore and real isolated-server save/reload in both DSP simulation states.
+Automated coverage includes filter mathematics with numeric tolerances, validation/warnings, deterministic serialization, atomic save/readback/rollback, revision conflicts, WebSocket preview/copy/reset/save, UI draft states, responsive rendering contracts, backup/restore and isolated-server persistence.
 
-The local server and assembled page were verified. Interactive browser click-through and visual viewport inspection were not available in this session; responsive and workflow behavior is covered by the current state/markup/CSS contracts.
+Manual browser click-through, visual wide/narrow viewport inspection, HiFiBerryOS execution and physical hardware behavior remain unverified.
 
 ## Known limitations
 
-* Saving does not alter live `channels.json`, apply a speaker preset or deploy routing to the DSP.
-* There is no crossover, limiter, gain, delay, polarity, summing, free-form graph or multi-device coordination.
-* Mono reflects the existing Beocreate mono role; v1 does not expose stereo-to-mono summing controls.
-* Other restored legacy extension settings may still require restart even though Signal Flow rereads its own restored file on the next state request.
-* Production HiFiBerryOS runtime and physical hardware behavior remain unverified.
+* The response is electrical only; it excludes driver, enclosure, impedance, directivity and acoustic summation.
+* There is no live DSP compilation or deployment, audible output, limiter/protection validation or hardware readback.
+* Linkwitz–Riley is limited to valid order 2 and 4 implementations; Bessel, parametric, shelf, notch, all-pass, FIR and arbitrary filter stacks are absent.
+* The 48 kHz capability is evidenced by the shipped universal DSP program and must be verified against any deployed program before future activation.
+* Existing legacy equaliser and speaker-preset crossover content is not imported or migrated.
 
 ## Next recommended slice
 
-**Crossover Editor Foundation**: add a versioned filter-stage design to each routed output, remain simulator-first, and preserve the explicit distinction between saved design and deployed DSP state.
+**Channel Gain, Delay and Polarity v1**: extend the same saved-design boundary with validated, simulator-first per-output adjustments while keeping real DSP deployment separate.
 
 ## Deferred
 
-Safe DSP routing deployment, SigmaTCP transport changes, hardware readback, Electron, future hardware and unrestricted routing remain separate work.
+Safe DSP design compilation/deployment, SigmaTCP changes, hardware readback, measurement import, optimisation, Electron, future hardware and unrestricted graphs remain separate work.
