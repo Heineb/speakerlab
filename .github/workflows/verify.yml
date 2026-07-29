@@ -71,6 +71,8 @@ jobs:
           npm run test:sigmatcp-framing
           npm run test:dsp-read-queue
           npm run test:dsp-reconnect
+          npm run test:readonly-capture
+          npm run test:hardware-evidence
           npm run test:beocreate-mapping
           npm run test:dsp-recovery
           npm run test:dsp-compilation
