@@ -62,6 +62,24 @@ function createController(options) {
 						revision: content.revision === undefined ? null : content.revision
 					});
 					break;
+				case 'prepareForDSP':
+					send('deploymentResult', {action: 'compile', deployment: service.prepareForDSP(content.revision, runtime())});
+					break;
+				case 'applyToSimulator':
+					send('deploymentResult', {action: 'apply', deployment: service.applyToSimulator(content.revision, runtime())});
+					break;
+				case 'readSimulator':
+					send('deploymentResult', {action: 'readback', deployment: service.readSimulator(content.revision, runtime())});
+					break;
+				case 'compareSimulator':
+					send('deploymentResult', {action: 'compare', deployment: service.compareSimulator(content.revision, runtime())});
+					break;
+				case 'clearSimulator':
+					send('deploymentResult', {action: 'clear', deployment: service.clearSimulator(runtime())});
+					break;
+				case 'setSimulationScenario':
+					send('deploymentResult', {action: 'scenario', deployment: service.setSimulationScenario(content.scenario, runtime())});
+					break;
 				case 'save':
 					var saved = service.save(content.configuration, content.revision === undefined ? null : content.revision);
 					send('saveResult', {

@@ -17,9 +17,15 @@ SOFTWARE.*/
 
 'use strict';
 
+var localSimulation = !!(beo.localDevelopment && beo.localDevelopment.dspTransport === 'simulated');
+var activeProgramIdentity = null;
+var planSimulator = localSimulation ? require('./dsp-plan-simulator').createSimulator({
+	connected: beo.localDevelopment.dspState === 'connected'
+}) : null;
 var routingService = require('./routing-service').createService({
 	dataDirectory: beo.dataDirectory,
-	settingsCoordinator: beo.settingsCoordinator
+	settingsCoordinator: beo.settingsCoordinator,
+	planSimulator: planSimulator
 });
 var controller = require('./routing-controller').createController({
 	service: routingService,
@@ -28,9 +34,30 @@ var controller = require('./routing-controller').createController({
 	},
 	runtime: function() {
 		return {
-			simulated: !!(beo.localDevelopment && beo.localDevelopment.dspTransport === 'simulated'),
-			connected: !!(beo.localDevelopment && beo.localDevelopment.dspState === 'connected')
+			simulated: localSimulation,
+			connected: localSimulation ? beo.localDevelopment.dspState === 'connected' :
+				!!(activeProgramIdentity && activeProgramIdentity.metadataAvailable !== false),
+			programIdentity: activeProgramIdentity
 		};
+	}
+});
+
+function metadataValue(metadata, key) {
+	return metadata && metadata[key] && metadata[key].value ? metadata[key].value[0] : undefined;
+}
+
+beo.bus.on('dsp', function(event) {
+	if (event.header === 'metadata') {
+		if (event.content && event.content.metadata) {
+			activeProgramIdentity = {
+				programID: metadataValue(event.content.metadata, 'programID'),
+				profileVersion: metadataValue(event.content.metadata, 'profileVersion'),
+				checksum: metadataValue(event.content.metadata, 'checksum'),
+				metadataAvailable: true
+			};
+		} else {
+			activeProgramIdentity = {metadataAvailable: false};
+		}
 	}
 });
 

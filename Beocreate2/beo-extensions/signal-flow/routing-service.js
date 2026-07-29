@@ -4,6 +4,8 @@ var fs = require('fs');
 var path = require('path');
 var atomicJSON = require('../../beo-system/atomic-json-file');
 var routingModel = require('./routing-model');
+var targetModel = require('./dsp-target-capability');
+var designCompiler = require('./dsp-design-compiler');
 
 var SETTINGS_FILE = 'signal-flow.json';
 
@@ -20,7 +22,41 @@ function createService(options) {
 	var model = options.model || routingModel;
 	var writer = options.atomicWriter || atomicJSON;
 	var settingsCoordinator = options.settingsCoordinator || null;
+	var planSimulator = options.planSimulator || null;
+	var compiler = options.compiler || designCompiler;
+	var lastCompilation = null;
+	var lastReadback = null;
+	var lastComparison = null;
 	var target = path.join(options.dataDirectory, SETTINGS_FILE);
+
+	function programIdentity(runtime) {
+		if (runtime && runtime.programIdentity) return runtime.programIdentity;
+		if (runtime && runtime.simulated) {
+			return {
+				programID: targetModel.PROGRAM.id,
+				profileVersion: targetModel.PROGRAM.profileVersion,
+				checksum: targetModel.PROGRAM.checksum,
+				metadataAvailable: true
+			};
+		}
+		return {metadataAvailable: false};
+	}
+
+	function deploymentState(runtime, revision) {
+		var identity = targetModel.identify(programIdentity(runtime));
+		var stale = !!(lastCompilation && lastCompilation.sourceDesignRevision !== revision);
+		return {
+			target: targetModel.capability(),
+			identity: identity,
+			simulator: planSimulator ? planSimulator.state() : {connected: false, hasAppliedPlan: false, partial: false, muted: true},
+			compilation: lastCompilation,
+			readback: lastReadback,
+			comparison: lastComparison,
+			stale: stale,
+			previewOnly: true,
+			physicalDeploymentAllowed: false
+		};
+	}
 
 	function validateDesign(configuration) {
 		var validation = model.validate(configuration);
@@ -69,10 +105,11 @@ function createService(options) {
 			saved = {exists: true, configuration: null};
 		}
 		var configuration = saved.configuration || model.defaultConfiguration();
+		var revision = saved.configuration ? model.revision(configuration) : null;
 		return {
 			capabilities: model.capabilities(true),
 			configuration: configuration,
-			revision: saved.configuration ? model.revision(configuration) : null,
+			revision: revision,
 			hasSavedConfiguration: !!saved.configuration,
 			validation: validateDesign(configuration),
 			loadError: loadError,
@@ -81,7 +118,8 @@ function createService(options) {
 				connected: !!(runtime && runtime.connected),
 				deploymentStatus: 'not-deployed',
 				statusLabel: runtime && runtime.simulated ? 'Saved design · Simulated · Not deployed to DSP' : 'Saved design · Not deployed to DSP'
-			}
+			},
+			deployment: deploymentState(runtime, revision)
 		};
 	}
 
@@ -236,6 +274,60 @@ function createService(options) {
 		return {configuration: normalized, validation: validateDesign(normalized)};
 	}
 
+	function prepareForDSP(expectedRevision, runtime) {
+		var current = state(runtime);
+		if (!current.hasSavedConfiguration) throw routingError('NO_SAVED_DESIGN', 'Save a valid design before preparing it for DSP.');
+		lastCompilation = compiler.compile(current.configuration, {
+			sourceRevision: expectedRevision,
+			programIdentity: programIdentity(runtime)
+		});
+		lastReadback = null;
+		lastComparison = null;
+		return deploymentState(runtime, current.revision);
+	}
+
+	function applyToSimulator(expectedRevision, runtime) {
+		var current = state(runtime);
+		if (!planSimulator || !runtime || !runtime.simulated) throw routingError('SIMULATOR_REQUIRED', 'DSP preparation can only be applied to the local simulator in this slice.');
+		if (!lastCompilation) throw routingError('COMPILATION_REQUIRED', 'Compile the saved design before applying it to the simulator.');
+		if (lastCompilation.sourceDesignRevision !== expectedRevision || current.revision !== expectedRevision) {
+			throw routingError('STALE_COMPILATION', 'The saved design changed. Recompile before simulator application.');
+		}
+		var result = planSimulator.apply(lastCompilation);
+		if (!result.applied) throw routingError(result.error ? result.error.code : 'SIMULATED_APPLY_FAILED', result.error ? result.error.message : 'The simulator could not apply the complete plan.', result);
+		lastReadback = null;
+		lastComparison = null;
+		return Object.assign({application: result}, deploymentState(runtime, current.revision));
+	}
+
+	function readSimulator(expectedRevision, runtime) {
+		var current = state(runtime);
+		if (!planSimulator || !runtime || !runtime.simulated) throw routingError('SIMULATOR_REQUIRED', 'Readback is available only from the local simulator in this slice.');
+		if (!lastCompilation || lastCompilation.sourceDesignRevision !== expectedRevision) throw routingError('STALE_COMPILATION', 'Recompile before requesting simulator readback.');
+		lastReadback = planSimulator.readback();
+		return deploymentState(runtime, current.revision);
+	}
+
+	function compareSimulator(expectedRevision, runtime) {
+		var current = state(runtime);
+		if (!planSimulator || !lastCompilation) throw routingError('COMPILATION_REQUIRED', 'Compile and apply the design before comparison.');
+		lastComparison = planSimulator.verify(lastCompilation, expectedRevision || current.revision, compiler);
+		return deploymentState(runtime, current.revision);
+	}
+
+	function clearSimulator(runtime) {
+		if (planSimulator) planSimulator.clear();
+		lastReadback = null;
+		lastComparison = null;
+		return deploymentState(runtime, state(runtime).revision);
+	}
+
+	function setSimulationScenario(scenario, runtime) {
+		if (!planSimulator || !runtime || !runtime.simulated) throw routingError('SIMULATOR_REQUIRED', 'Simulation scenarios are unavailable outside local development.');
+		planSimulator.setScenario(scenario);
+		return deploymentState(runtime, state(runtime).revision);
+	}
+
 	return {
 		target: target,
 		state: state,
@@ -247,6 +339,12 @@ function createService(options) {
 		resetCrossover: resetCrossover,
 		copyProcessing: copyProcessing,
 		resetProcessing: resetProcessing,
+		prepareForDSP: prepareForDSP,
+		applyToSimulator: applyToSimulator,
+		readSimulator: readSimulator,
+		compareSimulator: compareSimulator,
+		clearSimulator: clearSimulator,
+		setSimulationScenario: setSimulationScenario,
 		publicError: publicError
 	};
 }
