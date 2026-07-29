@@ -13,9 +13,13 @@ Compatible identity requires the shipped evidence to agree:
 - checksum: `40FB6C92F57ABB70177CE053C73F54DC`
 - sample rate: 48,000 Hz
 
+The XML filename is `beocreate-universal-10.xml`; filename alone is not identity. Available metadata includes profile/program/model names and IDs, profile version, checksum and sample rate. There is no exposed parameter-map hash, build register or independent build identifier. The minimum safe identity remains exact program ID, profile version and checksum obtained freshly after connection; a future apply must additionally bind the compiled mapping to the shipped XML evidence.
+
 The existing DSP Programs extension requests checksum and XML, parses `<beometa>`, and falls back to stored metadata only after an exact checksum match. Unknown programs can remain GPIO-muted. SpeakerLab compilation uses the same fail-closed principle and never guesses from register names alone.
 
-## Verified parameter map
+## Strongly evidenced parameter map
+
+The addresses below agree between shipped XML metadata and current legacy application code. They are **strongly evidenced**, not physically verified: no committed capture or readback proves that a write changed the intended DSP block.
 
 | Output | Route selector | Polarity | IIR bank | Gain | Delay |
 | --- | ---: | ---: | ---: | ---: | ---: |
@@ -25,6 +29,8 @@ The existing DSP Programs extension requests checksum and XML, parses `<beometa>
 | D | 4859 | 4863 | 451/80 | 772 | 783 |
 
 Route metadata lists `left,right,mono,side` with multiplier 1. SpeakerLab v1 compiles Left=0, Right=1 and Mono=2. `side` is not a SpeakerLab design source. Disabled outputs retain a deterministic selector and compile gain to zero.
+
+Mono is a metadata-defined selector; its summing implementation and headroom have not been physically verified. Multiple sources per output, arbitrary summing, `side`, daisy-chain/slave output and external routes are unsupported. There is no verified individual output-mute parameter: disabled output is represented by zero linear gain, so safe deployment still depends on the unverified all-output GPIO mute.
 
 Each IIR bank contains 80 words: 16 five-word sections. Legacy equaliser application writes `[b2,b1,b0,-a2,-a1]` by software safeload. A flat section is `[0,0,1,0,0]`. SpeakerLab uses the same sign/order convention and fills unused sections flat.
 
@@ -38,7 +44,20 @@ Delay is an unsigned whole-sample parameter. Legacy code uses nearest-integer `r
 
 SigmaTCP command 0x09 writes and 0x0a reads. The header is 14 bytes and contains big-endian length/address fields. DSPToolkit is used for XML/profile/checksum-related host operations, EEPROM installation/store/reset and is not used by this compilation slice.
 
-The legacy read queue supports parameter and multi-address reads, but its framing, timeout, reconnect and partial-response behavior is not changed or claimed safe here. Simulator readback normalizes values by compiled operation index and retains raw encoded diagnostics in the compilation plan.
+The generic legacy read API can request each mapped address, but physical readability and verification are not proven per operation. See `SIGMATCP_PROTOCOL.md`.
+
+## Readiness matrix
+
+| Design field | Confidence | Writable evidence | Physical readback | Verifiable | Blocker |
+| --- | --- | --- | --- | --- | --- |
+| Routing A–D | Strongly evidenced | XML plus `channels` writes | Generic API only | No | No capture/readback |
+| Crossover banks A–D | Strongly evidenced | XML plus `equaliser` safeload | Generic API only | No | Safeload/application and response unverified |
+| Gain A–D, 0..1 linear | Strongly evidenced | XML plus `channels` writes | Generic API only | No | Physical readback absent |
+| Delay A–D, 0..2,000 samples | Strongly evidenced | XML plus `channels` writes | Generic API only | No | Physical quantization/readback absent |
+| Polarity A–D | Strongly evidenced | XML plus `channels` writes | Generic API only | No | Physical readback absent |
+| GPIO 27 all-output safe state | Strong command evidence | `dsp-programs` `pigs` commands | Unavailable | No | Physical mute cannot be confirmed |
+
+All compiled parameter operations can be represented and current code can generate writes. None is ready for physical deployment.
 
 ## Safe state and ordering
 
@@ -69,4 +88,4 @@ Simulator failure, unavailable/invalid/mismatching readback, stale design revisi
 - daisy-chain `side` routing and external/slave outputs;
 - physical restart persistence and EEPROM/flash behavior.
 
-These gaps block Safe Physical DSP Apply v1.
+These gaps block Safe Physical DSP Apply v1. Recovery requirements are defined in `DSP_RECOVERY_PREREQUISITES.md`; no hardware rollback is implemented.

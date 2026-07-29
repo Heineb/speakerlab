@@ -199,6 +199,8 @@ Do not update all dependencies in one pull request.
 
 Completed foundation: evidence-backed current-Beocreate capability/identity, deterministic design compilation, preview-only UI, process-local simulated apply/readback/comparison, safety ordering and browser journeys. Physical application remains deferred until mute confirmation, SigmaTCP/readback/reconnect behavior and rollback prerequisites are characterized.
 
+Completed characterization: current-code SigmaTCP framing, positional read queue, write-acknowledgement limits, reconnect/timeouts, mapping confidence, framing-level simulation, recovery prerequisites and user-visible readiness blockers. Physical application remains blocked by physical identity freshness, mute confirmation, per-operation hardware readback and a verified rollback plan.
+
 ### Work
 
 * Document the current DSP deployment sequence.

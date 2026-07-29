@@ -20,6 +20,10 @@ The local simulator executes the same ordered plan in process memory, supports p
 
 Production-like runtime remains preview-only and has no Apply action. No real DSP module, SigmaTCP framing, read queue, reconnect limit, GPIO, DSPToolkit, EEPROM or flash path is called.
 
+The follow-up characterization distinguishes repository evidence from physical verification. XML/register agreement and legacy write generation are `strongly-evidenced`, not `verified`, until physical capture and readback establish actual behavior. An isolated framing parser and transport simulator model the current 14-byte layout, positional single-read constraint, socket generations, deterministic timeout/malformed/disconnect handling and transport-only write completion. They do not replace or activate production `dsp.js`.
+
+Deployment Preview exposes mapping confidence, readback availability, acknowledgement limits, mute uncertainty, recovery prerequisites and exact blockers. No physical Apply control exists while safety-critical evidence is incomplete.
+
 ## Future physical-deployment safety contract
 
 A future implementation must prove GPIO mute entry before the first write, retain mute through complete ordered application, require target identity immediately before change, read back every safety-required value within defined tolerance, and never unmute after partial write, mismatch, unavailable readback, stale identity or connection loss. It requires a verified last-known-good compiled plan and rollback application/readback while still muted. Physical unmute is permitted only after complete verification.

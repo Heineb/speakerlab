@@ -168,6 +168,12 @@ The smallest useful boundary is the existing transport operations consumed by cu
 
 It must model only the existing Beocreate SigmaTCP/DSPToolkit behaviour. GPIO mute and systemd/service operations should be separate fakes because they are OS integration, not the DSP register transport.
 
+### Characterized physical-transport boundary
+
+`signal-flow/sigmatcp-protocol.js` isolates the source-derived 14-byte request layout and a strongly evidenced response layout without changing production `dsp.js`. Its incremental parser bounds memory, retains split frames, emits coalesced frames and rejects malformed length or command state deterministically.
+
+`sigmatcp-transport-simulator.js` models the required future positional single-outstanding read contract with per-socket generations, exactly-once completion, timeout/queue cleanup and stale-response rejection. Write completion is explicitly transported-only and unacknowledged. `dsp-physical-readiness.js` owns the current-Beocreate mapping/recovery matrix used by the compiler and Deployment Preview. None of these boundaries can issue physical writes.
+
 ## Isolated local-development runtime
 
 `npm run dev` invokes `scripts/start-local-server.js`. The launcher prepares the existing linked deployment shape below `.speakerlab-local/runtime/layout`, uses `.speakerlab-local/runtime/state` instead of `/etc/beocreate`, selects an ephemeral port by default and binds only `127.0.0.1`. A caller may choose another workspace/temporary runtime root, fixed port, and deterministic connected or disconnected DSP state.
