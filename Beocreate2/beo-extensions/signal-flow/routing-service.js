@@ -43,12 +43,18 @@ function createService(options) {
 	}
 
 	function deploymentState(runtime, revision) {
-		var identity = targetModel.identify(programIdentity(runtime));
+		var simulatorState = planSimulator ? planSimulator.state() : {connected: false, hasAppliedPlan: false, partial: false, muted: true};
+		var identityCandidate = programIdentity(runtime);
+		if (simulatorState.identityMismatch) identityCandidate = {programID: targetModel.PROGRAM.id, profileVersion: 10, checksum: 'IDENTITY-CHANGED', metadataAvailable: true};
+		var identity = targetModel.identify(identityCandidate);
 		var stale = !!(lastCompilation && lastCompilation.sourceDesignRevision !== revision);
+		if (simulatorState.identityMismatch) stale = true;
+		var readinessOverrides = simulatorState.readinessScenario === 'unknown-mapping' ? {unknownField: 'routing'} :
+			simulatorState.readinessScenario === 'readback-unavailable' ? {unreadableField: 'gain'} : null;
 		return {
-			target: targetModel.capability(),
+			target: targetModel.capability({readinessOverrides: readinessOverrides}),
 			identity: identity,
-			simulator: planSimulator ? planSimulator.state() : {connected: false, hasAppliedPlan: false, partial: false, muted: true},
+			simulator: simulatorState,
 			compilation: lastCompilation,
 			readback: lastReadback,
 			comparison: lastComparison,

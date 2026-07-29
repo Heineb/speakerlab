@@ -162,12 +162,29 @@
 	margin: 18px 0;
 }
 .signal-flow-deployment-target,
+.signal-flow-readiness,
 .signal-flow-deployment-output,
 .signal-flow-operation {
 	background: rgba(0, 0, 0, 0.04);
 	border-radius: 6px;
 	padding: 10px;
 	margin: 8px 0;
+}
+.signal-flow-readiness dl {
+	display: grid;
+	grid-template-columns: minmax(9rem, 0.4fr) 1fr;
+	gap: 0.35rem 1rem;
+}
+.signal-flow-readiness dt,
+.signal-flow-readiness dd {
+	margin: 0;
+}
+.signal-flow-readiness-item {
+	display: grid;
+	grid-template-columns: minmax(7rem, 0.4fr) 1fr 1fr;
+	gap: 0.5rem;
+	padding: 0.45rem 0;
+	border-bottom: 1px solid rgba(0, 0, 0, 0.1);
 }
 .signal-flow-deployment-output dl {
 	display: grid;
@@ -217,6 +234,15 @@
 	padding-bottom: 24px;
 }
 @media (max-width: 620px) {
+	.signal-flow-readiness dl,
+	.signal-flow-readiness-item {
+		display: block;
+	}
+	.signal-flow-readiness dt,
+	.signal-flow-readiness-item span {
+		display: block;
+		margin-top: 0.35rem;
+	}
 	.signal-flow-output-grid {
 		grid-template-columns: 1fr;
 	}

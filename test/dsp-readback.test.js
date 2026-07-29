@@ -117,6 +117,20 @@ test('clear and restart policy removes process-local applied state and remains m
   assert.strictEqual(simulatorModule.createSimulator().state().hasAppliedPlan, false);
 });
 
+test('models timeout, malformed, stale and unavailable transport readback without a false match', function () {
+  ['timeout', 'malformed-response', 'stale-response', 'readback-unavailable'].forEach(function (scenario) {
+    const simulator = simulatorModule.createSimulator({connected: true});
+    const prepared = plan(design());
+    simulator.apply(prepared);
+    simulator.setScenario({type: scenario});
+    const readback = simulator.readback();
+    const comparison = simulator.verify(prepared, prepared.sourceDesignRevision, compiler);
+    assert.strictEqual(readback.status, scenario);
+    assert.strictEqual(comparison.status, 'unknown');
+    assert.strictEqual(comparison.muted, true);
+  });
+});
+
 (async function run() {
   let failures = 0;
   for (const item of tests) {

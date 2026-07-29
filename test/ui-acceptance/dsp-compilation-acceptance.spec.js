@@ -31,6 +31,14 @@ async function prepareDesign(page, speakerlab) {
   await expect(page.locator('#signal-flow-message')).toContainText('saved');
 }
 
+async function setScenario(page, type) {
+  await page.evaluate(function (scenarioType) {
+    beo.send({target: 'signal-flow', header: 'setSimulationScenario', content: {
+      scenario: scenarioType ? {type: scenarioType} : null
+    }});
+  }, type);
+}
+
 test('complete design compiles into a current-Beocreate preview without physical deployment', async function ({monitoredPage: page, speakerlab}) {
   await page.setViewportSize({width: 1440, height: 1000});
   await prepareDesign(page, speakerlab);
@@ -124,4 +132,96 @@ test('deployment preview is responsive, keyboard reachable and semantically labe
   await expect(page.locator('#signal-flow-deployment-status')).toHaveAttribute('role', 'status');
   await expect(page.locator('#signal-flow-simulate-clear')).toBeEnabled();
   await expect(page.locator('.signal-flow-deployment-output').first()).toHaveCSS('display', 'block');
+});
+
+test('mapping readiness exposes confidence for every major current-Beocreate feature', async function ({monitoredPage: page, speakerlab}) {
+  await prepareDesign(page, speakerlab);
+  await page.locator('#signal-flow-compile').click();
+  const mapping = page.getByRole('region', {name: 'Mapping confidence summary'});
+  for (const field of ['Routing', 'Crossover', 'Gain', 'Delay', 'Polarity']) {
+    await expect(mapping.getByRole('group', {name: new RegExp(field + ' mapping status', 'i')})).toContainText('Strong evidence');
+  }
+  await expect(mapping).toContainText('Preview only');
+  await expect(page.getByRole('region', {name: 'Physical transport readiness'})).toContainText('Physical apply blocked');
+  await expect(page.getByRole('button', {name: /physical apply/i})).toHaveCount(0);
+});
+
+test('unknown safety-critical mapping visibly blocks readiness while design and simulator remain available', async function ({monitoredPage: page, speakerlab}) {
+  await prepareDesign(page, speakerlab);
+  await page.locator('#signal-flow-compile').click();
+  await setScenario(page, 'unknown-mapping');
+  await expect(page.getByRole('group', {name: 'routing mapping status'})).toContainText('Unknown');
+  await expect(page.getByRole('region', {name: 'Physical transport readiness'})).toContainText('output-a routing: Mapping evidence is unavailable');
+  await expect(page.locator('#signal-flow-simulate-apply')).toBeEnabled();
+  await expect(page.locator('#signal-flow-gain-output-a')).toBeEditable();
+  await expect(page.getByRole('button', {name: /physical apply/i})).toHaveCount(0);
+});
+
+test('unavailable readback is announced and never presented as matched', async function ({monitoredPage: page, speakerlab}) {
+  await prepareDesign(page, speakerlab);
+  await page.locator('#signal-flow-compile').click();
+  await page.locator('#signal-flow-simulate-apply').click();
+  await setScenario(page, 'readback-unavailable');
+  await page.locator('#signal-flow-simulate-read').click();
+  await page.locator('#signal-flow-simulate-compare').click();
+  await expect(page.getByRole('group', {name: 'gain mapping status'})).toContainText('Readback unavailable');
+  await expect(page.locator('#signal-flow-deployment-status')).toContainText('readback-unavailable');
+  await expect(page.locator('#signal-flow-deployment-status')).not.toContainText('matched');
+  await expect(page.getByRole('region', {name: 'Physical transport readiness'})).toContainText('Readback unavailable');
+});
+
+test('program identity mismatch invalidates the preview and asks for recompilation', async function ({monitoredPage: page, speakerlab}) {
+  await prepareDesign(page, speakerlab);
+  await page.locator('#signal-flow-compile').click();
+  await setScenario(page, 'identity-mismatch');
+  await expect(page.locator('#signal-flow-deployment-status')).toContainText('Program identity mismatch');
+  await expect(page.locator('#signal-flow-deployment-status')).toContainText('recompile required');
+  await expect(page.getByRole('region', {name: 'Current Beocreate DSP target'})).toContainText('known-incompatible');
+  await expect(page.locator('#signal-flow-simulate-apply')).toBeDisabled();
+  await expect(page.getByRole('button', {name: /physical apply/i})).toHaveCount(0);
+});
+
+test('transport timeout malformed response disconnect and stale response never produce false verification', async function ({monitoredPage: page, speakerlab}) {
+  await prepareDesign(page, speakerlab);
+  await page.locator('#signal-flow-compile').click();
+  await page.locator('#signal-flow-simulate-apply').click();
+  for (const scenario of ['timeout', 'malformed-response', 'stale-response']) {
+    await setScenario(page, scenario);
+    await page.locator('#signal-flow-simulate-read').click();
+    await page.locator('#signal-flow-simulate-compare').click();
+    await expect(page.locator('#signal-flow-deployment-status')).toContainText(scenario);
+    await expect(page.locator('#signal-flow-deployment-status')).not.toContainText('matched');
+  }
+  await setScenario(page, 'disconnect');
+  await expect(page.getByRole('region', {name: 'Physical transport readiness'})).toContainText('Reconnect does not invalidate pending reads');
+  await setScenario(page, null);
+  await page.locator('#signal-flow-simulate-read').click();
+  await expect(page.locator('#signal-flow-deployment-status')).not.toContainText('matched');
+});
+
+test('recovery summary explains mute readback rollback unknown state and manual intervention', async function ({monitoredPage: page, speakerlab}) {
+  await prepareDesign(page, speakerlab);
+  await page.locator('#signal-flow-compile').click();
+  await page.locator('#signal-flow-recovery-details').getByText('Safety and recovery summary').click();
+  const recovery = page.getByRole('region', {name: 'Safety and recovery prerequisites'});
+  await expect(recovery).toContainText('physical state cannot be confirmed');
+  await expect(recovery).toContainText('verification is not physically proven');
+  await expect(recovery).toContainText('Rollback capability: not implemented');
+  await expect(recovery).toContainText('remain muted');
+  await expect(recovery).toContainText('manual intervention may be required');
+});
+
+test('readiness summaries remain keyboard reachable and readable at desktop tablet and mobile widths', async function ({monitoredPage: page, speakerlab}) {
+  await prepareDesign(page, speakerlab);
+  await page.locator('#signal-flow-compile').focus();
+  await page.locator('#signal-flow-compile').press('Enter');
+  for (const viewport of [{width: 1440, height: 1000}, {width: 768, height: 900}, {width: 390, height: 844}]) {
+    await page.setViewportSize(viewport);
+    await expect(page.getByRole('region', {name: 'Mapping confidence summary'})).toBeVisible();
+    await expect(page.getByRole('region', {name: 'Physical transport readiness'})).toBeVisible();
+  }
+  await page.locator('#signal-flow-recovery-details').getByText('Safety and recovery summary').focus();
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('region', {name: 'Safety and recovery prerequisites'})).toBeVisible();
+  await expect(page.getByRole('button', {name: /physical apply/i})).toHaveCount(0);
 });

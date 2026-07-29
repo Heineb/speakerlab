@@ -184,6 +184,10 @@ test('markup uses labelled form controls and responsive cards without a canvas',
   assert.ok(client.indexOf('<label for=') !== -1);
   assert.ok(css.indexOf('@media (max-width: 620px)') !== -1);
   assert.ok(css.indexOf('grid-template-columns: 1fr') !== -1);
+  assert.ok(menu.indexOf('aria-label="Physical transport readiness"') !== -1);
+  assert.ok(menu.indexOf('aria-label="Mapping confidence summary"') !== -1);
+  assert.ok(menu.indexOf('aria-label="Safety and recovery prerequisites"') !== -1);
+  assert.strictEqual(menu.indexOf('Physical Apply'), -1);
   assert.strictEqual(menu.indexOf('<canvas'), -1);
 });
 

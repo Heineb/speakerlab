@@ -199,16 +199,52 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 		}
 		var target = deployment.target;
 		var identity = deployment.identity;
+		var readiness = target.physicalReadiness;
 		$('#signal-flow-deployment-target').html(
 			'<h3>Target</h3><p><strong>Current Beocreate DSP</strong> · ' + escapeHTML(target.identity.name) +
 			' v' + target.identity.profileVersion + ' · ' + target.identity.sampleRateHz + ' Hz · ' +
 			target.outputCount + ' outputs</p><p>Capability status: ' + escapeHTML(identity.status) + '</p>'
+		);
+		$('#signal-flow-transport-readiness').html(
+			'<h3>Physical transport readiness</h3><p><strong>Physical apply blocked</strong></p>' +
+			'<dl><dt>Program identity</dt><dd>' + escapeHTML(identity.status) + '</dd>' +
+			'<dt>Framing</dt><dd>' + escapeHTML(readiness.transport.framing.status) + ' · no physical capture</dd>' +
+			'<dt>Write transport</dt><dd>Transported only · no DSP acknowledgement</dd>' +
+			'<dt>Readback</dt><dd>' + escapeHTML(readiness.transport.readback.status) + '</dd>' +
+			'<dt>Mute control</dt><dd>Unverified · state readback unavailable</dd>' +
+			'<dt>Recovery</dt><dd>Prerequisites defined; rollback not implemented</dd></dl>' +
+			'<h4>Exact blockers</h4><ul>' + readiness.blockers.map(function(blocker) {
+				return '<li>' + escapeHTML(blocker) + '</li>';
+			}).join('') + '</ul>'
+		);
+		var featureOrder = ['routing', 'crossover', 'gain', 'delay', 'polarity'];
+		$('#signal-flow-mapping-readiness').html(
+			'<h3>Mapping confidence</h3><p>Strong evidence remains preview-only until physical readback verifies it.</p>' +
+			featureOrder.map(function(field) {
+				var rows = readiness.matrix.filter(function(row) { return row.field === field; });
+				var confidence = rows.some(function(row) { return row.confidence === 'unknown'; }) ? 'Unknown' :
+					rows.every(function(row) { return row.confidence === 'verified'; }) ? 'Verified mapping' : 'Strong evidence · Preview only';
+				var readback = rows.some(function(row) { return row.readable === 'unavailable'; }) ?
+					'Readback unavailable' : 'Physical readback unverified';
+				return '<div class="signal-flow-readiness-item" role="group" aria-label="' + escapeHTML(field) + ' mapping status">' +
+					'<strong>' + escapeHTML(field.charAt(0).toUpperCase() + field.slice(1)) + '</strong>' +
+					'<span>' + confidence + '</span><span>' + readback + '</span></div>';
+			}).join('')
+		);
+		$('#signal-flow-recovery-readiness').html(
+			'<h3>Safety and recovery</h3><p>All future interrupted physical operations must remain muted when state is unknown.</p>' +
+			'<ul><li>Mute capability: command exists; physical state cannot be confirmed.</li>' +
+			'<li>Readback capability: generic read format exists; operation verification is not physically proven.</li>' +
+			'<li>Rollback capability: not implemented and no verified prior physical plan exists.</li>' +
+			'<li>Connection loss, restart, mismatch or identity change: do not resume; manual intervention may be required.</li></ul>'
 		);
 		var compilation = deployment.compilation;
 		var stale = !!(deployment.stale || state.dirty);
 		var overallStatus = stale ? 'Unknown · compilation is stale' :
 			deployment.comparison ? deployment.comparison.status :
 			compilation ? compilation.status : 'Not compiled';
+		if (deployment.simulator.transportStatus) overallStatus = deployment.simulator.transportStatus;
+		if (deployment.simulator.identityMismatch) overallStatus = 'Program identity mismatch · recompile required';
 		$('#signal-flow-deployment-status')
 			.attr('class', 'signal-flow-status-' + (deployment.comparison ? deployment.comparison.status : compilation ? compilation.status : 'unknown'))
 			.text(overallStatus + ' · Prepared only · ' + (deployment.simulator.connected ? 'Simulated' : 'Simulator disconnected') + ' · Not deployed to physical DSP');

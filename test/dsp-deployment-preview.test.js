@@ -118,5 +118,21 @@ test('simulated mismatch scenario remains constrained to a compiled operation', 
   assert.strictEqual(compared.comparison.muted, true);
 });
 
+test('readiness and identity scenarios remain blocked and explicitly classified', function (root) {
+  const current = fixture(root);
+  current.service.prepareForDSP(current.saved.revision, current.runtime);
+  current.service.setSimulationScenario({type: 'unknown-mapping'}, current.runtime);
+  let state = current.service.state(current.runtime).deployment;
+  assert.strictEqual(state.target.physicalReadiness.physicalApplyReady, false);
+  assert.ok(state.target.physicalReadiness.matrix.some(function (row) { return row.confidence === 'unknown'; }));
+  current.service.setSimulationScenario({type: 'readback-unavailable'}, current.runtime);
+  state = current.service.state(current.runtime).deployment;
+  assert.ok(state.target.physicalReadiness.matrix.some(function (row) { return row.readable === 'unavailable'; }));
+  current.service.setSimulationScenario({type: 'identity-mismatch'}, current.runtime);
+  state = current.service.state(current.runtime).deployment;
+  assert.strictEqual(state.identity.status, 'known-incompatible');
+  assert.strictEqual(state.stale, true);
+});
+
 if (failed) process.exitCode = 1;
 console.log('\n' + passed + ' passed, ' + failed + ' failed');

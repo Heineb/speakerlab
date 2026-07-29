@@ -10,6 +10,9 @@ function createSimulator(options) {
 	var failAt = null;
 	var delayAt = null;
 	var disconnectAt = null;
+	var transportOutcome = null;
+	var readinessScenario = null;
+	var identityMismatch = false;
 
 	function apply(compilation) {
 		if (!connected) return {status: 'unknown', applied: false, error: {code: 'SIMULATOR_DISCONNECTED', message: 'The simulator is disconnected.'}};
@@ -43,6 +46,7 @@ function createSimulator(options) {
 	function readback() {
 		if (!connected) return {available: false, status: 'unavailable', values: {}};
 		if (!applied) return {available: true, status: 'not-checked', values: {}};
+		if (transportOutcome) return {available: false, status: transportOutcome, values: {}, muted: true};
 		var result = JSON.parse(JSON.stringify(values));
 		if (mismatch && result[String(mismatch.operationIndex)] !== undefined) {
 			if (Array.isArray(result[String(mismatch.operationIndex)])) result[String(mismatch.operationIndex)][0] += mismatch.delta;
@@ -61,15 +65,25 @@ function createSimulator(options) {
 		apply: apply,
 		readback: readback,
 		verify: verify,
-		clear: function() { applied = null; values = {}; mismatch = null; failAt = null; delayAt = null; disconnectAt = null; muted = true; return {status: 'cleared', muted: true}; },
+		clear: function() { applied = null; values = {}; mismatch = null; failAt = null; delayAt = null; disconnectAt = null;
+			transportOutcome = null; readinessScenario = null; identityMismatch = false; muted = true; return {status: 'cleared', muted: true}; },
 		setConnected: function(value) { connected = Boolean(value); },
 		setScenario: function(scenario) {
 			mismatch = scenario && scenario.type === 'mismatch' ? {operationIndex: scenario.operationIndex, delta: scenario.delta || 1} : null;
 			failAt = scenario && scenario.type === 'failure' ? scenario.operationIndex : null;
 			delayAt = scenario && scenario.type === 'delay' ? scenario.operationIndex : null;
 			disconnectAt = scenario && scenario.type === 'disconnect' ? scenario.operationIndex : null;
+			transportOutcome = scenario && ['timeout', 'malformed-response', 'stale-response', 'readback-unavailable'].indexOf(scenario.type) !== -1 ? scenario.type : null;
+			readinessScenario = scenario && ['unknown-mapping', 'readback-unavailable'].indexOf(scenario.type) !== -1 ? scenario.type : null;
+			identityMismatch = !!(scenario && scenario.type === 'identity-mismatch');
 		},
-		state: function() { return {connected: connected, hasAppliedPlan: !!applied, partial: !!(applied && applied.partial), muted: muted}; }
+		state: function() {
+			var result = {connected: connected, hasAppliedPlan: !!applied, partial: !!(applied && applied.partial), muted: muted};
+			if (transportOutcome) result.transportStatus = transportOutcome;
+			if (readinessScenario) result.readinessScenario = readinessScenario;
+			if (identityMismatch) result.identityMismatch = true;
+			return result;
+		}
 	};
 }
 
