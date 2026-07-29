@@ -89,3 +89,9 @@ Simulator failure, unavailable/invalid/mismatching readback, stale design revisi
 - physical restart persistence and EEPROM/flash behavior.
 
 These gaps block Safe Physical DSP Apply v1. Recovery requirements are defined in `DSP_RECOVERY_PREREQUISITES.md`; no hardware rollback is implemented.
+
+## Read-only evidence review
+
+The version 1 read-only capture contract allowlists only the checksum request and the exact parameter reads in this document. The sanitized fixture is repository-backed and confirms deterministic request construction, response decoding, integrity checking and redaction behavior. It is not a physical capture.
+
+No confidence changed in this review. Routing, crossover, gain, delay, polarity and safe state remain strongly evidenced rather than verified. A future promotion requires a reviewed compatible-hardware capture with fresh matching identity, two agreeing observations, deterministic decoding, repository/metadata corroboration, known units and tolerances, and no contradictory evidence. See `PHYSICAL_APPLY_BLOCKERS.md` and `READONLY_CAPTURE_FORMAT.md`.

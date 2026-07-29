@@ -24,6 +24,8 @@ The follow-up characterization distinguishes repository evidence from physical v
 
 Deployment Preview exposes mapping confidence, readback availability, acknowledgement limits, mute uncertainty, recovery prerequisites and exact blockers. No physical Apply control exists while safety-critical evidence is incomplete.
 
+Read-only evidence collection uses a separate exact-operation allowlist with no generic send or write surface. Captures are versioned, redacted and integrity-protected; review conclusions are separate. Repository-backed fixtures test the contract but cannot promote physical confidence. Read-only evidence cannot close safe-state control, write acknowledgement or rollback.
+
 ## Future physical-deployment safety contract
 
 A future implementation must prove GPIO mute entry before the first write, retain mute through complete ordered application, require target identity immediately before change, read back every safety-required value within defined tolerance, and never unmute after partial write, mismatch, unavailable readback, stale identity or connection loss. It requires a verified last-known-good compiled plan and rollback application/readback while still muted. Physical unmute is permitted only after complete verification.

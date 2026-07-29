@@ -18,4 +18,6 @@ Physical application is not implemented. This matrix defines minimum future beha
 
 A future rollback requires a compiled last-known-good plan for the same freshly verified program identity, complete readable mappings, confirmed all-output mute, ordered apply and complete readback while muted. EEPROM persistence is outside rollback v1.
 
+The read-only evidence utility can record prior mapped values but cannot prove safe-state entry, writes, application ordering or rollback. It therefore narrows no write-side recovery prerequisite and cannot close the rollback blocker.
+
 User status must distinguish preparation, transported bytes, partial/unknown DSP state, verified state and rollback failure. Any unknown safety-critical state remains muted and may require manual intervention.

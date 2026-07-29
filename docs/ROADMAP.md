@@ -201,6 +201,8 @@ Completed foundation: evidence-backed current-Beocreate capability/identity, det
 
 Completed characterization: current-code SigmaTCP framing, positional read queue, write-acknowledgement limits, reconnect/timeouts, mapping confidence, framing-level simulation, recovery prerequisites and user-visible readiness blockers. Physical application remains blocked by physical identity freshness, mute confirmation, per-operation hardware readback and a verified rollback plan.
 
+Completed read-only evidence contract: exact checksum/parameter-read allowlist, guarded explicit-host capture command, versioned redacted capture/review format, repository-backed sanitized fixture, zero-write safety tests and accessible evidence provenance. No physical capture was available, no mapping confidence was promoted and safe-state/write/rollback blockers remain.
+
 ### Work
 
 * Document the current DSP deployment sequence.

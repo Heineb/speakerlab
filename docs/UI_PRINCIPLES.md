@@ -46,3 +46,5 @@ Focused browser accessibility smoke checks now protect labelled native channel-p
 Deployment previews must lead with target identity and plain-language state, keep raw registers in an optional technical disclosure, distinguish requested/compiled/actual values, and never use “Active” or “Verified” without “simulator” or “physical” context. Stale state, errors and warnings must remain textual and live-announced; actions must be native buttons with truthful disabled state.
 
 Readiness must be textual, distinguish strong evidence from verification, name exact blockers and never imply that transmitted or simulated values were physically applied. Mapping, transport and recovery summaries must stack at narrow widths without requiring a raw-register table.
+
+Evidence status must distinguish repository-backed, unreviewed physical and reviewed physical sources. Provenance disclosures must name the schema/revision and review status, state read-only versus write-unverified conclusions in text, omit device identifiers and remain keyboard accessible. Evidence collection alone must never display physical readiness.

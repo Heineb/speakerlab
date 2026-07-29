@@ -288,6 +288,22 @@ Mapping tests require evidence and classification for every compiled operation, 
 
 Real Chromium journeys expose confidence/readback status, exact blockers, identity mismatch, transport failures, recovery requirements, simulator availability, absence of physical Apply, keyboard semantics and desktop/tablet/390 px layouts. Tests remain loopback-only, deterministic and hardware-free.
 
+## Read-only hardware evidence
+
+```sh
+npm run capture:beocreate-readonly -- --dry-run
+npm run test:readonly-capture
+npm run test:hardware-evidence
+npm run test:evidence-review
+npm run test:dsp-readiness-acceptance
+```
+
+The zero-dependency command tests prove dry-run isolation, exact checksum/parameter read allowlisting, rejection of write/unknown/ambiguous frames, two-read repetition, zero write/unknown transcript counts, request/payload/timeout limits, malformed response handling, cleanup and omission of the target host. Format/review tests cover schema, deterministic sanitized parsing, integrity corruption, missing or mismatched identity, contradictory observations, private-data rejection and the prohibition on promoting repository evidence or safe-state readback into write safety.
+
+The real-browser provenance journey opens the disclosure by keyboard, checks its meaningful region label, source/schema/identity/readback/write-side text, privacy statement and continued absence of physical Apply. Existing journeys continue to cover retained blockers, identity mismatch, readback failure, recovery, desktop/tablet/mobile layout and monitored console/page errors. CI runs fixtures only and never invokes the live capture command.
+
+No physical capture was performed. These tests do not establish physical parameter semantics, tolerances, GPIO mute state, successful writes, rollback, audible behavior or restart persistence.
+
 ## Settings loading characterization
 
 The selected boundary is the central settings reader used by `Beocreate2/beo-system/beo-server.js` for system, UI and extension JSON files. The deployed server stores these as `/etc/beocreate/<extension>.json`; system and UI defaults are declared in `beo-server.js`, while extensions generally declare and merge their own defaults after receiving settings over the shared bus. The command-line `configure.js` editor reads and writes the same directory independently. Preset storage is separate: speaker presets use `Beocreate2/beo-speaker-presets` and `/etc/beocreate/beo-speaker-presets`, and Beosonic listening modes use `Beocreate2/beo-listening-modes` and `/etc/beocreate/beo-listening-modes`.

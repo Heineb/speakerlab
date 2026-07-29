@@ -174,6 +174,8 @@ It must model only the existing Beocreate SigmaTCP/DSPToolkit behaviour. GPIO mu
 
 `sigmatcp-transport-simulator.js` models the required future positional single-outstanding read contract with per-socket generations, exactly-once completion, timeout/queue cleanup and stale-response rejection. Write completion is explicitly transported-only and unacknowledged. `dsp-physical-readiness.js` owns the current-Beocreate mapping/recovery matrix used by the compiler and Deployment Preview. None of these boundaries can issue physical writes.
 
+`beocreate-readonly-evidence.js` is a separate current-Beocreate-only observation boundary. It exposes named allowlisted checksum and mapped-parameter operations, not a generic transport API. Before serialization it rejects ambiguous, unknown and non-read intent; after serialization it checks the exact command and header shape. Live capture is an explicit CLI action, never production startup or CI behavior. Captures separate raw responses from interpretations and require a separate `beocreate-evidence-review.js` conclusion. Repository-backed fixtures cannot promote physical confidence.
+
 ## Isolated local-development runtime
 
 `npm run dev` invokes `scripts/start-local-server.js`. The launcher prepares the existing linked deployment shape below `.speakerlab-local/runtime/layout`, uses `.speakerlab-local/runtime/state` instead of `/etc/beocreate`, selects an ephemeral port by default and binds only `127.0.0.1`. A caller may choose another workspace/temporary runtime root, fixed port, and deterministic connected or disconnected DSP state.
