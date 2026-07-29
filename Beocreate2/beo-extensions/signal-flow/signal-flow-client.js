@@ -10,6 +10,11 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 			requestPreview: function() {},
 			resetCrossover: function() {},
 			copyCrossover: function() {},
+			prepareForDSP: function() {},
+			applyToSimulator: function() {},
+			readSimulator: function() {},
+			compareSimulator: function() {},
+			clearSimulator: function() {},
 			route: function() {},
 			save: function() {},
 			discard: function() {},
@@ -60,8 +65,11 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 		if (data.header === 'crossoverResponse') {
 			signalFlowUIState.receiveCrossoverResponse(state, data.content);
 		}
+		if (data.header === 'deploymentResult') {
+			signalFlowUIState.receiveDeployment(state, data.content);
+		}
 		if (data.header === 'error' && data.content && data.content.error) {
-			state.message = data.content.error.message;
+			signalFlowUIState.deploymentError(state, data.content.error);
 		}
 		if (data.header === 'saveResult' || data.header === 'resetResult') {
 			if (state.saving) {
@@ -177,6 +185,83 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 			'</select><button type="button" class="button pill outline" onclick="signalFlow.copyProcessing(\'' + output.id + '\', document.getElementById(\'signal-flow-processing-copy-' + output.id + '\').value);">Copy processing</button></div></section>';
 	}
 
+	function formatDeploymentValue(value) {
+		if (value === null || value === undefined) return 'Not available';
+		if (typeof value === 'object') return JSON.stringify(value);
+		return String(value);
+	}
+
+	function renderDeployment() {
+		var deployment = state.deployment;
+		if (!deployment) {
+			$('#signal-flow-deployment-status').text('Deployment capability is loading.');
+			return;
+		}
+		var target = deployment.target;
+		var identity = deployment.identity;
+		$('#signal-flow-deployment-target').html(
+			'<h3>Target</h3><p><strong>Current Beocreate DSP</strong> · ' + escapeHTML(target.identity.name) +
+			' v' + target.identity.profileVersion + ' · ' + target.identity.sampleRateHz + ' Hz · ' +
+			target.outputCount + ' outputs</p><p>Capability status: ' + escapeHTML(identity.status) + '</p>'
+		);
+		var compilation = deployment.compilation;
+		var stale = !!(deployment.stale || state.dirty);
+		var overallStatus = stale ? 'Unknown · compilation is stale' :
+			deployment.comparison ? deployment.comparison.status :
+			compilation ? compilation.status : 'Not compiled';
+		$('#signal-flow-deployment-status')
+			.attr('class', 'signal-flow-status-' + (deployment.comparison ? deployment.comparison.status : compilation ? compilation.status : 'unknown'))
+			.text(overallStatus + ' · Prepared only · ' + (deployment.simulator.connected ? 'Simulated' : 'Simulator disconnected') + ' · Not deployed to physical DSP');
+
+		var errors = compilation ? compilation.errors : [];
+		var warnings = compilation ? compilation.warnings : [];
+		$('#signal-flow-deployment-issues').html(
+			'<h3>Compilation summary</h3>' +
+			(compilation ? '<p>Design revision ' + escapeHTML(compilation.sourceDesignRevision) + ' · ' +
+				compilation.operations.length + ' proposed operations · ' + errors.length + ' errors · ' + warnings.length + ' warnings</p>' :
+				'<p>Save the design, then compile to inspect a proposed plan.</p>') +
+			(errors.length ? '<h4>Errors</h4><ul>' + errors.map(function(item) { return '<li>' + escapeHTML(item.message) + '</li>'; }).join('') + '</ul>' : '') +
+			(warnings.length ? '<h4>Warnings</h4><ul>' + warnings.map(function(item) { return '<li>' + escapeHTML(item.message) + '</li>'; }).join('') + '</ul>' : '')
+		);
+		var comparisonByOperation = {};
+		if (deployment.comparison) deployment.comparison.items.forEach(function(item) { comparisonByOperation[item.operationIndex] = item; });
+		$('#signal-flow-deployment-outputs').html(compilation ? compilation.outputs.map(function(output) {
+			var operations = compilation.operations.filter(function(item) { return item.outputId === output.outputId; });
+			function row(label, operation) {
+				if (!operation) return '<dt>' + label + '</dt><dd>Unsupported</dd><dd>Not available</dd><dd>unsupported</dd>';
+				var comparison = comparisonByOperation[operation.index];
+				var status = comparison ? comparison.status : 'not checked';
+				return '<dt>' + label + '</dt><dd><span class="visually-hidden">Requested: </span>' + escapeHTML(formatDeploymentValue(operation.humanValue)) +
+					'</dd><dd><span class="visually-hidden">Compiled or actual: </span>' +
+					escapeHTML(comparison ? formatDeploymentValue(comparison.actual) : formatDeploymentValue(operation.expectedReadback)) +
+					'</dd><dd>' + escapeHTML(status) + '</dd>';
+			}
+			var routing = operations.find(function(item) { return item.group === 'routing'; });
+			var filters = operations.filter(function(item) { return item.group === 'filter-coefficients' && item.logicalField !== 'crossover.flat'; });
+			var gain = operations.find(function(item) { return item.group === 'gain'; });
+			var delay = operations.find(function(item) { return item.group === 'delay'; });
+			var polarity = operations.find(function(item) { return item.group === 'polarity'; });
+			return '<section class="signal-flow-deployment-output" role="group" aria-label="' + escapeHTML(output.label) + ' deployment comparison">' +
+				'<h3>' + escapeHTML(output.label) + '</h3><p>' + filters.length + ' configured crossover sections</p>' +
+				'<dl><dt>Field</dt><dd>Requested</dd><dd>Compiled or actual</dd><dd>Verification status</dd>' +
+				row('Routing', routing) + row('Gain', gain) + row('Delay', delay) + row('Polarity', polarity) + '</dl></section>';
+		}).join('') : '');
+		$('#signal-flow-deployment-operations .signal-flow-operation-list').html(compilation ? compilation.operations.map(function(item) {
+			return '<div class="signal-flow-operation"><strong>' + (item.index + 1) + '. ' + escapeHTML(item.group) + '</strong> · ' +
+				escapeHTML(item.outputId || 'system') + ' · target ' + escapeHTML(item.target) + ' · ' +
+				escapeHTML(item.encoding) + '</div>';
+		}).join('') : '<p>No compiled operations.</p>');
+
+		var canCompile = state.connected && !state.dirty && !!state.revision;
+		var canApply = canCompile && !!compilation && !stale && compilation.errors.length === 0 && deployment.simulator.connected;
+		var hasApplied = deployment.simulator.hasAppliedPlan;
+		$('#signal-flow-compile').prop('disabled', !canCompile);
+		$('#signal-flow-simulate-apply').prop('disabled', !canApply);
+		$('#signal-flow-simulate-read').prop('disabled', !hasApplied || !state.connected);
+		$('#signal-flow-simulate-compare').prop('disabled', !deployment.readback || stale);
+		$('#signal-flow-simulate-clear').prop('disabled', !hasApplied);
+	}
+
 	function render(preferredFocusId) {
 		var activeControlId = preferredFocusId || (document.activeElement && document.activeElement.id);
 		if (state.loading || !state.draft) {
@@ -243,6 +328,7 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 		$('#signal-flow-save').toggleClass('disabled', !signalFlowUIState.canSave(state)).prop('disabled', !signalFlowUIState.canSave(state));
 		$('#signal-flow-discard').toggleClass('disabled', !state.dirty).prop('disabled', !state.dirty);
 		$('#signal-flow-message').toggleClass('hidden', !state.message).text(state.message || '');
+		renderDeployment();
 		if (activeControlId) {
 			var replacement = document.getElementById(activeControlId);
 			if (replacement) replacement.focus({preventScroll: true});
@@ -337,6 +423,16 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 		render();
 	}
 
+	function deploymentRequest(header) {
+		beo.send({target: 'signal-flow', header: header, content: {revision: state.revision}});
+	}
+
+	function prepareForDSP() { deploymentRequest('prepareForDSP'); }
+	function applyToSimulator() { deploymentRequest('applyToSimulator'); }
+	function readSimulator() { deploymentRequest('readSimulator'); }
+	function compareSimulator() { deploymentRequest('compareSimulator'); }
+	function clearSimulator() { deploymentRequest('clearSimulator'); }
+
 	function save() {
 		if (!signalFlowUIState.canSave(state)) return;
 		signalFlowUIState.beginSave(state);
@@ -373,6 +469,11 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 		resetCrossover: resetCrossover,
 		copyCrossover: copyCrossover,
 		route: route,
+		prepareForDSP: prepareForDSP,
+		applyToSimulator: applyToSimulator,
+		readSimulator: readSimulator,
+		compareSimulator: compareSimulator,
+		clearSimulator: clearSimulator,
 		save: save,
 		discard: discard,
 		reset: reset,

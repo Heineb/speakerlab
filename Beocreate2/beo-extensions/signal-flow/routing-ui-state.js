@@ -22,6 +22,7 @@
 			conflict: false,
 			message: null,
 			crossoverResponses: {},
+			deployment: null,
 			runtime: {deploymentStatus: 'not-deployed', statusLabel: 'Saved design · Not deployed to DSP'}
 		};
 	}
@@ -31,6 +32,7 @@
 		state.connected = !(payload.runtime && payload.runtime.connected === false);
 		state.capabilities = clone(payload.capabilities);
 		state.runtime = clone(payload.runtime);
+		state.deployment = clone(payload.deployment);
 		state.validation = clone(payload.validation);
 		state.message = payload.loadError ? payload.loadError.message : null;
 		if (state.dirty) {
@@ -53,6 +55,7 @@
 		if (output) output[field] = value;
 		state.dirty = true;
 		state.message = null;
+		if (state.deployment && state.deployment.compilation) state.deployment.stale = true;
 		return state;
 	}
 
@@ -64,6 +67,7 @@
 		if (source) state.draft.connections.push({source: source, destination: outputID, enabled: true});
 		state.dirty = true;
 		state.message = null;
+		if (state.deployment && state.deployment.compilation) state.deployment.stale = true;
 		return state;
 	}
 
@@ -74,6 +78,7 @@
 		state.dirty = true;
 		state.message = null;
 		delete state.crossoverResponses[outputID];
+		if (state.deployment && state.deployment.compilation) state.deployment.stale = true;
 		return state;
 	}
 
@@ -92,6 +97,7 @@
 		if (output && output[section]) output[section][field] = value;
 		state.dirty = true;
 		state.message = null;
+		if (state.deployment && state.deployment.compilation) state.deployment.stale = true;
 		return state;
 	}
 
@@ -105,6 +111,25 @@
 
 	function receiveCrossoverResponse(state, payload) {
 		state.crossoverResponses[payload.outputId] = clone(payload.response);
+		return state;
+	}
+
+	function receiveDeployment(state, payload) {
+		state.deployment = clone(payload.deployment);
+		var messages = {
+			compile: 'Deployment preview compiled. Prepared only; not deployed to physical hardware.',
+			apply: 'Compiled plan applied to the simulator while muted.',
+			readback: 'Simulator readback received.',
+			compare: payload.deployment.comparison && payload.deployment.comparison.status === 'matched' ?
+				'Verified in simulator. Not deployed to physical hardware.' : 'Simulator comparison did not fully match.',
+			clear: 'Simulated applied state cleared.'
+		};
+		state.message = messages[payload.action] || state.message;
+		return state;
+	}
+
+	function deploymentError(state, error) {
+		state.message = error.message;
 		return state;
 	}
 
@@ -188,6 +213,8 @@
 		receiveCrossoverDraft: receiveCrossoverDraft,
 		receiveProcessingDraft: receiveProcessingDraft,
 		receiveCrossoverResponse: receiveCrossoverResponse,
+		receiveDeployment: receiveDeployment,
+		deploymentError: deploymentError,
 		receiveValidation: receiveValidation,
 		beginSave: beginSave,
 		saveResult: saveResult,

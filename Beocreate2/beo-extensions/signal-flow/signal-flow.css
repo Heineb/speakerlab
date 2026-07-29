@@ -155,6 +155,51 @@
 .signal-flow-processing-actions {
 	margin-top: 10px;
 }
+.signal-flow-deployment {
+	border: 1px solid rgba(0, 0, 0, 0.16);
+	border-radius: 8px;
+	padding: 14px;
+	margin: 18px 0;
+}
+.signal-flow-deployment-target,
+.signal-flow-deployment-output,
+.signal-flow-operation {
+	background: rgba(0, 0, 0, 0.04);
+	border-radius: 6px;
+	padding: 10px;
+	margin: 8px 0;
+}
+.signal-flow-deployment-output dl {
+	display: grid;
+	grid-template-columns: minmax(100px, 0.7fr) 1fr 1fr 0.8fr;
+	gap: 5px 10px;
+	margin: 8px 0 0;
+}
+.signal-flow-deployment-output dt,
+.signal-flow-deployment-output dd {
+	margin: 0;
+}
+.signal-flow-deployment-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin-top: 12px;
+}
+.signal-flow-status-matched { color: #176b35; }
+.signal-flow-status-different,
+.signal-flow-status-unsupported { color: #a21c1c; }
+.signal-flow-status-unknown { color: #785900; }
+.visually-hidden {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	padding: 0;
+	margin: -1px;
+	overflow: hidden;
+	clip: rect(0, 0, 0, 0);
+	white-space: nowrap;
+	border: 0;
+}
 .signal-flow-issues {
 	margin: 8px 0 0;
 	padding-left: 22px;
@@ -179,6 +224,16 @@
 	.signal-flow-crossover-fields,
 	.signal-flow-processing-grid {
 		grid-template-columns: 1fr;
+	}
+	.signal-flow-deployment-output dl {
+		grid-template-columns: 1fr;
+	}
+	.signal-flow-deployment-output dd {
+		margin-bottom: 7px;
+	}
+	.signal-flow-deployment-actions .button {
+		width: 100%;
+		box-sizing: border-box;
 	}
 	.signal-flow-actions .button {
 		width: 100%;

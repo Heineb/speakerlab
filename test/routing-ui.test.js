@@ -64,6 +64,28 @@ test('edits and receives copied channel-processing drafts without losing unsaved
   assert.strictEqual(state.dirty, true);
 });
 
+test('deployment results remain explicitly simulated and become stale after editing', function () {
+  const state = populated();
+  ui.receiveDeployment(state, {
+    action: 'compile',
+    deployment: {
+      compilation: {status: 'prepared', errors: [], operations: []},
+      comparison: null,
+      simulator: {connected: true, hasAppliedPlan: false, muted: true},
+      stale: false,
+      previewOnly: true,
+      physicalDeploymentAllowed: false
+    }
+  });
+  assert.strictEqual(state.deployment.previewOnly, true);
+  assert.strictEqual(state.deployment.physicalDeploymentAllowed, false);
+  assert.ok(state.message.indexOf('not deployed to physical hardware') !== -1);
+  ui.editProcessing(state, 'output-a', 'delay', 'valueMs', 1);
+  assert.strictEqual(state.deployment.stale, true);
+  ui.deploymentError(state, {message: 'Recompile first.'});
+  assert.strictEqual(state.message, 'Recompile first.');
+});
+
 test('errors disable save while warnings permit it', function () {
   const state = populated();
   ui.editOutput(state, 'output-a', 'label', 'Bass');
