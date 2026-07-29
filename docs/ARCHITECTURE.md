@@ -94,6 +94,12 @@ Crossover response and independent crossover/processing draft copy and per-outpu
 
 Saved routing is never described as active DSP state. Local connected/disconnected simulation is reported as context, while deployment status remains `not-deployed`. No SigmaTCP, DSPToolkit, live channel, preset or audible path is changed.
 
+## Safe DSP design compilation
+
+`dsp-target-capability.js` records only the repository-shipped Beocreate Universal v10 identity and metadata mappings. `dsp-design-compiler.js` derives versioned, deterministic operations from the canonical saved design; the design remains authoritative and the plan is process-local diagnostic state. Compilation fails closed on stale revision or untrusted program identity.
+
+The operation sequence is safe-state entry, routing, complete IIR banks, gain, delay, polarity, verification and deferred safe-state exit. `dsp-plan-simulator.js` applies this sequence only in local development, provides normalized readback and permits simulated unmute only after a complete match. Production-like runtime exposes preview-only unavailable identity and no application path. Details and unresolved mappings are in `CURRENT_BEOCREATE_DSP_MAPPING.md` and ADR 0010.
+
 ## Settings and configuration storage
 
 The central settings convention is one unversioned JSON file per extension at `/etc/beocreate/<extension>.json`. `getSettings` returns `null` for missing, empty or invalid files and logs parse errors. Extensions merge their own defaults. The existing read, immediate-write, delayed-write and flush mechanics are isolated in `settings-store.js` so they can be characterized without starting the server.

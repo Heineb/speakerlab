@@ -197,6 +197,8 @@ Do not update all dependencies in one pull request.
 * Verify that a deployment reached the DSP correctly.
 * Recover automatically from failed deployments.
 
+Completed foundation: evidence-backed current-Beocreate capability/identity, deterministic design compilation, preview-only UI, process-local simulated apply/readback/comparison, safety ordering and browser journeys. Physical application remains deferred until mute confirmation, SigmaTCP/readback/reconnect behavior and rollback prerequisites are characterized.
+
 ### Work
 
 * Document the current DSP deployment sequence.

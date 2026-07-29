@@ -18,6 +18,8 @@ npm run test:signal-flow-acceptance
 npm run test:crossover-acceptance
 npm run test:channel-processing-acceptance
 npm run test:accessibility-smoke
+npm run test:dsp-compilation-acceptance
+npm run test:dsp-deployment-accessibility
 npm run test:backup-restore-acceptance
 npm run test:reconnect-acceptance
 ```
@@ -250,6 +252,22 @@ The zero-dependency model tests cover neutral defaults, −60 to +6 dB boundarie
 Playwright covers mouse and keyboard edits, ordinary labelled controls, unit switching, visible equivalent values, warning/error feedback, disabled Save semantics, narrow/tablet layouts, refresh and server-restart persistence. Existing reconnect and backup/restore journeys now carry representative gain, delay and polarity values. All automated paths use isolated temporary state and the current-Beocreate simulator; they require no network, root, HiFiBerryOS service or physical hardware.
 
 These tests do not prove DSP-register mapping, applied/read-back state, output headroom, audible timing, polarity at terminals or hardware recovery.
+
+## Safe DSP Design Compilation Foundation
+
+```sh
+npm run test:dsp-compilation
+npm run test:dsp-readback
+npm run test:dsp-deployment-preview
+npm run test:dsp-compilation-acceptance
+npm run test:dsp-deployment-accessibility
+```
+
+Capability/compiler tests cover compatible/incompatible/unknown/missing identity, A–D mappings, deterministic two-way LR24 compilation, legacy coefficient order/sign and signed-5.23 golden values, routing, attenuation gain, whole-sample delay, polarity, disabled output, stale revision, protection, unsupported gain and missing mappings.
+
+Readback tests cover exact match, mismatch, unavailable/invalid or partial state, connection loss, stale comparison, process-restart clearing and mute-until-verified behavior. Service/contract tests prove named WebSocket actions, optimistic concurrency, production preview-only behavior and absence of arbitrary browser register writes.
+
+Five real-browser journeys cover full compilation, unsupported mapping, simulator application/readback/comparison, mismatch diagnostics, stale editing, reconnect/restart, desktop and 390 px layouts, keyboard actions and semantic target/status/per-output comparison groups. They use isolated temporary state and never access physical hardware.
 
 ## Settings loading characterization
 
