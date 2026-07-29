@@ -234,6 +234,18 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 					'<span>' + confidence + '</span><span>' + readback + '</span></div>';
 			}).join('')
 		);
+		var evidenceReview = readiness.evidenceReview;
+		$('#signal-flow-evidence-readiness').html(
+			'<h3>Evidence provenance</h3><dl>' +
+			'<dt>Review status</dt><dd>' + escapeHTML(evidenceReview.status) + '</dd>' +
+			'<dt>Source</dt><dd>Repository-backed; no physical capture performed</dd>' +
+			'<dt>Capture schema</dt><dd>' + escapeHTML(evidenceReview.captureFormat) + '</dd>' +
+			'<dt>Fixture</dt><dd>' + escapeHTML(evidenceReview.fixtureRevision) + '</dd>' +
+			'<dt>Program identity</dt><dd>' + escapeHTML(evidenceReview.programIdentity) + '</dd>' +
+			'<dt>Readback</dt><dd>' + escapeHTML(evidenceReview.readback) + '</dd>' +
+			'<dt>Write side</dt><dd>' + escapeHTML(evidenceReview.writeSide) + '</dd></dl>' +
+			'<p>No hostname, network address, serial number, device identifier or user-defined product name is included.</p>'
+		);
 		$('#signal-flow-recovery-readiness').html(
 			'<h3>Safety and recovery</h3><p>All future interrupted physical operations must remain muted when state is unknown.</p>' +
 			'<ul><li>Mute capability: command exists; physical state cannot be confirmed.</li>' +

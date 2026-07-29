@@ -63,4 +63,14 @@ test('matrix output is deterministic', function () {
   assert.deepStrictEqual(readinessModel.report(outputs), readinessModel.report(outputs));
 });
 
+test('repository evidence is reviewable without promoting physical readiness', function () {
+  const readiness = capability.capability().physicalReadiness;
+  assert.strictEqual(readiness.evidenceReview.status, 'accepted-repository-evidence');
+  assert.strictEqual(readiness.evidenceReview.sourceType, 'repository-backed');
+  assert.match(readiness.evidenceReview.readback, /physical values and tolerances unverified/);
+  assert.match(readiness.evidenceReview.writeSide, /not verified/);
+  assert.strictEqual(readiness.evidenceReview.privateIdentifiers, false);
+  assert.strictEqual(readiness.physicalApplyReady, false);
+});
+
 console.log('\n' + passed + ' passed, 0 failed');

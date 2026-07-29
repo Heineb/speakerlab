@@ -116,6 +116,16 @@ function report(outputs, overrides) {
 			readback: 'unavailable',
 			restorePriorState: 'unknown'
 		},
+		evidenceReview: {
+			status: 'accepted-repository-evidence',
+			sourceType: 'repository-backed',
+			captureFormat: 'org.speakerlab.beocreate-readonly-evidence/v1',
+			fixtureRevision: 'current-beocreate-readonly-repository/v1',
+			programIdentity: 'repository identity only; fresh physical identity not captured',
+			readback: 'capture contract proven; physical values and tolerances unverified',
+			writeSide: 'not observed and not verified',
+			privateIdentifiers: false
+		},
 		recovery: {
 			status: 'prerequisites-defined-not-implemented',
 			automaticRollback: false,

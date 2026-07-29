@@ -255,3 +255,21 @@ test('readiness summaries remain keyboard reachable and readable at desktop tabl
   await expect(page.getByRole('region', {name: 'Safety and recovery prerequisites'})).toBeVisible();
   await expect(page.getByRole('button', {name: /physical apply/i})).toHaveCount(0);
 });
+
+test('read-only evidence provenance remains accessible without implying physical readiness', async function ({monitoredPage: page, speakerlab}) {
+  await openApplication(page, speakerlab);
+  await completeSetup(page, 'Other Speaker');
+  await openExtension(page, 'signal-flow');
+  const summary = page.getByText('Read-only evidence summary', {exact: true});
+  await summary.focus();
+  await expect(summary).toBeFocused();
+  await summary.press('Enter');
+  const provenance = page.getByRole('region', {name: 'Read-only hardware evidence provenance'});
+  await expect(provenance).toContainText('accepted-repository-evidence');
+  await expect(provenance).toContainText('Repository-backed; no physical capture performed');
+  await expect(provenance).toContainText('physical values and tolerances unverified');
+  await expect(provenance).toContainText('Write side');
+  await expect(provenance).toContainText('not observed and not verified');
+  await expect(provenance).toContainText('No hostname, network address, serial number, device identifier or user-defined product name');
+  await expect(page.getByRole('button', {name: /physical apply/i})).toHaveCount(0);
+});
