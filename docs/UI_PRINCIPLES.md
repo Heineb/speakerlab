@@ -4,6 +4,8 @@
 
 The existing Beocreate 2 browser interface is SpeakerLab's product baseline. M0 does not redesign it. The current architecture assembles one view from extension markup, scripts and styles, with client/server messages over the `beocreate` WebSocket protocol. Beocreate Connect is a separate Electron discovery/launcher utility, not the loudspeaker-control UI itself.
 
+Local development must remain visually unmistakable without changing normal product navigation. The current local server adds a small persistent “Local development · simulated DSP” badge only when the explicit local-development switch is active. Production markup has no badge. Future simulated/disconnected states should remain subtle, readable and distinct from real connected hardware.
+
 ## Principles to preserve
 
 - Keep the default interface clear, calm, approachable and easy to navigate.

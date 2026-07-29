@@ -34,6 +34,38 @@ The ten tests cover fresh creation, expected links, deployed-relative `beocreate
 
 The local-layout command does not start the server, load extensions, access `/etc` or `/opt`, contact SigmaTCP/DSP hardware, validate HiFiBerryOS services, test application behaviour, lint the repository or package Electron.
 
+## Isolated local server and DSP simulator
+
+Start local mode with:
+
+```sh
+npm run dev
+```
+
+On a clean checkout, the launcher detects missing server modules and runs `npm ci --prefix Beocreate2/beo-system` against the existing committed lockfile. No dependency version or lockfile update is performed. The first clean run needs registry access unless npm already has the packages cached; subsequent startup itself has no external-network requirement.
+
+The default selects an ephemeral loopback port and connected simulated DSP. Options are:
+
+```sh
+npm run dev -- --runtime-root "/tmp/SpeakerLab state" --port 8080 --dsp-state connected
+npm run dev -- --dsp-state disconnected
+```
+
+The launcher logs the runtime root, isolated state directory, linked deployed layout, DSP mode, enabled extensions, disabled extensions and final HTTP URL. `SIGINT` and `SIGTERM` are forwarded to the server's existing graceful shutdown sequence.
+
+Run the focused suites:
+
+```sh
+npm run test:local-server
+npm run test:dsp-simulator
+```
+
+The local-server tests use Node built-ins plus the already installed locked server runtime dependencies. They prepare temporary directories (including spaces), validate loopback and input policy, require an explicit classification for every extension, start the existing server/UI in connected and disconnected modes, fetch the assembled UI, assert the local-mode marker and terminate cleanly. They do not access real `/etc`, `/opt`, SigmaTCP, hardware, systemd, GPIO or external networks.
+
+The DSP suite calls the same method names and callback shapes currently consumed from `dsp.js`. It covers single/multi register reads, parameter/register writes, safeload, checksum/XML present and unavailable, profile/store/reset success, deterministic errors, non-callback timeouts, malformed data, disconnect/reconnect, restart and mute state. The simulator does not validate SigmaTCP byte framing, timing accuracy, GPIO behavior or audible output.
+
+Local mode has a deliberate communication limitation: it does not load the deployed global `websocket`/`dnssd2` packages, advertise Bonjour or provide live browser WebSocket interaction. UI smoke coverage is server-side assembly and HTTP asset delivery, not a complete end-to-end control workflow.
+
 ## Settings loading characterization
 
 The selected boundary is the central settings reader used by `Beocreate2/beo-system/beo-server.js` for system, UI and extension JSON files. The deployed server stores these as `/etc/beocreate/<extension>.json`; system and UI defaults are declared in `beo-server.js`, while extensions generally declare and merge their own defaults after receiving settings over the shared bus. The command-line `configure.js` editor reads and writes the same directory independently. Preset storage is separate: speaker presets use `Beocreate2/beo-speaker-presets` and `/etc/beocreate/beo-speaker-presets`, and Beosonic listening modes use `Beocreate2/beo-listening-modes` and `/etc/beocreate/beo-listening-modes`.
@@ -225,21 +257,21 @@ Run the current repository-level verification:
 npm run verify
 ```
 
-`npm run verify` runs the 135 focused tests and then checks every repository `.js` file selected by `scripts/verify-javascript-syntax.js`. Selection is deterministic; `.git`, `node_modules`, `.speakerlab-local` and symbolic-link directories are not traversed. Each file is passed as a separate argument to the active Node executable's `--check` mode, so paths containing spaces are safe and failures identify the affected relative path.
+`npm run verify` runs the focused tests and then checks every repository `.js` file selected by `scripts/verify-javascript-syntax.js`. Selection is deterministic; `.git`, `node_modules`, `.speakerlab-local` and symbolic-link directories are not traversed. Each file is passed as a separate argument to the active Node executable's `--check` mode, so paths containing spaces are safe and failures identify the affected relative path.
 
-This is not complete application verification. It does not run legacy placeholder test commands, install nested application dependencies, start the Beocreate server, access hardware or HiFiBerryOS, communicate with SigmaTCP, package Electron, test the UI, lint, type-check or audit dependencies.
+This is not complete application verification. It starts the isolated local server and checks HTTP UI assembly, but it does not run legacy placeholder package tests, communicate over the browser WebSocket, access hardware or HiFiBerryOS, communicate with SigmaTCP, package Electron, lint, type-check or audit dependencies.
 
 ## Continuous integration
 
 `.github/workflows/verify.yml` runs on pushes to `master` and pull requests targeting `master`. Its matrix uses `ubuntu-latest` and `macos-latest`, checks out SpeakerLab, selects Node.js 24, runs `npm test`, and runs `npm run verify`.
 
-The root tooling has no dependencies, so CI does not run an installation step or use a dependency cache. The workflow does not write to `/opt`, use sudo or secrets, start services, contact physical hardware, install Beocreate Connect dependencies, package Electron or remediate npm audit findings.
+The root tooling has no dependencies. CI installs only the existing Beocreate server lockfile before running the local lifecycle test; it does not use a dependency cache. The workflow does not write to `/opt`, use sudo or secrets, start host services, contact physical hardware, install Beocreate Connect dependencies, package Electron or remediate npm audit findings.
 
 ## Commands found
 
 | Area | Install | Start | Build/package | Test/lint |
 | --- | --- | --- | --- | --- |
-| Beocreate server | `cd Beocreate2/beo-system && npm ci` | deployed: systemd unit; source attempt: `node beo-server.js` | none; HiFiBerryOS/Buildroot is external | placeholder `npm test`; no lint |
+| Beocreate server | `cd Beocreate2/beo-system && npm ci` | local: `npm run dev`; deployed: systemd unit | none; HiFiBerryOS/Buildroot is external | local lifecycle: `npm run test:local-server`; nested package test remains a placeholder |
 | Beocreate Essentials | no lockfile; historically installed as part of image | library only | none | placeholder `npm test`; no lint |
 | Beocreate Connect | `cd BeocreateConnect && npm ci` | `npm start` | `npm run pack`, `npm run dist` | no test or lint |
 | Repository layout harness | none | `node scripts/prepare-local-beocreate-layout.js <destination>` | none | `npm test` or `npm run test:local-layout` |
@@ -298,9 +330,9 @@ No command failed in this change. The checks did not install dependencies, use t
 
 ## What can run without hardware today
 
-The central settings reader/default merge, static JavaScript syntax checks, local deployed-layout tests and pure exported DSP calculations can run without hardware. The root verification command needs no dependency installation or external network. JSON fixtures can be parsed. The server dependency install can run on the audited Mac with registry access.
+The central settings/default, configuration, syntax, deployed-layout and simulated DSP suites run without hardware. The local-server suite starts the existing server and HTTP UI assembly with an audited extension subset, isolated temporary state and no HiFiBerryOS services. Once the existing locked server modules are installed, tests perform no external network access. A clean `npm run dev` may use registry access to install those locked modules automatically.
 
-No supported whole-application automated test currently runs without hardware/HiFiBerryOS because extension loading eagerly imports OS-dependent modules. The local layout fixes path reproduction only; it does not isolate extension side effects or system paths. Beocreate Connect discovery/UI logic could theoretically run locally after dependencies install, but its current clean install does not succeed on the audited Apple Silicon runtime.
+Live WebSocket UI interaction, disabled hardware-dependent extensions and Beocreate Connect are not part of this local whole-server boundary. Beocreate Connect's current clean install still fails on the audited Apple Silicon runtime.
 
 ## What currently requires hardware or its OS image
 

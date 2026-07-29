@@ -129,6 +129,18 @@ The smallest useful boundary is the existing transport operations consumed by cu
 
 It must model only the existing Beocreate SigmaTCP/DSPToolkit behaviour. GPIO mute and systemd/service operations should be separate fakes because they are OS integration, not the DSP register transport.
 
+## Isolated local-development runtime
+
+`npm run dev` invokes `scripts/start-local-server.js`. The launcher prepares the existing linked deployment shape below `.speakerlab-local/runtime/layout`, uses `.speakerlab-local/runtime/state` instead of `/etc/beocreate`, selects an ephemeral port by default and binds only `127.0.0.1`. A caller may choose another workspace/temporary runtime root, fixed port, and deterministic connected or disconnected DSP state.
+
+The explicit `SPEAKERLAB_LOCAL_DEVELOPMENT=1` environment switch is the only path that changes server startup. Without it, the production defaults remain `/etc/beocreate`, port 80, the deployed global module path, the real communication module and real hardware integrations. Local mode deletes `runAtStart`, ignores power/restart commands, suppresses System Tools activation metrics and never starts Bonjour.
+
+Local startup uses an allow-list of extensions whose module evaluation and startup handlers do not invoke the audited HiFiBerryOS/hardware dependencies. Every remaining extension is classified in `scripts/local-development-runtime.js` with the concrete reason it is disabled. UI discovery uses the same extension policy, so server and client assembly remain aligned. The list is intentionally specific to the current Beocreate product.
+
+`beocreate_essentials/dsp-simulator.js` implements the existing exported `dsp.js` surface used by enabled extensions. The server substitutes it in Node's module cache only after the explicit local switch is active and before extensions load. It models connected/disconnected state, register and safeload operations, metadata availability, install/store/reset outcomes, deterministic errors/timeouts/malformed responses, reconnect and mute/restart state. It does not introduce a generic hardware API and does not open a SigmaTCP socket or execute DSPToolkit.
+
+The deployed WebSocket implementation depends on globally supplied `websocket` and `dnssd2` packages absent from the locked server package. Local mode therefore uses `communication-local.js`, which preserves the server lifecycle/send surface but performs no discovery or socket communication. HTTP UI assembly and REST routes work; live browser/server messaging is a documented next boundary.
+
 ## Hardware- and OS-dependent modules
 
 Beyond DSP, direct dependencies include Raspberry Pi `/proc/cpuinfo`, `raspi-config`, hostname/hosts files, wireless-tools and `wpa_cli`, fixed `wlan0`/`eth0`, systemd services, ALSA tools, AudioControl, Bluetooth, serial ports, GPIO, MPD, Shairport, room-measurement helpers and various `/opt/hifiberry/bin` programs. These prevent whole-server execution on a development Mac unless extensions and filesystem/process dependencies are controlled.

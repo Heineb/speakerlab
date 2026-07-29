@@ -2,276 +2,106 @@
 
 ## Current milestone
 
-**M3 foundation — Configuration portability and recovery**
+**M0/M1 foundation — reproducible local server and current-Beocreate DSP simulation**
 
-The M0/M1 baseline remains incomplete, but the characterized settings boundaries now support the first versioned configuration backup and recovery workflow.
-
-The broader M0 and M1 acceptance criteria are not yet complete.
+SpeakerLab now has an explicit, isolated local-development startup path for the existing Beocreate server and browser UI. This is a development/test mode, not a production runtime or a HiFiBerryOS replacement.
 
 ## Branch model
 
-* `master` is the stable integration branch.
+* `master` is stable.
 * `develop` is the normal working and milestone-integration branch.
-* Routine related work may accumulate on `develop`.
-* Topic branches are reserved for high-risk, experimental or independently discardable work.
-* Pull requests are internal to `Heineb/speakerlab`.
-* SpeakerLab work is never submitted to `bang-olufsen/create`.
+* SpeakerLab work remains in `Heineb/speakerlab`; nothing is submitted upstream without explicit direction.
 
 ## Latest completed slice
-
-### Configuration Backup, Export, Import and Last-Known-Good Restore
-
-System Tools now exports a human-inspectable, versioned JSON backup containing safe central settings, user speaker presets and user listening modes. Passwords, credentials, network/device identity, DSP programs, transient data and operating-system state are explicitly excluded.
-
-Restore now provides:
-
-* strict format, version, structure, size and checksum validation
-* a create/replace/unchanged/absent/unsupported preview before confirmation
-* single-use confirmation and concurrent-restore rejection
-* pending-save flush/cancellation and ordinary-write locking
-* atomic per-file replacement, readback verification and reverse rollback
-* a verified immediate pre-restore `.speakerlab-last-known-good.json`
-* distinct success, rollback-success and critical rollback-failure UI states
-
-Existing live JSON formats, paths, delayed-save behavior outside restore, preset formats and DSP/audio behavior remain unchanged. Restored files require a product restart; they are not applied to the DSP during import.
-
-## Foundation currently available
-
-### Local deployed-layout harness
-
-The repository can create a workspace-local representation of:
-
-`/opt/beocreate`
 
 Run:
 
 ```sh
-node scripts/prepare-local-beocreate-layout.js .speakerlab-local
+npm run dev
 ```
 
-The harness:
-
-* never writes to the real `/opt`
-* requires no root permissions
-* uses relative symbolic links
-* is deterministic and idempotent
-* supports temporary directories and paths containing spaces
-
-### Development runtime
-
-Node.js 24 is the provisional runtime for:
-
-* root repository scripts
-* automated tests
-* syntax verification
-* GitHub Actions
-
-Select it with:
+The launcher creates `.speakerlab-local/runtime`, reproduces the deployed `/opt/beocreate` shape with links, stores mutable state below the runtime root, selects the current-Beocreate DSP simulator, binds the HTTP server to an ephemeral loopback port and prints the URL. Use:
 
 ```sh
-nvm install
-nvm use
+npm run dev -- --port 8080 --dsp-state connected
+npm run dev -- --dsp-state disconnected
 ```
 
-This does not establish Node.js 24 as the production runtime for:
+The launcher never writes to real `/opt` or `/etc`, requires no root privileges and never contacts SigmaTCP or physical hardware. On a clean checkout the same command installs the server's existing committed lockfile with `npm ci` before startup. It does not upgrade dependencies or regenerate the lockfile; the first run therefore requires npm registry access unless the packages are already cached.
 
-* the deployed Beocreate server
-* HiFiBerryOS
-* Beocreate Connect
-* Electron packaging
-* physical hardware
+Local mode explicitly enables the hardware-free extension subset and logs every disabled extension with its reason. The browser shell marks local simulated operation with a small persistent badge. Production startup remains the default when the explicit environment switch is absent.
 
-### Automated verification
+The local communication seam intentionally disables Bonjour and the unavailable legacy WebSocket package. Static UI assembly, extension navigation markup, REST routes and graceful HTTP shutdown run locally; live browser-to-server WebSocket interaction remains unimplemented and is not claimed.
 
-Run the complete currently available repository verification with:
+## Verification
+
+Run:
 
 ```sh
+npm run test:local-server
+npm run test:dsp-simulator
 npm run verify
 ```
 
-The current suite contains 135 focused tests covering:
+The new suites cover isolated/idempotent runtime preparation, paths containing spaces, loopback-only binding, complete extension classification, connected/disconnected startup, UI assembly, graceful shutdown, register and safeload read/write behavior, metadata present/unavailable, deterministic error/timeout/malformed outcomes, reconnect, reset and mute state.
+
+The normal suite requires no physical hardware, HiFiBerryOS, root access or external network. Loopback-binding tests may require permission from a restrictive execution sandbox.
+
+## Existing foundation
+
+The repository also has characterized and tested boundaries for:
 
 * local deployed-layout preparation
-* JavaScript syntax-verifier behaviour
-* central settings loading and default merging
-* speaker-preset discovery
-* listening-mode discovery
-* central configuration writes and flushes
-* central atomic JSON persistence and deterministic failure injection
-* backup format, export, validation, preview, restore and rollback
-* configuration API contracts and client workflow states
+* central settings reads, shallow default merging, delayed writes and shutdown flush
+* speaker-preset and listening-mode discovery
+* atomic central JSON persistence
+* versioned configuration backup, preview, restore and rollback
+* repository-wide JavaScript syntax verification
+* Ubuntu/macOS CI on provisional tooling Node.js 24
 
-Repository-wide JavaScript syntax verification currently covers 149 JavaScript files.
+No dependency, Electron, DSP program, configuration format or audible production behavior changed in this slice.
 
-GitHub Actions runs the available verification on:
+## Remaining risks and gaps
 
-* Ubuntu
-* macOS
-* Node.js 24
-
-The current suite does not constitute complete application verification.
-
-## Current architecture seams introduced for testing
-
-* `scripts/prepare-local-beocreate-layout.js`
-* `scripts/verify-javascript-syntax.js`
-* `Beocreate2/beo-system/settings-store.js` (read, merge and write mechanics)
-* `Beocreate2/beo-system/atomic-json-file.js` (central atomic JSON persistence)
-* `Beocreate2/beo-system/configuration-backup.js` (portable format and restore transaction)
-* `Beocreate2/beo-extensions/speaker-preset/preset-discovery.js`
-* `Beocreate2/beo-extensions/beosonic/preset-discovery.js`
-
-These seams are specific to the existing Beocreate platform.
-
-No generic future-hardware abstraction has been introduced.
-
-## Active work
-
-The next coherent foundation slice is:
-
-### Isolated server startup and current-Beocreate DSP transport simulation
-
-This slice should cover:
-
-* safe local startup without root, systemd or physical hardware
-* the existing SigmaTCP/DSPToolkit transport boundary
-* connected, disconnected, timeout and malformed-response fixtures
-* contract protection before runtime/dependency modernisation
-
-It must not include:
-
-* a generic future-hardware abstraction
-* audible DSP-program changes
-* dependency upgrades
-
-The slice may be implemented directly on `develop` through several focused local commits.
-
-## Known blockers and risks
-
-### Server execution
-
-The complete server cannot yet start safely in an ordinary local development environment because extensions eagerly assume:
-
-* HiFiBerryOS
-* root-level paths
-* systemd
-* GPIO
-* SigmaTCP
-* Linux-specific commands
-* physical Beocreate services
-
-### Configuration safety
-
-The following remain unprotected or untested:
-
-* cross-process writes
-* independent extension and CLI write paths
-* speaker-preset application
-* listening-mode application
-* process or power loss during the best-effort multi-file transaction
-* full-browser/API integration and deployed filesystem permissions
-* authentication and CSRF protection for the existing local-product API trust model
-
-### DSP and audio
-
-The following remain untested:
-
-* SigmaTCP framing and reconnect behaviour
-* DSP readback
-* DSP deployment verification
-* mute safety
-* rollback
-* audible filter behaviour
-* GPIO mute timing and polarity
-
-### Beocreate Connect
-
-Beocreate Connect remains blocked on the audited Apple Silicon setup by obsolete native dependencies, including `drivelist` through the old `node-gyp` toolchain.
-
-Electron packaging has not been verified.
-
-### Dependencies and security
-
-Server dependencies install on the audited development machine but report known vulnerabilities.
-
-No broad audit fix or dependency upgrade has been applied.
+* The local WebSocket communication path is not available, so live extension controls are not yet an end-to-end browser workflow.
+* The simulator protects the current `dsp.js` call surface but does not emulate SigmaTCP wire framing, DSPToolkit processes, GPIO mute polarity or systemd.
+* Hardware-dependent extensions remain disabled locally; their startup and shutdown contracts need narrower seams before inclusion.
+* Node.js 24 remains a tooling baseline, not a verified deployed Beocreate runtime.
+* Beocreate Connect installation and Electron packaging remain blocked by obsolete native dependencies on the audited Apple Silicon setup.
+* Real DSP readback, deployment rollback, power-loss behavior and audible output remain hardware-in-the-loop questions.
 
 ## M0/M1 acceptance progress
 
-### Completed
+Completed:
 
-* Workspace-local deployed directory shape.
-* Root repository test commands.
-* Portable JavaScript syntax verification.
-* Node.js 24 development-tooling selection.
-* Minimal Ubuntu/macOS continuous integration.
-* Initial settings characterization tests.
-* Speaker-preset and listening-mode discovery characterization.
-* Central immediate, delayed and shutdown-flush write characterization.
-* Atomic central settings persistence with failure injection.
-* Versioned safe configuration backup, preview, restore and rollback.
-* Independent SpeakerLab repository governance.
+* isolated local HTTP/UI startup with explicit simulated connected/disconnected DSP state
+* loopback-only dynamic/default port and isolated mutable state
+* deterministic current-Beocreate DSP wrapper simulator and focused contracts
+* extension startup audit and explicit safe subset
+* graceful local shutdown coverage
 
-### Partially complete
+Still incomplete:
 
-* Reproducible clean development setup.
-* Characterization of configuration behaviour.
-* Isolation of hardware-dependent runtime paths.
-* Verification on Node.js 24 through hosted CI.
+* live local WebSocket client/server communication
+* SigmaTCP framing/reconnect characterization against a protocol peer
+* resource-application and DSP-program deployment characterization
+* linting, formatting, type checking and coverage reporting
+* verified production and Electron runtime versions
 
-### Not yet complete
+## Recommended next task
 
-* Safe local server startup.
-* Simulated or disconnected DSP transport.
-* Resource-application characterization.
-* General application test framework or coverage reporting.
-* Linting, formatting and type checking.
-* Reproducible Beocreate Connect installation and packaging.
-* Verified production runtime versions.
+Add a zero-dependency local WebSocket transport compatible with the existing `beocreate` client/server message contract, with routing and reconnect characterization tests, without enabling additional hardware-dependent extensions.
 
-## Next planned slices
+Do not begin dependency modernization until that contract is protected.
 
-1. Isolated server startup with disconnected or simulated current Beocreate DSP transport.
-2. Controlled dependency modernisation.
-3. Safe DSP deployment and rollback.
+## Questions requiring HiFiBerryOS or physical hardware
 
-The ordering may be adjusted when repository evidence reveals a stronger dependency between these slices.
+* Which Node.js version and global modules ship in the target image?
+* Which SigmaTCP reads and deployment operations can be verified reliably?
+* What mute state and GPIO polarity are maintained through disconnect, reset and failure?
+* What survives interrupted DSP installation and power loss?
+* Which extension startup assumptions differ on current supported board revisions?
 
-## Questions requiring physical hardware
+## Deferred
 
-* Which Node.js version and global modules ship in the target HiFiBerryOS image?
-* Which SigmaTCP operations can be read back reliably?
-* What mute state is maintained during DSP or server failure?
-* What survives DSP reset, interrupted installation and power loss?
-* What is the current known-good recovery procedure?
-* Which GPIO mute polarity and timing apply to supported board revisions?
-* Which audio behaviours differ from the source-code assumptions?
-
-## Deferred work
-
-### Root README
-
-Update the root `README.md` when these facts are sufficiently verified:
-
-* development setup
-* verification commands
-* supported runtime assumptions
-* licensing and attribution
-* project maturity
-* current limitations
-* contribution workflow
-
-The README must state clearly that SpeakerLab is:
-
-* an independent project
-* developed in `Heineb/speakerlab`
-* based on the original Beocreate codebase
-* not an official Bang & Olufsen project
-
-Do not describe SpeakerLab as production-ready before the applicable Phase 1 criteria are met.
-
-### Future hardware
-
-New hardware remains outside the current roadmap.
-
-Do not introduce speculative hardware or DSP abstractions.
+The root `README.md` update remains deferred until development setup, runtime support and maturity claims are sufficiently verified. Future hardware remains outside the roadmap.
