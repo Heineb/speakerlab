@@ -95,6 +95,32 @@ The live local-server test additionally verifies:
 
 Backup export, preview, confirmed restore, validation failure, rollback success and critical rollback-failure results remain covered by the configuration API and UI-state suites because those payloads use HTTP, not WebSocket. The live WebSocket test protects the connection/activation/capabilities coordination that enables that UI workflow.
 
+## Signal-flow and channel-routing editor
+
+Run the focused suites:
+
+```sh
+npm run test:signal-flow
+npm run test:channel-routing
+npm run test:routing-contract
+npm run test:routing-ui
+npm run test:local-server
+```
+
+The model suite covers the conservative default, stereo, two-way and three-way examples, disabled outputs, custom labels, all supported roles, deterministic serialization/revisions, unknown optional properties, unsupported versions, malformed identifiers/roles, duplicate outputs, invalid connections, the one-source policy, unavailable capabilities, blocking errors and non-blocking warnings.
+
+The service suite uses temporary directories, including paths with spaces. It covers first startup without a file, atomic save and readback, repeated deterministic save, validation rejection, controlled write failure, readback corruption and rollback, malformed saved JSON, revision conflict and verified reset. Tests never touch real `/etc`, `/opt`, hardware or the network.
+
+The contract suite exercises existing WebSocket-style headers for capabilities, state, validation, save and reset; valid and invalid drafts; verified not-deployed results; save failure; revision conflict and unknown messages.
+
+The UI-state suite covers loading, four populated output cards, add/remove routing, label/role editing, validation rendering state, Save eligibility, unsaved state, success/failure, discard, disconnection, clean reconnect and conflicting-draft preservation. Markup/CSS checks require labelled ordinary form controls, live status regions, a narrow-width one-column card layout and no canvas dependency.
+
+The live local-server suite assembles the editor into the existing navigation, requests current state over a real loopback WebSocket, saves and reads back a representative route, verifies the isolated `signal-flow.json`, and confirms `not-deployed` status in connected and disconnected simulation. It also retains the existing UI, channels, backup-capability and shutdown checks.
+
+Configuration backup tests prove exact `signal-flow.json` inclusion and checksum, and reject invalid or unsupported routing during export/import validation. Restore tests prove file restoration and last-known-good capture. Existing transaction/rollback failure coverage applies to every central-settings item, including routing.
+
+The feature does not test or change real DSP activation, SigmaTCP, crossover/limiter safety, summing/headroom, acoustic results, physical output or hardware restart behavior. Browser click-through and visual viewport inspection could not be performed in the implementation session because no browser-control surface was available; the automated UI-state, assembled-page and responsive CSS contracts passed.
+
 ## Settings loading characterization
 
 The selected boundary is the central settings reader used by `Beocreate2/beo-system/beo-server.js` for system, UI and extension JSON files. The deployed server stores these as `/etc/beocreate/<extension>.json`; system and UI defaults are declared in `beo-server.js`, while extensions generally declare and merge their own defaults after receiving settings over the shared bus. The command-line `configure.js` editor reads and writes the same directory independently. Preset storage is separate: speaker presets use `Beocreate2/beo-speaker-presets` and `/etc/beocreate/beo-speaker-presets`, and Beosonic listening modes use `Beocreate2/beo-listening-modes` and `/etc/beocreate/beo-listening-modes`.
@@ -322,6 +348,7 @@ The root tooling has no dependencies. CI installs only the modern server lockfil
 | Configuration read characterization | none | extension-specific discovery seams only | none | `npm run test:configuration-read`; focused: `test:speaker-presets`, `test:listening-modes` |
 | Configuration write and atomic persistence | none | central settings writer seam only | none | `npm run test:configuration-write`; focused: `test:settings-write`, `test:atomic-settings` |
 | Configuration backup and restore | none | service, REST-handler and client-state seams | none | focused: `test:configuration-backup`, `test:configuration-restore`, `test:configuration-api`, `test:configuration-ui` |
+| Signal flow and channel routing | none | `npm run dev`, then open Signal Flow | none | focused: `test:signal-flow`, `test:channel-routing`, `test:routing-contract`, `test:routing-ui`, `test:local-server` |
 | Repository verification | none | not applicable | none | `npm run verify`; syntax only: `npm run check:syntax` |
 
 `npm install` is documented for Beocreate Connect in the upstream README; `npm ci` is the reproducibility check where a committed lockfile exists.

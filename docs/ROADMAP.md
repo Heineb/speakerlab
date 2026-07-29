@@ -302,6 +302,12 @@ Make the current signal path visible and editable without exposing raw DSP imple
 * Keep the normal view simple.
 * Place unrestricted routing in an optional advanced mode.
 
+### Version 1 delivered
+
+The first slice provides a versioned, simulator-first saved design for Left, Right and Mono inputs and the four current Beocreate outputs. It supports labels, driver roles, side/position, enable state, one input per output, structural errors, advisory warnings, optimistic revision conflicts, atomic verified persistence, backup/restore and a responsive structured editor.
+
+Version 1 deliberately does not expose gain, delay, polarity or processing blocks and does not deploy to the DSP. Those remaining items require separate safe feature slices.
+
 ---
 
 ## M8 — Crossover editor

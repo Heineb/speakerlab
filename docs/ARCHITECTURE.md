@@ -66,6 +66,20 @@ System extensions live in `Beocreate2/beo-extensions`; persistent user extension
 
 Extensions communicate through the global `beo.bus`, call explicitly exported functions through `beo.extensions`, use global helpers for settings/UI/downloads, and may register Express routes. There is no isolation or permission boundary: an extension can observe or emit any bus channel and runs with the root server's authority.
 
+## Signal-flow routing design
+
+The `signal-flow` extension adds a design-only boundary alongside, not inside, the legacy live `channels` controls. Current repository evidence defines Left, Right and Mono logical inputs and four outputs (`a` through `d`). The UI presents stable `output-a` through `output-d` identities as ordinary output cards with labels, driver roles, side/position, enabled state and one optional input.
+
+The authoritative model is `org.speakerlab.signal-flow`, version 1, stored as `signal-flow.json` below `beo.dataDirectory`. Production therefore uses `/etc/beocreate/signal-flow.json`; local development uses isolated runtime state. The default disables and unroutes all four outputs. It neither infers a loudspeaker topology nor imports the existing live `channels.json`.
+
+Pure model validation separates blocking structural/capability errors from advisory design warnings. Canonical serialization fixes property order and excludes transient UI state. A SHA-256 content revision provides optimistic concurrency. Save validates the complete draft, checks the edited revision, writes with the existing atomic JSON writer, reads back, revalidates and verifies the revision. A failed save attempts to preserve the previous valid file.
+
+Messages use the existing `signal-flow` extension target and ordinary WebSocket envelope. The server owns capabilities, format, validation, revision and persistence. The browser keeps only an in-memory draft and preserves it through disconnection or revision conflict.
+
+`signal-flow.json` is a safe central-settings file, so configuration backup, preview, last-known-good capture, restore and rollback include it without changing backup schema v1. Export and import validation reject invalid routing and unsupported routing versions before preview or restore. The service rereads the file for each state request, allowing the editor to show a restored design without applying it to the DSP.
+
+Saved routing is never described as active DSP state. Local connected/disconnected simulation is reported as context, while deployment status remains `not-deployed`. No SigmaTCP, DSPToolkit, live channel, preset or audible path is changed.
+
 ## Settings and configuration storage
 
 The central settings convention is one unversioned JSON file per extension at `/etc/beocreate/<extension>.json`. `getSettings` returns `null` for missing, empty or invalid files and logs parse errors. Extensions merge their own defaults. The existing read, immediate-write, delayed-write and flush mechanics are isolated in `settings-store.js` so they can be characterized without starting the server.

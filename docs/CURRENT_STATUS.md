@@ -2,41 +2,51 @@
 
 ## Current milestone
 
-**M2 — incremental server runtime and dependency modernisation**
+**M7 — Signal-flow and channel-routing editor**
 
 Current working branch: `develop`.
 
 ## Latest completed slice
 
-The Beocreate server-owned dependency foundation now has a reproducible npm 11.6.2 lockfile and a verified Node.js 24 isolated-development baseline.
+Signal Flow and Channel Routing Editor v1 adds a responsive design screen under Sound adjustments for the current Beocreate platform.
 
-The first controlled pure-JavaScript wave upgrades EventEmitter3 to 5.0.4, Express within major 4 to 4.22.2 and Underscore to 1.13.8. `aplay` and all platform-, discovery-, DSP- and Electron-sensitive packages remain unchanged. Production source and runtime behavior did not require a compatibility patch.
+The `org.speakerlab.signal-flow` version 1 model exposes Left, Right and Mono logical inputs and four outputs, A through D. Each output has a custom driver label, role, side/position, enabled state and at most one input. The conservative default leaves every output disabled, unrouted and unassigned.
 
-On Apple Silicon, clean `npm ci` installs 71 packages without native compilation or lifecycle install scripts. The server-owned audit changed from eight findings to zero. This is not a security claim for the complete application or HiFiBerryOS image.
+Validation blocks malformed versions, identifiers, roles, availability and connections. Warnings cover unrouted/unassigned outputs, side mismatches, repeated roles, enabled tweeters without future protection and all outputs disabled. These checks do not provide crossover, limiter or acoustic safety.
+
+The server owns capabilities, validation, persistence and SHA-256 content revisions. Saves reject stale revisions, atomically replace `signal-flow.json`, read back and revalidate before success, and attempt rollback after verification failure. The UI keeps unsaved drafts in memory through disconnection or conflict.
+
+The saved design is included in configuration backup, preview, last-known-good capture, restore and rollback. Invalid or unsupported routing is rejected before export/restore. Connected/disconnected simulation is visible, but the design is always labelled **Not deployed to DSP**.
 
 ## Verification
 
 ```sh
-npm ci --prefix Beocreate2/beo-system
+npm run test:signal-flow
+npm run test:channel-routing
+npm run test:routing-contract
+npm run test:routing-ui
+npm run test:configuration-backup
+npm run test:configuration-restore
+npm run test:local-server
 npm run verify
-npm audit --prefix Beocreate2/beo-system
-git diff --check
 ```
 
-The complete isolated suite covers UI loading, WebSocket connection/routing/initial state, extension loading, settings and atomic persistence, configuration backup/restore, connected and disconnected current-Beocreate DSP simulation, repeated startup and graceful shutdown. CI performs the clean install and suite on Node.js 24 across Ubuntu and macOS.
+Automated tests cover model examples and failures, deterministic serialization, atomic/readback persistence, rollback, revision conflicts, WebSocket messages, UI state, narrow card layout, backup/restore and real isolated-server save/reload in both DSP simulation states.
 
-## Known gaps and risks
+The local server and assembled page were verified. Interactive browser click-through and visual viewport inspection were not available in this session; responsive and workflow behavior is covered by the current state/markup/CSS contracts.
 
-* The production HiFiBerryOS `/usr/bin/node` version remains unknown; Node.js 24 is a supported development runtime, not an appliance claim.
-* Production still relies on globally supplied legacy `websocket` and `dnssd2` modules.
-* `aplay`, hardware-dependent extensions, Linux services, GPIO and networking packages remain outside this wave.
-* SigmaTCP framing, real DSP read queues/reconnect limits, GPIO mute safety, deployment rollback and audible behavior remain unverified without protocol-peer or physical-hardware work.
-* Beocreate Connect and Electron installation remain separate and blocked by obsolete native dependencies on Apple Silicon.
+## Known limitations
+
+* Saving does not alter live `channels.json`, apply a speaker preset or deploy routing to the DSP.
+* There is no crossover, limiter, gain, delay, polarity, summing, free-form graph or multi-device coordination.
+* Mono reflects the existing Beocreate mono role; v1 does not expose stereo-to-mono summing controls.
+* Other restored legacy extension settings may still require restart even though Signal Flow rereads its own restored file on the next state request.
+* Production HiFiBerryOS runtime and physical hardware behavior remain unverified.
 
 ## Next recommended slice
 
-Characterize the real SigmaTCP framing, read queue and reconnect limit with golden fixtures before changing that transport. Keep it current-Beocreate-specific and separate from server package upgrades.
+**Crossover Editor Foundation**: add a versioned filter-stage design to each routed output, remain simulator-first, and preserve the explicit distinction between saved design and deployed DSP state.
 
 ## Deferred
 
-Express 5, production-global dependency modernization, `aplay`, Electron, future hardware and the root `README.md` update remain separate tasks.
+Safe DSP routing deployment, SigmaTCP transport changes, hardware readback, Electron, future hardware and unrestricted routing remain separate work.
