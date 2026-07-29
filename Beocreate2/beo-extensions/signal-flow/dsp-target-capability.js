@@ -2,6 +2,7 @@
 
 var FORMAT = 'org.speakerlab.current-beocreate-dsp-capability';
 var VERSION = 1;
+var readinessModel = require('./dsp-physical-readiness');
 var PROGRAM = {
 	id: 'beocreate-universal',
 	name: 'Beocreate Universal',
@@ -19,8 +20,9 @@ var OUTPUTS = {
 
 function clone(value) { return JSON.parse(JSON.stringify(value)); }
 
-function capability() {
-	return {
+function capability(options) {
+	options = options || {};
+	var result = {
 		format: FORMAT,
 		version: VERSION,
 		identity: clone(PROGRAM),
@@ -44,6 +46,8 @@ function capability() {
 			dspMuteRegisterVerified: false
 		}
 	};
+	result.physicalReadiness = readinessModel.report(result.outputs, options.readinessOverrides);
+	return result;
 }
 
 function identify(candidate) {

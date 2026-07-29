@@ -3,6 +3,7 @@
 var crypto = require('crypto');
 var routingModel = require('./routing-model');
 var targetModel = require('./dsp-target-capability');
+var readinessModel = require('./dsp-physical-readiness');
 
 var FORMAT = 'org.speakerlab.dsp-compilation';
 var VERSION = 1;
@@ -177,7 +178,7 @@ function compile(configuration, options) {
 		}
 	});
 	warnings.push(issue('warning', 'NOT_PHYSICALLY_DEPLOYED', 'This plan is prepared for simulation only and is not deployed to physical hardware.', 'deployment'));
-	return {
+	var compilation = {
 		format: FORMAT,
 		version: VERSION,
 		sourceDesignRevision: options.sourceRevision || null,
@@ -197,6 +198,8 @@ function compile(configuration, options) {
 		safetyState: {required: 'muted', leaveSafeStateAllowed: false, reason: 'Complete matching readback is required.'},
 		status: errors.length ? 'unsupported' : 'prepared'
 	};
+	compilation.mappingClassifications = readinessModel.classifyOperations(compilation, capability.physicalReadiness);
+	return compilation;
 }
 
 function compare(compilation, readback, currentRevision) {
