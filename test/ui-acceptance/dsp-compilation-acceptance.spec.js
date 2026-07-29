@@ -121,14 +121,44 @@ test('deployment preview is responsive, keyboard reachable and semantically labe
   await expect(page.getByRole('region', {name: 'Current Beocreate DSP target'})).toContainText('Current Beocreate DSP');
   await expect(page.getByRole('region', {name: 'Deployment errors and warnings'})).toContainText('Compilation summary');
   await expect(page.getByRole('group', {name: 'Left woofer deployment comparison'})).toContainText('Requested');
+  const apply = page.getByRole('button', {name: 'Apply to simulator'});
+  const readback = page.getByRole('button', {name: 'Read back from simulator'});
+  const compare = page.getByRole('button', {name: 'Compare', exact: true});
+  await page.evaluate(function () {
+    var originalSend = beo.send;
+    window.__speakerlabHeldDeploymentMessages = [];
+    window.__speakerlabReleaseDeploymentMessage = function () {
+      var message = window.__speakerlabHeldDeploymentMessages.shift();
+      if (message) originalSend.call(beo, message);
+    };
+    beo.send = function (message) {
+      if (message && message.target === 'signal-flow' &&
+        (message.header === 'applyToSimulator' || message.header === 'readSimulator')) {
+        window.__speakerlabHeldDeploymentMessages.push(message);
+      } else {
+        originalSend.call(beo, message);
+      }
+    };
+  });
   await compile.press('Tab');
-  await expect(page.locator('#signal-flow-simulate-apply')).toBeFocused();
-  await page.locator('#signal-flow-simulate-apply').press('Enter');
-  await page.locator('#signal-flow-simulate-apply').press('Tab');
-  await expect(page.locator('#signal-flow-simulate-read')).toBeFocused();
-  await page.locator('#signal-flow-simulate-read').press('Enter');
-  await page.locator('#signal-flow-simulate-read').press('Tab');
-  await expect(page.locator('#signal-flow-simulate-compare')).toBeFocused();
+  await expect(apply).toBeFocused();
+  await apply.press('Enter');
+  await apply.press('Tab');
+  await expect(readback).toBeDisabled();
+  await expect(apply).toBeFocused();
+  await apply.press('Shift+Tab');
+  await expect(compile).toBeFocused();
+  await page.evaluate(function () { window.__speakerlabReleaseDeploymentMessage(); });
+  await expect(compile).toBeFocused();
+  await compile.press('Tab');
+  await apply.press('Tab');
+  await expect(readback).toBeFocused();
+  await readback.press('Enter');
+  await readback.press('Tab');
+  await expect(compare).toBeDisabled();
+  await expect(readback).toBeFocused();
+  await page.evaluate(function () { window.__speakerlabReleaseDeploymentMessage(); });
+  await expect(compare).toBeFocused();
   await expect(page.locator('#signal-flow-deployment-status')).toHaveAttribute('role', 'status');
   await expect(page.locator('#signal-flow-simulate-clear')).toBeEnabled();
   await expect(page.locator('.signal-flow-deployment-output').first()).toHaveCSS('display', 'block');

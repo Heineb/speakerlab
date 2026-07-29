@@ -41,10 +41,10 @@
 					<div class="signal-flow-operation-list"></div>
 				</details>
 				<div class="signal-flow-deployment-actions" aria-label="Deployment preview actions">
-					<button type="button" class="button pill black" id="signal-flow-compile" onkeydown="signalFlow.processingTab(event, 'signal-flow-simulate-apply');" onclick="signalFlow.prepareForDSP();">Compile for current Beocreate DSP</button>
-					<button type="button" class="button pill outline" id="signal-flow-simulate-apply" disabled onkeydown="signalFlow.processingTab(event, 'signal-flow-simulate-read');" onclick="signalFlow.applyToSimulator();">Apply to simulator</button>
-					<button type="button" class="button pill outline" id="signal-flow-simulate-read" disabled onkeydown="signalFlow.processingTab(event, 'signal-flow-simulate-compare');" onclick="signalFlow.readSimulator();">Read back from simulator</button>
-					<button type="button" class="button pill outline" id="signal-flow-simulate-compare" disabled onkeydown="signalFlow.processingTab(event, 'signal-flow-simulate-clear');" onclick="signalFlow.compareSimulator();">Compare</button>
+					<button type="button" class="button pill black" id="signal-flow-compile" onkeydown="signalFlow.deploymentTab(event, 'signal-flow-simulate-apply');" onclick="signalFlow.prepareForDSP();">Compile for current Beocreate DSP</button>
+					<button type="button" class="button pill outline" id="signal-flow-simulate-apply" disabled onkeydown="signalFlow.deploymentTab(event, 'signal-flow-simulate-read');" onclick="signalFlow.applyToSimulator();">Apply to simulator</button>
+					<button type="button" class="button pill outline" id="signal-flow-simulate-read" disabled onkeydown="signalFlow.deploymentTab(event, 'signal-flow-simulate-compare');" onclick="signalFlow.readSimulator();">Read back from simulator</button>
+					<button type="button" class="button pill outline" id="signal-flow-simulate-compare" disabled onkeydown="signalFlow.deploymentTab(event, 'signal-flow-simulate-clear');" onclick="signalFlow.compareSimulator();">Compare</button>
 					<button type="button" class="button pill outline" id="signal-flow-simulate-clear" disabled onclick="signalFlow.clearSimulator();">Clear simulated state</button>
 				</div>
 			</section>

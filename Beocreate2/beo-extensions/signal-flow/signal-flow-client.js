@@ -15,6 +15,7 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 			readSimulator: function() {},
 			compareSimulator: function() {},
 			clearSimulator: function() {},
+			deploymentTab: function() {},
 			route: function() {},
 			save: function() {},
 			discard: function() {},
@@ -35,6 +36,8 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 	};
 	var sideLabels = {unassigned: 'Unassigned', left: 'Left', right: 'Right', mono: 'Mono'};
 	var processingUnits = {};
+	var pendingDeploymentFocusId = null;
+	var pendingDeploymentFocusSourceId = null;
 
 	$(document).on('general', function(event, data) {
 		if (data.header === 'activatedExtension' && data.content.extension === 'signal-flow') {
@@ -365,7 +368,15 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 		$('#signal-flow-discard').toggleClass('disabled', !state.dirty).prop('disabled', !state.dirty);
 		$('#signal-flow-message').toggleClass('hidden', !state.message).text(state.message || '');
 		renderDeployment();
-		if (activeControlId) {
+		var pendingDeploymentFocus = pendingDeploymentFocusId && document.getElementById(pendingDeploymentFocusId);
+		if (pendingDeploymentFocusSourceId && activeControlId !== pendingDeploymentFocusSourceId) {
+			pendingDeploymentFocusId = null;
+			pendingDeploymentFocusSourceId = null;
+		} else if (pendingDeploymentFocus && !pendingDeploymentFocus.disabled) {
+			pendingDeploymentFocus.focus({preventScroll: true});
+			pendingDeploymentFocusId = null;
+			pendingDeploymentFocusSourceId = null;
+		} else if (!pendingDeploymentFocusId && activeControlId) {
 			var replacement = document.getElementById(activeControlId);
 			if (replacement) replacement.focus({preventScroll: true});
 		}
@@ -420,6 +431,18 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 			var next = document.getElementById(nextControlId);
 			if (next) next.focus({preventScroll: true});
 		}, 0);
+	}
+
+	function deploymentTab(event, nextControlId) {
+		if (event.key !== 'Tab' || event.shiftKey) return;
+		var next = document.getElementById(nextControlId);
+		if (next && next.disabled) {
+			event.preventDefault();
+			pendingDeploymentFocusId = nextControlId;
+			pendingDeploymentFocusSourceId = event.currentTarget.id;
+			return;
+		}
+		processingTab(event, nextControlId);
 	}
 
 	function copyProcessing(sourceOutputID, destinationOutputID) {
@@ -499,6 +522,7 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 		updateDelay: updateDelay,
 		changeDelayUnit: changeDelayUnit,
 		processingTab: processingTab,
+		deploymentTab: deploymentTab,
 		copyProcessing: copyProcessing,
 		resetProcessing: resetProcessing,
 		requestPreview: requestPreview,
