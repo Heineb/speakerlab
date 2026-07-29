@@ -2,106 +2,77 @@
 
 ## Current milestone
 
-**M0/M1 foundation — reproducible local server and current-Beocreate DSP simulation**
+**M0/M1 foundation — reproducible local application and current-Beocreate contract testing**
 
-SpeakerLab now has an explicit, isolated local-development startup path for the existing Beocreate server and browser UI. This is a development/test mode, not a production runtime or a HiFiBerryOS replacement.
-
-## Branch model
-
-* `master` is stable.
-* `develop` is the normal working and milestone-integration branch.
-* SpeakerLab work remains in `Heineb/speakerlab`; nothing is submitted upstream without explicit direction.
+Current working branch: `develop`.
 
 ## Latest completed slice
 
-Run:
+The isolated local server now supports the existing Beocreate browser WebSocket contract:
 
 ```sh
 npm run dev
 ```
 
-The launcher creates `.speakerlab-local/runtime`, reproduces the deployed `/opt/beocreate` shape with links, stores mutable state below the runtime root, selects the current-Beocreate DSP simulator, binds the HTTP server to an ephemeral loopback port and prints the URL. Use:
+The printed loopback URL serves the existing UI and accepts `ws://<host>/` connections with subprotocol `beocreate`. The browser and server exchange the existing `{target, header, content?}` JSON envelopes without simulator-specific client messages.
+
+Local startup remains isolated below `.speakerlab-local/runtime`, uses an audited hardware-free extension subset and selects connected or disconnected current-Beocreate DSP simulation:
 
 ```sh
-npm run dev -- --port 8080 --dsp-state connected
+npm run dev -- --dsp-state connected
 npm run dev -- --dsp-state disconnected
 ```
 
-The launcher never writes to real `/opt` or `/etc`, requires no root privileges and never contacts SigmaTCP or physical hardware. On a clean checkout the same command installs the server's existing committed lockfile with `npm ci` before startup. It does not upgrade dependencies or regenerate the lockfile; the first run therefore requires npm registry access unless the packages are already cached.
+On connection, the existing client establishes its own visible connection state. The local server emits the existing `dsp-programs/status` envelope to that connection, then ordinary client activation and state requests use the unchanged extension bus. Reconnection creates a new connection identity and re-sends current simulated DSP status.
 
-Local mode explicitly enables the hardware-free extension subset and logs every disabled extension with its reason. The browser shell marks local simulated operation with a small persistent badge. Production startup remains the default when the explicit environment switch is absent.
+System Tools backup/restore retains its established split: WebSocket connection and activation enable the UI and deliver capabilities; export, preview and confirmed restore remain HTTP operations.
 
-The local communication seam intentionally disables Bonjour and the unavailable legacy WebSocket package. Static UI assembly, extension navigation markup, REST routes and graceful HTTP shutdown run locally; live browser-to-server WebSocket interaction remains unimplemented and is not claimed.
+Bonjour is neither loaded nor required locally. Production Bonjour, WebSocket selection, binding, DSP and audio behavior remain unchanged.
 
 ## Verification
 
 Run:
 
 ```sh
+npm run test:websocket-contract
+npm run test:websocket-lifecycle
+npm run test:websocket-client
 npm run test:local-server
-npm run test:dsp-simulator
 npm run verify
 ```
 
-The new suites cover isolated/idempotent runtime preparation, paths containing spaces, loopback-only binding, complete extension classification, connected/disconnected startup, UI assembly, graceful shutdown, register and safeload read/write behavior, metadata present/unavailable, deterministic error/timeout/malformed outcomes, reconnect, reset and mute state.
+The WebSocket suites cover routing, content preservation, malformed/invalid input, handler failure, binary and 1 MiB size rejection, clean/abrupt close, reconnect, multiple clients, broadcast, targeted response, ordering, ping/pong and shutdown. The existing client script is executed in a deterministic harness for envelope construction, dispatch, connection state, malformed server data and reconnect behavior.
 
-The normal suite requires no physical hardware, HiFiBerryOS, root access or external network. Loopback-binding tests may require permission from a restrictive execution sandbox.
+The complete normal suite remains hardware-free and uses only isolated state and loopback networking.
 
-## Existing foundation
+## Foundation currently available
 
-The repository also has characterized and tested boundaries for:
-
-* local deployed-layout preparation
-* central settings reads, shallow default merging, delayed writes and shutdown flush
-* speaker-preset and listening-mode discovery
-* atomic central JSON persistence
+* local deployed `/opt/beocreate` shape without writing to real `/opt`
+* isolated HTTP/UI and WebSocket startup without root or HiFiBerryOS
+* deterministic current-Beocreate DSP wrapper simulation
+* settings, preset and listening-mode characterization
+* atomic central settings persistence
 * versioned configuration backup, preview, restore and rollback
 * repository-wide JavaScript syntax verification
 * Ubuntu/macOS CI on provisional tooling Node.js 24
 
-No dependency, Electron, DSP program, configuration format or audible production behavior changed in this slice.
+## Known gaps and risks
 
-## Remaining risks and gaps
+* The zero-dependency local WebSocket transport is intentionally limited to browser features used by Beocreate; it is not a general WebSocket implementation.
+* Production still relies on globally supplied legacy `websocket` and `dnssd2` modules.
+* The application contract has no request IDs, acknowledgements, authentication, heartbeat or automatic arbitrary state replay.
+* Unknown extension/header messages are silently ignored by the legacy event routing.
+* Hardware-dependent extensions remain disabled locally.
+* SigmaTCP framing, real DSP readback, GPIO mute safety, deployment rollback and audible behavior still require protocol-peer or hardware-in-the-loop coverage.
+* Beocreate Connect installation and Electron packaging remain blocked by obsolete native dependencies on the audited Apple Silicon environment.
+* Interactive browser automation is not yet part of the repository suite.
 
-* The local WebSocket communication path is not available, so live extension controls are not yet an end-to-end browser workflow.
-* The simulator protects the current `dsp.js` call surface but does not emulate SigmaTCP wire framing, DSPToolkit processes, GPIO mute polarity or systemd.
-* Hardware-dependent extensions remain disabled locally; their startup and shutdown contracts need narrower seams before inclusion.
-* Node.js 24 remains a tooling baseline, not a verified deployed Beocreate runtime.
-* Beocreate Connect installation and Electron packaging remain blocked by obsolete native dependencies on the audited Apple Silicon setup.
-* Real DSP readback, deployment rollback, power-loss behavior and audible output remain hardware-in-the-loop questions.
+## Next recommended slice
 
-## M0/M1 acceptance progress
+Characterize the real SigmaTCP wire framing, read queue and reconnect limit with golden protocol fixtures while continuing to use the current Beocreate-only DSP boundary.
 
-Completed:
-
-* isolated local HTTP/UI startup with explicit simulated connected/disconnected DSP state
-* loopback-only dynamic/default port and isolated mutable state
-* deterministic current-Beocreate DSP wrapper simulator and focused contracts
-* extension startup audit and explicit safe subset
-* graceful local shutdown coverage
-
-Still incomplete:
-
-* live local WebSocket client/server communication
-* SigmaTCP framing/reconnect characterization against a protocol peer
-* resource-application and DSP-program deployment characterization
-* linting, formatting, type checking and coverage reporting
-* verified production and Electron runtime versions
-
-## Recommended next task
-
-Add a zero-dependency local WebSocket transport compatible with the existing `beocreate` client/server message contract, with routing and reconnect characterization tests, without enabling additional hardware-dependent extensions.
-
-Do not begin dependency modernization until that contract is protected.
-
-## Questions requiring HiFiBerryOS or physical hardware
-
-* Which Node.js version and global modules ship in the target image?
-* Which SigmaTCP reads and deployment operations can be verified reliably?
-* What mute state and GPIO polarity are maintained through disconnect, reset and failure?
-* What survives interrupted DSP installation and power loss?
-* Which extension startup assumptions differ on current supported board revisions?
+Do not begin broad dependency modernization until the remaining production transport paths are protected.
 
 ## Deferred
 
-The root `README.md` update remains deferred until development setup, runtime support and maturity claims are sufficiently verified. Future hardware remains outside the roadmap.
+The root `README.md` update remains deferred until development setup, supported runtime claims and project maturity are sufficiently verified. Future hardware remains outside the roadmap.

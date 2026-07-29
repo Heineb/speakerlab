@@ -64,7 +64,36 @@ The local-server tests use Node built-ins plus the already installed locked serv
 
 The DSP suite calls the same method names and callback shapes currently consumed from `dsp.js`. It covers single/multi register reads, parameter/register writes, safeload, checksum/XML present and unavailable, profile/store/reset success, deterministic errors, non-callback timeouts, malformed data, disconnect/reconnect, restart and mute state. The simulator does not validate SigmaTCP byte framing, timing accuracy, GPIO behavior or audible output.
 
-Local mode has a deliberate communication limitation: it does not load the deployed global `websocket`/`dnssd2` packages, advertise Bonjour or provide live browser WebSocket interaction. UI smoke coverage is server-side assembly and HTTP asset delivery, not a complete end-to-end control workflow.
+Local mode does not load the deployed global `websocket`/`dnssd2` packages or advertise Bonjour. It now provides the existing browser WebSocket application contract through a zero-dependency loopback transport.
+
+## WebSocket contract and lifecycle
+
+Run:
+
+```sh
+npm run test:websocket-contract
+npm run test:websocket-lifecycle
+npm run test:websocket-client
+npm run test:local-server
+```
+
+The contract is the root URL on the same HTTP host, WebSocket subprotocol `beocreate`, and JSON `{target, header, content?}` envelopes. There is no request correlation or application acknowledgement. Missing/wrong envelope fields are transported unchanged and are later ignored by the server router when they cannot form an event. Unknown extension/header pairs have no listener and produce no response.
+
+The contract tests use a small raw RFC 6455 test client built from Node's `net` and `crypto` modules. They cover handshake, valid client/server envelopes, content preservation, malformed JSON, repeated-invalid log limiting, synchronous handler failure, unsupported binary data and the 1 MiB assembled-message limit.
+
+Lifecycle tests cover clean and abrupt close, repeated reconnect with fresh IDs, simultaneous clients, broadcast, connection-targeted messages, ordered delivery, protocol ping/pong and shutdown with active clients. The server has no application heartbeat, request timeout or pending-request replay.
+
+The client test executes the existing `beo-comms.js` in a built-in `vm` harness with deterministic DOM, jQuery-event and WebSocket fakes. It verifies URL/protocol selection, envelope construction, extension dispatch, visible connection state, malformed-server-message recovery and one replacement socket after connection loss. No browser framework was added.
+
+The live local-server test additionally verifies:
+
+* connected and disconnected `dsp-programs/status` state on initial connection and reconnect;
+* `channels/getSettings` routing and `channels/channelSettings` response;
+* `general/activatedExtension` routing and System Tools backup capability response;
+* continued availability after malformed JSON and unknown extension/header messages; and
+* socket closure during graceful local shutdown.
+
+Backup export, preview, confirmed restore, validation failure, rollback success and critical rollback-failure results remain covered by the configuration API and UI-state suites because those payloads use HTTP, not WebSocket. The live WebSocket test protects the connection/activation/capabilities coordination that enables that UI workflow.
 
 ## Settings loading characterization
 

@@ -26,7 +26,7 @@ The launcher:
 
 The simulator implements the current exported `beocreate_essentials/dsp.js` call surface. Local startup substitutes that module before extension loading. No extension-facing interface or production import path changes. The model is limited to current Beocreate register/safeload/metadata/profile/reset behavior and deterministic failure states.
 
-The locked server manifest does not include the deployed global `websocket` and `dnssd2` modules. Local mode uses a lifecycle-compatible no-discovery communication seam, so HTTP UI assembly and REST endpoints start without importing those modules. Live WebSocket behavior remains a separate characterized task.
+The locked server manifest does not include the deployed global `websocket` and `dnssd2` modules. Local mode uses a no-discovery communication seam and a zero-dependency WebSocket implementation limited to the existing Beocreate browser contract. It attaches to the isolated HTTP server, accepts the same root-path `beocreate` subprotocol, preserves the existing message envelope/routing surface and closes active sockets during shutdown.
 
 Production defaults and behavior remain active when the explicit switch is absent. Local mode never invokes `runAtStart`, power control, Bonjour, System Tools activation metrics, SigmaTCP, DSPToolkit, GPIO or systemd.
 
@@ -34,7 +34,7 @@ Production defaults and behavior remain active when the explicit switch is absen
 
 Developers can start the existing server and assembled UI without root, physical hardware, real `/opt` or real `/etc`. Tests can exercise deterministic current-wrapper outcomes and graceful server lifecycle on macOS and Linux.
 
-The safe extension subset is smaller than the deployed product. Local UI interaction is currently limited by the absent WebSocket transport. The simulator validates application-level wrapper contracts, not SigmaTCP framing, real-time timing, GPIO mute polarity, deployment durability or audible behavior. Those require protocol-level or hardware-in-the-loop tests.
+The safe extension subset is smaller than the deployed product. The local WebSocket implementation is not intended as a new public protocol or general-purpose server; production retains its existing dependency and transport. The simulator validates application-level wrapper contracts, not SigmaTCP framing, real-time timing, GPIO mute polarity, deployment durability or audible behavior. Those require protocol-level or hardware-in-the-loop tests.
 
 Adding an extension to local startup requires evidence that its module evaluation, startup, activation and shutdown paths cannot access host services or hardware.
 

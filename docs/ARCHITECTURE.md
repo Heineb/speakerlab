@@ -139,7 +139,35 @@ Local startup uses an allow-list of extensions whose module evaluation and start
 
 `beocreate_essentials/dsp-simulator.js` implements the existing exported `dsp.js` surface used by enabled extensions. The server substitutes it in Node's module cache only after the explicit local switch is active and before extensions load. It models connected/disconnected state, register and safeload operations, metadata availability, install/store/reset outcomes, deterministic errors/timeouts/malformed responses, reconnect and mute/restart state. It does not introduce a generic hardware API and does not open a SigmaTCP socket or execute DSPToolkit.
 
-The deployed WebSocket implementation depends on globally supplied `websocket` and `dnssd2` packages absent from the locked server package. Local mode therefore uses `communication-local.js`, which preserves the server lifecycle/send surface but performs no discovery or socket communication. HTTP UI assembly and REST routes work; live browser/server messaging is a documented next boundary.
+The deployed WebSocket implementation depends on globally supplied `websocket` and `dnssd2` packages absent from the locked server package. Local mode uses `communication-local.js` plus the zero-dependency `websocket-server.js`. It attaches to the existing HTTP server's upgrade event, requires WebSocket version 13 and subprotocol `beocreate`, accepts the root path used by the browser and deliberately performs no Bonjour discovery.
+
+### Existing Beocreate WebSocket contract
+
+The browser derives the socket host from `window.location.host`, selects `ws` or `wss` from the page protocol and connects without an explicit path:
+
+`ws://<same-host>/` with subprotocol `beocreate`
+
+Both directions use UTF-8 JSON objects:
+
+```json
+{
+  "target": "extension-identifier",
+  "header": "message-name",
+  "content": {}
+}
+```
+
+`content` is optional. There is no protocol version, request ID, response correlation, acknowledgement or standard error envelope. Client messages become an event on the bus channel named by `target`; `header` and optional `content` are preserved. Unknown targets or headers normally have no listener and are ignored. Extension/server messages are broadcasts unless `communication.send` receives a connection ID or one of the legacy protocol names as its restriction.
+
+On a socket open the server assigns an increasing process-local connection ID and broadcasts `general/connected` internally. The production contract sends no universal initial-state bundle: the client emits its own `general/connection` DOM event on open, then requests setup or extension state as screens activate. In local mode only, the server sends the newly connected client the already established `dsp-programs/status` envelope with simulated connected/responding state. A `general/activatedExtension` client message continues to trigger existing extension state providers; for System Tools this returns `configurationBackupCapabilities`.
+
+The browser reconnects immediately after losing a previously open socket. Failed initial attempts retry after five seconds, up to five times. Arbitrary in-flight requests are not retained. A reconnect gets a new server connection ID and providers are queried again through the same activation/state messages. No application heartbeat or idle timeout exists; WebSocket ping frames receive the protocol-required pong without adding application state.
+
+The local transport preserves message ordering per socket, supports fragmented text, and limits one assembled message to 1 MiB. Malformed JSON and synchronous handler exceptions are logged without stopping the server; repeated invalid-message logging is capped per connection. Binary messages close with 1003, oversized messages with 1009, and invalid protocol data with an appropriate WebSocket close code. The browser client now catches malformed server JSON and continues processing later messages.
+
+During local shutdown active sockets receive close code 1001 before the isolated server exits. Production continues using the original communication module and shutdown path.
+
+Configuration backup/restore intentionally remains split across transports. WebSocket connection state controls UI availability and activation delivers capabilities; JSON download, upload/preview and confirmed restore use the existing constrained HTTP routes. No backup payload is moved into WebSocket messages.
 
 ## Hardware- and OS-dependent modules
 
