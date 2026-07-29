@@ -31,6 +31,9 @@ jobs:
         with:
           node-version: 24
 
+      - name: Install locked Beocreate server dependencies
+        run: npm ci --prefix Beocreate2/beo-system
+
       - name: Run focused tests
         run: npm test
 

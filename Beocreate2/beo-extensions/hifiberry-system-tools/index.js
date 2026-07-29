@@ -17,7 +17,7 @@ SOFTWARE.*/
 
 // HIFIBERRY DEBUG INFORMATION COLLECTOR FOR BEOCREATE
 
-const fetch = require("node-fetch");
+const fetch = beo.localDevelopment ? global.fetch : require("node-fetch");
 var exec = require("child_process").exec;
 var fs = require("fs");
 var configurationBackup = require("../../beo-system/configuration-backup");
@@ -83,7 +83,7 @@ beo.bus.on('general', function(event) {
 			beo.sendToUI("hifiberry-system-tools", {header: "configurationBackupCapabilities", content: configurationService.capabilities()});
 		}
 		
-		if (event.content.extension != previousExtension) {
+		if (!beo.localDevelopment && event.content.extension != previousExtension) {
 			fetch("http://127.0.1.1:3141/api/activate/beo_extension_"+event.content.extension, {method: "post"});
 			if (previousExtension) fetch("http://127.0.1.1:3141/api/deactivate/beo_extension_"+previousExtension, {method: "post"});
 			previousExtension = event.content.extension;

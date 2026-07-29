@@ -2,8 +2,11 @@
   "name": "speakerlab-workspace",
   "private": true,
   "scripts": {
-    "test": "npm run test:local-layout && npm run test:syntax-verification && npm run test:settings-store && npm run test:configuration-read && npm run test:configuration-write && npm run test:configuration-backup && npm run test:configuration-restore && npm run test:configuration-api && npm run test:configuration-ui",
+    "dev": "node scripts/start-local-server.js",
+    "test": "npm run test:local-layout && npm run test:local-server && npm run test:dsp-simulator && npm run test:syntax-verification && npm run test:settings-store && npm run test:configuration-read && npm run test:configuration-write && npm run test:configuration-backup && npm run test:configuration-restore && npm run test:configuration-api && npm run test:configuration-ui",
     "test:local-layout": "node test/local-beocreate-layout.test.js",
+    "test:local-server": "node test/local-server.test.js",
+    "test:dsp-simulator": "node test/dsp-simulator.test.js",
     "test:syntax-verification": "node test/verify-javascript-syntax.test.js",
     "test:settings-store": "node test/settings-store.test.js",
     "test:speaker-presets": "node test/speaker-preset-discovery.test.js",
