@@ -131,10 +131,12 @@ async function createServerController(testInfo) {
     },
     dispose: async function () {
       await stop();
-      await testInfo.attach('speakerlab-local-server.log', {
-        body: Buffer.from(logs.join('')),
-        contentType: 'text/plain'
-      });
+      if (testInfo.status !== testInfo.expectedStatus) {
+        await testInfo.attach('speakerlab-local-server.log', {
+          body: Buffer.from(logs.join('')),
+          contentType: 'text/plain'
+        });
+      }
       fs.rmSync(runtimeRoot, {recursive: true, force: true});
     }
   };
@@ -188,6 +190,37 @@ const test = base.test.extend({
       }
     });
     await use(page);
+    if (testInfo.status !== testInfo.expectedStatus) {
+      let ariaSnapshot = 'Deployment Preview was unavailable.';
+      try {
+        ariaSnapshot = await page.locator('#signal-flow .signal-flow-deployment').ariaSnapshot();
+      } catch (error) {
+        ariaSnapshot = 'Could not capture Deployment Preview accessibility tree: ' + error.message;
+      }
+      const diagnostics = await page.evaluate(function () {
+        var active = document.activeElement;
+        return {
+          viewport: {width: window.innerWidth, height: window.innerHeight},
+          documentScrollWidth: document.documentElement.scrollWidth,
+          bodyScrollWidth: document.body.scrollWidth,
+          focusedElement: active ? {
+            tagName: active.tagName,
+            id: active.id || null,
+            role: active.getAttribute('role'),
+            accessibleText: active.innerText || active.getAttribute('aria-label') || null,
+            disabled: Boolean(active.disabled)
+          } : null
+        };
+      });
+      await testInfo.attach('deployment-preview-diagnostics.json', {
+        body: Buffer.from(JSON.stringify(diagnostics, null, 2)),
+        contentType: 'application/json'
+      });
+      await testInfo.attach('deployment-preview-accessibility.yml', {
+        body: Buffer.from(ariaSnapshot),
+        contentType: 'text/yaml'
+      });
+    }
     if (failures.length) {
       await testInfo.attach('browser-failures.txt', {
         body: Buffer.from(failures.join('\n\n')),
