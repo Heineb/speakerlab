@@ -73,10 +73,10 @@ test('crossover editing, preview, copying and persistence work at narrow width',
   await expect(tweeter.locator('.signal-flow-response svg')).toBeVisible();
 
   await woofer.locator('#signal-flow-copy-output-a').selectOption('output-c');
-  await woofer.getByRole('button', {name: 'Copy'}).click();
+  await woofer.getByRole('button', {name: 'Copy', exact: true}).click();
   await expect(page.locator('#signal-flow-lowPass-output-c-frequency')).toHaveValue('2000');
   await tweeter.locator('#signal-flow-copy-output-b').selectOption('output-d');
-  await tweeter.getByRole('button', {name: 'Copy'}).click();
+  await tweeter.getByRole('button', {name: 'Copy', exact: true}).click();
   await expect(page.locator('#signal-flow-highPass-output-d-frequency')).toHaveValue('2000');
 
   await page.locator('#signal-flow-save').click();

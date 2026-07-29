@@ -60,6 +60,11 @@ jobs:
           npm run test:routing-contract
           npm run test:routing-ui
           npm run test:crossover-ui
+          npm run test:channel-processing
+          npm run test:gain-delay-polarity-ui
+
+      - name: Test channel gain, delay and polarity in Chromium
+        run: npm run test:channel-processing-acceptance
 
       - name: Test configuration backup and restore
         run: |

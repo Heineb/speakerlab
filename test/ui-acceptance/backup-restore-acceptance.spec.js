@@ -28,6 +28,11 @@ test('configuration backup downloads, previews and restores through the real UI'
   await completeSetup(page, 'Other Speaker');
   await openExtension(page, 'signal-flow');
   await configureTwoWayStereo(page);
+  await page.locator('#signal-flow-gain-output-a').fill('-2.5');
+  await page.locator('#signal-flow-gain-output-a').blur();
+  await page.locator('#signal-flow-delay-output-a').fill('0.42');
+  await page.locator('#signal-flow-delay-output-a').blur();
+  await page.locator('#signal-flow-polarity-output-a').selectOption('inverted');
   await page.locator('#signal-flow-save').click();
   await expect(page.locator('#signal-flow-message')).toContainText('saved');
   await openExtension(page, 'hifiberry-system-tools');
@@ -37,6 +42,11 @@ test('configuration backup downloads, previews and restores through the real UI'
   await openExtension(page, 'signal-flow');
   await page.locator('#signal-flow-label-output-a').fill('Changed after backup');
   await page.locator('#signal-flow-label-output-a').blur();
+  await page.locator('#signal-flow-gain-output-a').fill('-6');
+  await page.locator('#signal-flow-gain-output-a').blur();
+  await page.locator('#signal-flow-delay-output-a').fill('1.25');
+  await page.locator('#signal-flow-delay-output-a').blur();
+  await page.locator('#signal-flow-polarity-output-a').selectOption('normal');
   await page.locator('#signal-flow-save').click();
   await expect(page.locator('#signal-flow-message')).toContainText('saved');
   await openExtension(page, 'hifiberry-system-tools');
@@ -50,6 +60,9 @@ test('configuration backup downloads, previews and restores through the real UI'
   await page.reload({waitUntil: 'domcontentloaded'});
   await openExtension(page, 'signal-flow');
   await expect(page.locator('#signal-flow-label-output-a')).toHaveValue('Left woofer');
+  await expect(page.locator('#signal-flow-gain-output-a')).toHaveValue('-2.5');
+  await expect(page.locator('#signal-flow-delay-output-a')).toHaveValue('0.42');
+  await expect(page.locator('#signal-flow-polarity-output-a')).toHaveValue('inverted');
 });
 
 test('restore failure and rollback status remain visible and retryable', async function ({monitoredPage: page, speakerlab}) {
