@@ -159,11 +159,25 @@ test('starts existing UI with connected simulator and shuts down cleanly', async
       return message.target === 'signal-flow' && message.header === 'state';
     });
     assert.strictEqual(routingState.content.capabilities.outputs.length, 4);
+    assert.strictEqual(routingState.content.capabilities.crossover.sampleRateHz, 48000);
     assert.strictEqual(routingState.content.runtime.deploymentStatus, 'not-deployed');
     assert.strictEqual(routingState.content.runtime.simulated, true);
     const routingDraft = routingModel.clone(routingState.content.configuration);
     Object.assign(routingDraft.outputs[0], {enabled: true, role: 'woofer', side: 'left', label: 'Left bass'});
     routingDraft.connections.push({source: 'left', destination: 'output-a', enabled: true});
+    Object.assign(routingDraft.crossover.outputs[0].lowPass, {
+      enabled: true, family: 'linkwitz-riley', slopeDbPerOctave: 24, cutoffHz: 1800
+    });
+    socket.sendJSON({
+      target: 'signal-flow',
+      header: 'calculateCrossoverResponse',
+      content: {configuration: routingDraft, outputId: 'output-a'}
+    });
+    const responsePreview = await waitForMessage(socket, function (message) {
+      return message.target === 'signal-flow' && message.header === 'crossoverResponse';
+    });
+    assert.strictEqual(responsePreview.content.outputId, 'output-a');
+    assert.strictEqual(responsePreview.content.response.lowPassCutoffHz, 1800);
     socket.sendJSON({
       target: 'signal-flow',
       header: 'save',
@@ -177,6 +191,7 @@ test('starts existing UI with connected simulator and shuts down cleanly', async
     assert.strictEqual(routingSaved.content.deploymentStatus, 'not-deployed');
     const routingPath = path.join(server.root, 'state', 'signal-flow.json');
     assert.strictEqual(JSON.parse(fs.readFileSync(routingPath)).outputs[0].label, 'Left bass');
+    assert.strictEqual(JSON.parse(fs.readFileSync(routingPath)).crossover.outputs[0].lowPass.cutoffHz, 1800);
     socket.sendJSON({target: 'signal-flow', header: 'getState'});
     const reloadedRouting = await waitForMessage(socket, function (message) {
       return message.target === 'signal-flow' && message.header === 'state';

@@ -80,10 +80,14 @@ test('restores and rolls back signal-flow settings as central configuration', fu
   const original = signalFlowModel.defaultConfiguration();
   Object.assign(original.outputs[0], {label: 'Original', role: 'woofer', side: 'left', enabled: true});
   original.connections.push({source: 'left', destination: 'output-a', enabled: true});
+  Object.assign(original.crossover.outputs[0].lowPass, {
+    enabled: true, family: 'linkwitz-riley', slopeDbPerOctave: 24, cutoffHz: 1800
+  });
   writeJSON(routingPath, original);
   const backup = current.service.collectBackup();
   const changed = JSON.parse(JSON.stringify(original));
   changed.outputs[0].label = 'Changed';
+  changed.crossover.outputs[0].lowPass.cutoffHz = 2400;
   writeJSON(routingPath, changed);
   const result = previewAndRestore(current, backup);
   assert.strictEqual(result.status, 'success');
@@ -91,6 +95,7 @@ test('restores and rolls back signal-flow settings as central configuration', fu
   const snapshot = current.service.parseAndValidate(fs.readFileSync(path.join(current.dataDirectory, '.speakerlab-last-known-good.json'))).backup;
   const previous = snapshot.configuration.settings.items.find(function (item) { return item.name === 'signal-flow.json'; });
   assert.strictEqual(previous.data.outputs[0].label, 'Changed');
+  assert.strictEqual(previous.data.crossover.outputs[0].lowPass.cutoffHz, 2400);
 });
 
 test('creates and verifies a separate immediate pre-restore last-known-good snapshot', function () {

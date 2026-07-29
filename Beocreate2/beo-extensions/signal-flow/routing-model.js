@@ -1,6 +1,7 @@
 'use strict';
 
 var crypto = require('crypto');
+var crossoverModel = require('./crossover-model');
 
 var FORMAT = 'org.speakerlab.signal-flow';
 var VERSION = 1;
@@ -33,7 +34,8 @@ function capabilities(available) {
 				name: 'Output ' + CHANNEL_IDS[index].toUpperCase(),
 				available: isAvailable
 			};
-		})
+		}),
+		crossover: crossoverModel.capabilities(crossoverModel.DEFAULT_SAMPLE_RATE_HZ)
 	};
 }
 
@@ -51,11 +53,13 @@ function defaultConfiguration() {
 				enabled: false
 			};
 		}),
-		connections: []
+		connections: [],
+		crossover: crossoverModel.defaultConfiguration(OUTPUT_IDS, crossoverModel.DEFAULT_SAMPLE_RATE_HZ)
 	};
 }
 
 function normalize(configuration) {
+	var crossover = crossoverModel.normalize(configuration.crossover, OUTPUT_IDS, crossoverModel.DEFAULT_SAMPLE_RATE_HZ);
 	return {
 		format: configuration.format,
 		version: configuration.version,
@@ -75,7 +79,8 @@ function normalize(configuration) {
 				destination: connection.destination,
 				enabled: connection.enabled
 			};
-		})
+		}),
+		crossover: crossover
 	};
 }
 
@@ -203,15 +208,18 @@ function validate(configuration, availableCapabilities) {
 			if (connection && connection.enabled && output.side === 'right' && connection.source === 'left') {
 				warnings.push(issue('warning', 'SIDE_MISMATCH', output.label + ' is labelled Right but uses the Left input.', output.id));
 			}
-			if (output.role === 'tweeter' && output.enabled === true) {
-				warnings.push(issue('warning', 'TWEETER_UNPROTECTED', output.label + ' has no crossover or limiter protection in routing v1.', output.id));
-			}
 		});
 		if (enabledCount === 0) warnings.push(issue('warning', 'ALL_OUTPUTS_DISABLED', 'All outputs are disabled.'));
 		Object.keys(roleCounts).forEach(function(role) {
 			if (roleCounts[role] > 1) warnings.push(issue('warning', 'DUPLICATE_ROLE', 'Multiple outputs use the ' + role.replace('-', ' ') + ' role.', role));
 		});
 	}
+
+	var crossoverConfiguration = configuration.crossover || crossoverModel.defaultConfiguration(OUTPUT_IDS, crossoverModel.DEFAULT_SAMPLE_RATE_HZ);
+	var crossoverValidation = crossoverModel.validate(crossoverConfiguration, OUTPUT_IDS, Array.isArray(configuration.outputs) ? configuration.outputs : []);
+	errors = errors.concat(crossoverValidation.errors);
+	warnings = warnings.concat(crossoverValidation.warnings);
+	warnings.push(issue('warning', 'DESIGN_NOT_DEPLOYED', 'Saved crossover settings are a simulated design and are not deployed to hardware.', 'crossover'));
 
 	return {valid: errors.length === 0, errors: errors, warnings: warnings};
 }
@@ -221,6 +229,8 @@ module.exports = {
 	VERSION: VERSION,
 	ROLES: ROLES,
 	SIDES: SIDES,
+	OUTPUT_IDS: OUTPUT_IDS,
+	crossoverModel: crossoverModel,
 	capabilities: capabilities,
 	defaultConfiguration: defaultConfiguration,
 	normalize: normalize,

@@ -46,9 +46,12 @@ jobs:
       - name: Test signal-flow and routing contracts
         run: |
           npm run test:signal-flow
+          npm run test:crossover-model
+          npm run test:crossover-response
           npm run test:channel-routing
           npm run test:routing-contract
           npm run test:routing-ui
+          npm run test:crossover-ui
 
       - name: Test configuration backup and restore
         run: |

@@ -53,6 +53,72 @@
 	width: 100%;
 	min-height: 38px;
 }
+.signal-flow-crossover {
+	border-top: 1px solid rgba(0, 0, 0, 0.12);
+	margin-top: 14px;
+	padding-top: 8px;
+}
+.signal-flow-crossover-grid {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 10px;
+}
+.signal-flow-crossover-filter {
+	border: 1px solid rgba(0, 0, 0, 0.12);
+	border-radius: 8px;
+	padding: 10px;
+}
+.signal-flow-crossover-fields {
+	display: grid;
+	grid-template-columns: 1fr 1fr 1fr;
+	gap: 8px;
+	margin-top: 8px;
+}
+.signal-flow-frequency {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+.signal-flow-response {
+	margin-top: 12px;
+	padding: 10px;
+	border-radius: 8px;
+	background: rgba(0, 0, 0, 0.04);
+}
+.signal-flow-response svg {
+	display: block;
+	width: 100%;
+	max-height: 210px;
+}
+.signal-flow-axis {
+	stroke: rgba(0, 0, 0, 0.45);
+	stroke-width: 1;
+}
+.signal-flow-response-line {
+	fill: none;
+	stroke: #2470a0;
+	stroke-width: 2.5;
+}
+.signal-flow-cutoff {
+	stroke: #a05b24;
+	stroke-width: 1;
+	stroke-dasharray: 4 3;
+}
+.signal-flow-response text {
+	font-size: 11px;
+	fill: currentColor;
+}
+.signal-flow-response-summary {
+	font-size: 0.86em;
+	margin-bottom: 0;
+}
+.signal-flow-crossover-actions {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px;
+	margin-top: 10px;
+}
 .signal-flow-issues {
 	margin: 8px 0 0;
 	padding-left: 22px;
@@ -71,6 +137,10 @@
 }
 @media (max-width: 620px) {
 	.signal-flow-output-grid {
+		grid-template-columns: 1fr;
+	}
+	.signal-flow-crossover-grid,
+	.signal-flow-crossover-fields {
 		grid-template-columns: 1fr;
 	}
 	.signal-flow-actions .button {

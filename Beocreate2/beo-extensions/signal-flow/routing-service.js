@@ -22,6 +22,27 @@ function createService(options) {
 	var settingsCoordinator = options.settingsCoordinator || null;
 	var target = path.join(options.dataDirectory, SETTINGS_FILE);
 
+	function validateDesign(configuration) {
+		var validation = model.validate(configuration);
+		if (!validation.valid) return validation;
+		try {
+			configuration.crossover.outputs.forEach(function(output) {
+				model.crossoverModel.designFilter('high-pass', output.highPass, configuration.crossover.sampleRateHz);
+				model.crossoverModel.designFilter('low-pass', output.lowPass, configuration.crossover.sampleRateHz);
+				model.crossoverModel.preview(output, configuration.crossover.sampleRateHz, {points: 9});
+			});
+		} catch (error) {
+			validation.valid = false;
+			validation.errors.push({
+				level: 'error',
+				code: 'INVALID_COEFFICIENT_CALCULATION',
+				message: 'Crossover coefficients or response could not be calculated: ' + error.message,
+				path: 'crossover'
+			});
+		}
+		return validation;
+	}
+
 	function parseSaved() {
 		if (!fileSystem.existsSync(target)) return {exists: false, configuration: null};
 		var raw = fileSystem.readFileSync(target, 'utf8');
@@ -31,7 +52,7 @@ function createService(options) {
 		} catch (error) {
 			throw routingError('MALFORMED_SAVED_CONFIGURATION', 'The saved routing configuration is malformed JSON.');
 		}
-		var validation = model.validate(configuration);
+		var validation = validateDesign(configuration);
 		if (!validation.valid) {
 			throw routingError('INVALID_SAVED_CONFIGURATION', 'The saved routing configuration is not valid.', validation);
 		}
@@ -53,7 +74,7 @@ function createService(options) {
 			configuration: configuration,
 			revision: saved.configuration ? model.revision(configuration) : null,
 			hasSavedConfiguration: !!saved.configuration,
-			validation: model.validate(configuration),
+			validation: validateDesign(configuration),
 			loadError: loadError,
 			runtime: {
 				simulated: !!(runtime && runtime.simulated),
@@ -65,14 +86,14 @@ function createService(options) {
 	}
 
 	function validate(configuration) {
-		return model.validate(configuration);
+		return validateDesign(configuration);
 	}
 
 	function save(configuration, expectedRevision) {
 		if (settingsCoordinator && settingsCoordinator.isRestoreInProgress()) {
 			throw routingError('RESTORE_IN_PROGRESS', 'Routing cannot be saved while configuration restore is in progress.');
 		}
-		var validation = model.validate(configuration);
+		var validation = validateDesign(configuration);
 		if (!validation.valid) {
 			throw routingError('VALIDATION_FAILED', 'Routing configuration contains errors.', validation);
 		}
@@ -90,7 +111,7 @@ function createService(options) {
 		try {
 			writer.writeJSONAtomic(target, normalized);
 			var verified = parseSaved();
-			var verifiedValidation = model.validate(verified.configuration);
+			var verifiedValidation = validateDesign(verified.configuration);
 			if (!verifiedValidation.valid || model.revision(verified.configuration) !== model.revision(normalized)) {
 				throw routingError('READBACK_VERIFICATION_FAILED', 'The saved routing could not be verified.');
 			}
@@ -133,7 +154,7 @@ function createService(options) {
 			return {
 				configuration: verified.configuration,
 				revision: model.revision(verified.configuration),
-				validation: model.validate(verified.configuration),
+				validation: validateDesign(verified.configuration),
 				verified: true
 			};
 		}
@@ -161,12 +182,48 @@ function createService(options) {
 		};
 	}
 
+	function crossoverPreview(configuration, outputID) {
+		var validation = validateDesign(configuration);
+		if (!validation.valid) throw routingError('VALIDATION_FAILED', 'A crossover preview cannot be calculated while the design contains errors.', validation);
+		var output = configuration.crossover.outputs.find(function(item) { return item.outputId === outputID; });
+		if (!output) throw routingError('UNKNOWN_CROSSOVER_OUTPUT', 'The selected crossover output is not available.');
+		return {
+			outputId: outputID,
+			response: model.crossoverModel.preview(output, configuration.crossover.sampleRateHz),
+			deploymentStatus: 'not-deployed'
+		};
+	}
+
+	function copyCrossover(configuration, sourceOutputID, destinationOutputID) {
+		var normalized = model.normalize(configuration);
+		var source = normalized.crossover.outputs.find(function(item) { return item.outputId === sourceOutputID; });
+		var destination = normalized.crossover.outputs.find(function(item) { return item.outputId === destinationOutputID; });
+		if (!source || !destination || source === destination) {
+			throw routingError('INVALID_CROSSOVER_COPY', 'Choose two different available outputs for crossover copy.');
+		}
+		destination.highPass = model.clone(source.highPass);
+		destination.lowPass = model.clone(source.lowPass);
+		return {configuration: normalized, validation: validateDesign(normalized)};
+	}
+
+	function resetCrossover(configuration, outputID) {
+		var normalized = model.normalize(configuration);
+		var output = normalized.crossover.outputs.find(function(item) { return item.outputId === outputID; });
+		if (!output) throw routingError('UNKNOWN_CROSSOVER_OUTPUT', 'The selected crossover output is not available.');
+		output.highPass = model.crossoverModel.defaultFilter('high-pass');
+		output.lowPass = model.crossoverModel.defaultFilter('low-pass');
+		return {configuration: normalized, validation: validateDesign(normalized)};
+	}
+
 	return {
 		target: target,
 		state: state,
 		validate: validate,
 		save: save,
 		reset: reset,
+		crossoverPreview: crossoverPreview,
+		copyCrossover: copyCrossover,
+		resetCrossover: resetCrossover,
 		publicError: publicError
 	};
 }

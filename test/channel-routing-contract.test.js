@@ -26,6 +26,25 @@ function fixture() {
       return {configuration, revision, validation, verified: true};
     },
     reset: function (expected) { return this.save(model.defaultConfiguration(), expected); },
+    crossoverPreview: function (draft, outputID) {
+      const output = draft.crossover.outputs.find(function (item) { return item.outputId === outputID; });
+      return {outputId: outputID, response: model.crossoverModel.preview(output, draft.crossover.sampleRateHz), deploymentStatus: 'not-deployed'};
+    },
+    copyCrossover: function (draft, sourceID, destinationID) {
+      const copied = model.normalize(draft);
+      const source = copied.crossover.outputs.find(function (item) { return item.outputId === sourceID; });
+      const destination = copied.crossover.outputs.find(function (item) { return item.outputId === destinationID; });
+      destination.highPass = model.clone(source.highPass);
+      destination.lowPass = model.clone(source.lowPass);
+      return {configuration: copied, validation: model.validate(copied)};
+    },
+    resetCrossover: function (draft, outputID) {
+      const reset = model.normalize(draft);
+      const output = reset.crossover.outputs.find(function (item) { return item.outputId === outputID; });
+      output.highPass = model.crossoverModel.defaultFilter('high-pass');
+      output.lowPass = model.crossoverModel.defaultFilter('low-pass');
+      return {configuration: reset, validation: model.validate(reset)};
+    },
     publicError: function (error) { return {code: error.code, message: error.message, details: error.details}; }
   };
   const controller = controllerModule.createController({
@@ -53,6 +72,27 @@ test('validates a draft without saving it', function () {
   current.controller.handle({header: 'validate', content: {configuration: invalid}});
   assert.strictEqual(current.sent[0].header, 'validation');
   assert.strictEqual(current.sent[0].content.validation.valid, false);
+});
+
+test('calculates, copies and resets crossover drafts through existing envelopes', function () {
+  const current = fixture();
+  const draft = model.defaultConfiguration();
+  draft.crossover.outputs[0].lowPass.enabled = true;
+  draft.crossover.outputs[0].lowPass.cutoffHz = 1800;
+  current.controller.handle({header: 'calculateCrossoverResponse', content: {configuration: draft, outputId: 'output-a'}});
+  assert.strictEqual(current.sent[0].header, 'crossoverResponse');
+  assert.strictEqual(current.sent[0].content.response.lowPassCutoffHz, 1800);
+
+  current.controller.handle({header: 'copyCrossover', content: {
+    configuration: draft, sourceOutputId: 'output-a', destinationOutputId: 'output-b', revision: null
+  }});
+  assert.strictEqual(current.sent[1].header, 'crossoverDraft');
+  assert.strictEqual(current.sent[1].content.configuration.crossover.outputs[1].lowPass.cutoffHz, 1800);
+
+  current.controller.handle({header: 'resetCrossover', content: {
+    configuration: current.sent[1].content.configuration, outputId: 'output-b', revision: null
+  }});
+  assert.strictEqual(current.sent[2].content.configuration.crossover.outputs[1].lowPass.enabled, false);
 });
 
 test('saves a valid draft and reports verified not-deployed state', function () {

@@ -21,6 +21,7 @@
 			saving: false,
 			conflict: false,
 			message: null,
+			crossoverResponses: {},
 			runtime: {deploymentStatus: 'not-deployed', statusLabel: 'Saved design · Not deployed to DSP'}
 		};
 	}
@@ -60,6 +61,30 @@
 		if (source) state.draft.connections.push({source: source, destination: outputID, enabled: true});
 		state.dirty = true;
 		state.message = null;
+		return state;
+	}
+
+	function editCrossover(state, outputID, filterType, field, value) {
+		if (!state.draft || !state.draft.crossover) return state;
+		var output = state.draft.crossover.outputs.find(function(item) { return item.outputId === outputID; });
+		if (output && output[filterType]) output[filterType][field] = value;
+		state.dirty = true;
+		state.message = null;
+		delete state.crossoverResponses[outputID];
+		return state;
+	}
+
+	function receiveCrossoverDraft(state, payload) {
+		state.draft = clone(payload.configuration);
+		state.validation = clone(payload.validation);
+		state.dirty = true;
+		state.message = payload.action === 'copy' ? 'Crossover copied to the selected output. Save the design to keep it.' : 'Crossover reset in this draft. Save the design to keep it.';
+		state.crossoverResponses = {};
+		return state;
+	}
+
+	function receiveCrossoverResponse(state, payload) {
+		state.crossoverResponses[payload.outputId] = clone(payload.response);
 		return state;
 	}
 
@@ -106,6 +131,7 @@
 		state.dirty = false;
 		state.conflict = false;
 		state.message = null;
+		state.crossoverResponses = {};
 		return state;
 	}
 
@@ -137,6 +163,9 @@
 		receiveState: receiveState,
 		editOutput: editOutput,
 		routeOutput: routeOutput,
+		editCrossover: editCrossover,
+		receiveCrossoverDraft: receiveCrossoverDraft,
+		receiveCrossoverResponse: receiveCrossoverResponse,
 		receiveValidation: receiveValidation,
 		beginSave: beginSave,
 		saveResult: saveResult,

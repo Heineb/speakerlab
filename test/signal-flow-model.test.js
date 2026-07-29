@@ -127,7 +127,7 @@ test('separates blocking errors from useful warnings', function () {
   const result = model.validate(configuration);
   assert.strictEqual(result.valid, true);
   assert.ok(result.warnings.some(function (warning) { return warning.code === 'SIDE_MISMATCH'; }));
-  assert.ok(result.warnings.some(function (warning) { return warning.code === 'TWEETER_UNPROTECTED'; }));
+  assert.ok(result.warnings.some(function (warning) { return warning.code === 'TWEETER_WITHOUT_HIGH_PASS'; }));
   assert.ok(result.warnings.some(function (warning) { return warning.code === 'UNASSIGNED_ROLE'; }));
 });
 

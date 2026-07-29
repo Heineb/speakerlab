@@ -23,6 +23,27 @@ function createController(options) {
 						revision: content.revision === undefined ? null : content.revision
 					});
 					break;
+				case 'calculateCrossoverResponse':
+					send('crossoverResponse', service.crossoverPreview(content.configuration, content.outputId));
+					break;
+				case 'copyCrossover':
+					var copied = service.copyCrossover(content.configuration, content.sourceOutputId, content.destinationOutputId);
+					send('crossoverDraft', {
+						action: 'copy',
+						configuration: copied.configuration,
+						validation: copied.validation,
+						revision: content.revision === undefined ? null : content.revision
+					});
+					break;
+				case 'resetCrossover':
+					var crossoverReset = service.resetCrossover(content.configuration, content.outputId);
+					send('crossoverDraft', {
+						action: 'reset',
+						configuration: crossoverReset.configuration,
+						validation: crossoverReset.validation,
+						revision: content.revision === undefined ? null : content.revision
+					});
+					break;
 				case 'save':
 					var saved = service.save(content.configuration, content.revision === undefined ? null : content.revision);
 					send('saveResult', {

@@ -44,6 +44,37 @@ test('saves atomically, reads back and repeats deterministically', function (roo
   assert.deepStrictEqual(JSON.parse(fs.readFileSync(current.target)), first.configuration);
 });
 
+test('saves routing and crossover together with derived response verification', function (root) {
+  const current = service(root);
+  const design = validDesign();
+  Object.assign(design.crossover.outputs[0].highPass, {
+    enabled: true, family: 'linkwitz-riley', slopeDbPerOctave: 24, cutoffHz: 80
+  });
+  Object.assign(design.crossover.outputs[0].lowPass, {
+    enabled: true, family: 'butterworth', slopeDbPerOctave: 18, cutoffHz: 2500
+  });
+  const saved = current.save(design, null);
+  const persisted = JSON.parse(fs.readFileSync(current.target));
+  assert.deepStrictEqual(persisted.crossover, saved.configuration.crossover);
+  assert.strictEqual(JSON.stringify(persisted).includes('b0'), false);
+  const preview = current.crossoverPreview(saved.configuration, 'output-a');
+  assert.strictEqual(preview.response.points.length, 121);
+  assert.strictEqual(preview.deploymentStatus, 'not-deployed');
+});
+
+test('copies and resets crossover settings in a draft without writing', function (root) {
+  const current = service(root);
+  const design = validDesign();
+  design.crossover.outputs[0].lowPass.enabled = true;
+  design.crossover.outputs[0].lowPass.cutoffHz = 1800;
+  const copied = current.copyCrossover(design, 'output-a', 'output-b');
+  assert.deepStrictEqual(copied.configuration.crossover.outputs[1].lowPass, copied.configuration.crossover.outputs[0].lowPass);
+  assert.strictEqual(fs.existsSync(current.target), false);
+  const reset = current.resetCrossover(copied.configuration, 'output-b');
+  assert.strictEqual(reset.configuration.crossover.outputs[1].lowPass.enabled, false);
+  assert.strictEqual(reset.configuration.crossover.outputs[0].lowPass.enabled, true);
+});
+
 test('supports data paths containing spaces', function (root) {
   const spaced = path.join(root, 'routing state with spaces');
   fs.mkdirSync(spaced);

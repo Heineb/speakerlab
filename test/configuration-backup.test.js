@@ -108,10 +108,14 @@ test('includes the versioned signal-flow settings without changing its format', 
   const routing = signalFlowModel.defaultConfiguration();
   Object.assign(routing.outputs[0], {label: 'Bass', role: 'woofer', side: 'left', enabled: true});
   routing.connections.push({source: 'left', destination: 'output-a', enabled: true});
+  Object.assign(routing.crossover.outputs[0].lowPass, {
+    enabled: true, family: 'linkwitz-riley', slopeDbPerOctave: 24, cutoffHz: 1800
+  });
   writeJSON(path.join(current.dataDirectory, 'signal-flow.json'), routing);
   const backup = current.service.collectBackup();
   const item = backup.configuration.settings.items.find(function (entry) { return entry.name === 'signal-flow.json'; });
   assert.deepStrictEqual(item.data, routing);
+  assert.strictEqual(item.data.crossover.outputs[0].lowPass.cutoffHz, 1800);
   assert.strictEqual(item.checksum, configurationBackup.checksum(routing));
 });
 
@@ -133,6 +137,17 @@ test('rejects invalid or unsupported signal-flow settings during export and impo
   reseal(backup);
   assert.throws(function () { unsupported.service.parseAndValidate(JSON.stringify(backup)); }, function (error) {
     return error.code === 'UNSUPPORTED_SIGNAL_FLOW_VERSION';
+  });
+
+  const unsupportedCrossover = fixture('unsupported-crossover');
+  writeJSON(path.join(unsupportedCrossover.dataDirectory, 'signal-flow.json'), signalFlowModel.defaultConfiguration());
+  const crossoverBackup = unsupportedCrossover.service.collectBackup();
+  const crossoverItem = crossoverBackup.configuration.settings.items.find(function (entry) { return entry.name === 'signal-flow.json'; });
+  crossoverItem.data.crossover.version = 2;
+  crossoverItem.checksum = configurationBackup.checksum(crossoverItem.data);
+  reseal(crossoverBackup);
+  assert.throws(function () { unsupportedCrossover.service.parseAndValidate(JSON.stringify(crossoverBackup)); }, function (error) {
+    return error.code === 'INVALID_SIGNAL_FLOW_CONFIGURATION';
   });
 });
 
