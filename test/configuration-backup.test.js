@@ -9,6 +9,7 @@ const os = require('os');
 const path = require('path');
 
 const configurationBackup = require('../Beocreate2/beo-system/configuration-backup');
+const signalFlowModel = require('../Beocreate2/beo-extensions/signal-flow/routing-model');
 const tests = [];
 const roots = [];
 const FIXED_DATE = new Date('2026-07-29T10:00:00.000Z');
@@ -100,6 +101,39 @@ test('exports complete safe settings, user speaker presets and listening modes',
   ]);
   assert.deepStrictEqual(backup.configuration.speakerPresets.items.map(function (item) { return item.name; }), ['speaker one.json']);
   assert.deepStrictEqual(backup.configuration.listeningModes.items.map(function (item) { return item.name; }), ['mode one.json']);
+});
+
+test('includes the versioned signal-flow settings without changing its format', function () {
+  const current = fixture('signal-flow');
+  const routing = signalFlowModel.defaultConfiguration();
+  Object.assign(routing.outputs[0], {label: 'Bass', role: 'woofer', side: 'left', enabled: true});
+  routing.connections.push({source: 'left', destination: 'output-a', enabled: true});
+  writeJSON(path.join(current.dataDirectory, 'signal-flow.json'), routing);
+  const backup = current.service.collectBackup();
+  const item = backup.configuration.settings.items.find(function (entry) { return entry.name === 'signal-flow.json'; });
+  assert.deepStrictEqual(item.data, routing);
+  assert.strictEqual(item.checksum, configurationBackup.checksum(routing));
+});
+
+test('rejects invalid or unsupported signal-flow settings during export and import validation', function () {
+  const invalid = fixture('invalid-signal-flow');
+  const invalidRouting = signalFlowModel.defaultConfiguration();
+  invalidRouting.outputs[0].role = 'invalid';
+  writeJSON(path.join(invalid.dataDirectory, 'signal-flow.json'), invalidRouting);
+  assert.throws(function () { invalid.service.collectBackup(); }, function (error) {
+    return error.code === 'INVALID_SIGNAL_FLOW_CONFIGURATION';
+  });
+
+  const unsupported = fixture('unsupported-signal-flow');
+  writeJSON(path.join(unsupported.dataDirectory, 'signal-flow.json'), signalFlowModel.defaultConfiguration());
+  const backup = unsupported.service.collectBackup();
+  const item = backup.configuration.settings.items.find(function (entry) { return entry.name === 'signal-flow.json'; });
+  item.data.version = 2;
+  item.checksum = configurationBackup.checksum(item.data);
+  reseal(backup);
+  assert.throws(function () { unsupported.service.parseAndValidate(JSON.stringify(backup)); }, function (error) {
+    return error.code === 'UNSUPPORTED_SIGNAL_FLOW_VERSION';
+  });
 });
 
 test('represents missing optional resource directories as empty absent sections', function () {

@@ -1,0 +1,48 @@
+<div class="menu-screen" id="signal-flow" data-icon="channels.svg" data-menu-title="Signal Flow" data-stylesheet="signal-flow.css" data-built-in="1" data-context="sound/adjustments" data-namespace="signalFlow">
+	<header>
+		<div class="back-button master"></div>
+		<h1>Signal Flow</h1>
+	</header>
+	<div class="scroll-area">
+		<div class="menu-content signal-flow-content">
+			<div class="signal-flow-status" id="signal-flow-runtime-status">Loading routing design…</div>
+			<p class="signal-flow-safety-note">This editor saves a loudspeaker design. Routing v1 does not deploy to the DSP and does not provide crossover or limiter protection.</p>
+
+			<section aria-labelledby="signal-flow-inputs-title">
+				<h2 id="signal-flow-inputs-title">Inputs</h2>
+				<div class="signal-flow-inputs" id="signal-flow-inputs"></div>
+			</section>
+
+			<section aria-labelledby="signal-flow-outputs-title">
+				<h2 id="signal-flow-outputs-title">Output channels</h2>
+				<div id="signal-flow-outputs" aria-live="polite"></div>
+			</section>
+
+			<section aria-labelledby="signal-flow-validation-title">
+				<h2 id="signal-flow-validation-title">Design check</h2>
+				<div id="signal-flow-validation" aria-live="polite"></div>
+			</section>
+
+			<div class="signal-flow-summary" id="signal-flow-summary"></div>
+			<div class="signal-flow-message hidden" id="signal-flow-message" role="status" aria-live="polite"></div>
+
+			<div class="signal-flow-actions">
+				<div class="button pill black disabled" id="signal-flow-save" onclick="signalFlow.save();">Save design</div>
+				<div class="button pill outline disabled" id="signal-flow-discard" onclick="signalFlow.discard();">Discard changes</div>
+				<div class="button pill outline" onclick="beo.ask('signal-flow-reset');">Reset to default</div>
+			</div>
+		</div>
+	</div>
+
+	<div class="ask-menu" id="signal-flow-reset">
+		<h2>Reset signal flow?</h2>
+		<p>This replaces the saved design with four disabled, unrouted and unassigned outputs. It does not change the DSP.</p>
+		<div class="ask-buttons">
+			<div class="button pill grey cancel" onclick="beo.ask();">Cancel</div>
+			<div class="button pill red" onclick="signalFlow.reset();">Reset design</div>
+		</div>
+	</div>
+</div>
+
+<script type="text/javascript" charset="utf-8" src="€/routing-ui-state.js"></script>
+<script type="text/javascript" charset="utf-8" src="€/signal-flow-client.js"></script>

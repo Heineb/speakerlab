@@ -11,6 +11,7 @@ const DEFAULT_EXTENSIONS = [
   'general-settings',
   'hifiberry-system-tools',
   'setup',
+  'signal-flow',
   'speaker-preset',
   'volume-limit'
 ];

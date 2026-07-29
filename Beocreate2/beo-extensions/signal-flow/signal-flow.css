@@ -1,0 +1,81 @@
+.signal-flow-content {
+	max-width: 760px;
+}
+.signal-flow-status,
+.signal-flow-summary,
+.signal-flow-message {
+	border-radius: 8px;
+	padding: 12px 14px;
+	background: rgba(0, 0, 0, 0.06);
+	margin-bottom: 14px;
+}
+.signal-flow-safety-note {
+	font-size: 0.9em;
+}
+.signal-flow-inputs {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin-bottom: 18px;
+}
+.signal-flow-input {
+	border: 1px solid rgba(0, 0, 0, 0.2);
+	border-radius: 999px;
+	padding: 7px 12px;
+}
+.signal-flow-output {
+	border: 1px solid rgba(0, 0, 0, 0.14);
+	border-radius: 10px;
+	padding: 14px;
+	margin-bottom: 12px;
+}
+.signal-flow-output-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+}
+.signal-flow-output-grid {
+	display: grid;
+	grid-template-columns: 1.4fr 1fr 1fr 1fr;
+	gap: 10px;
+	margin-top: 12px;
+}
+.signal-flow-field label {
+	display: block;
+	font-size: 0.78em;
+	font-weight: 600;
+	margin-bottom: 4px;
+}
+.signal-flow-field input,
+.signal-flow-field select {
+	box-sizing: border-box;
+	width: 100%;
+	min-height: 38px;
+}
+.signal-flow-issues {
+	margin: 8px 0 0;
+	padding-left: 22px;
+}
+.signal-flow-error {
+	color: #a21c1c;
+}
+.signal-flow-warning {
+	color: #785900;
+}
+.signal-flow-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	padding-bottom: 24px;
+}
+@media (max-width: 620px) {
+	.signal-flow-output-grid {
+		grid-template-columns: 1fr;
+	}
+	.signal-flow-actions .button {
+		width: 100%;
+		box-sizing: border-box;
+		text-align: center;
+	}
+}

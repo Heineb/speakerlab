@@ -4,6 +4,7 @@ var crypto = require('crypto');
 var fs = require('fs');
 var path = require('path');
 var atomicJSONFile = require('./atomic-json-file');
+var signalFlowModel = require('../beo-extensions/signal-flow/routing-model');
 
 var FORMAT = "org.speakerlab.configuration-backup";
 var SCHEMA_VERSION = 1;
@@ -86,6 +87,23 @@ function safeResourceName(name) {
 		name != ".." &&
 		path.basename(name) == name &&
 		name.indexOf("\0") == -1;
+}
+
+function validateFeatureSetting(name, data) {
+	if (name != "signal-flow.json") return;
+	var validation = signalFlowModel.validate(data);
+	if (!validation.valid) {
+		var unsupportedVersion = validation.errors.some(function(error) {
+			return error.code == "UNSUPPORTED_VERSION";
+		});
+		throw configurationError(
+			unsupportedVersion ? "UNSUPPORTED_SIGNAL_FLOW_VERSION" : "INVALID_SIGNAL_FLOW_CONFIGURATION",
+			unsupportedVersion ?
+				"Signal-flow settings use an unsupported format version." :
+				"Signal-flow settings are invalid.",
+			validation
+		);
+	}
 }
 
 function createConfigurationService(options) {
@@ -173,6 +191,7 @@ function createConfigurationService(options) {
 				continue;
 			}
 			var data = parseLiveJSON(fullPath);
+			validateFeatureSetting(name, data);
 			if (extension == "system" && data && typeof data == "object" && data.runAtStart !== undefined) {
 				excluded.push({
 					id: "central-settings/system",
@@ -352,6 +371,7 @@ function createConfigurationService(options) {
 			if (seen[item.name]) throw configurationError("INVALID_SECTION", "Backup contains a duplicate item: "+item.name);
 			seen[item.name] = true;
 			if (checksum(item.data) != item.checksum) throw configurationError("CORRUPT_BACKUP", "Item checksum does not match: "+item.name);
+			if (name == "settings") validateFeatureSetting(item.name, item.data);
 		}
 		if (checksum({present: section.present, items: section.items}) != section.checksum) {
 			throw configurationError("CORRUPT_BACKUP", "Section checksum does not match: "+name);

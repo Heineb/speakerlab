@@ -9,6 +9,7 @@ const path = require('path');
 const runtime = require('../scripts/local-development-runtime');
 const layout = require('../scripts/prepare-local-beocreate-layout');
 const websocketClient = require('./websocket-test-client');
+const routingModel = require('../Beocreate2/beo-extensions/signal-flow/routing-model');
 
 const repositoryRoot = path.resolve(__dirname, '..');
 const tests = [];
@@ -139,6 +140,7 @@ test('starts existing UI with connected simulator and shuts down cleanly', async
     assert.match(response.body, /speakerlab-local/);
     assert.match(response.body, /"dspState":"connected"/);
     assert.match(response.body, /hifiberry-system-tools/);
+    assert.match(response.body, /signal-flow/);
     assert.doesNotMatch(server.output(), /127\\.0\\.1\\.1:8086|systemctl|dsptoolkit|pigs/);
     const socket = await websocketClient.connect({port: server.port});
     const dspStatus = await waitForMessage(socket, function (message) {
@@ -151,6 +153,36 @@ test('starts existing UI with connected simulator and shuts down cleanly', async
       return message.target === 'channels' && message.header === 'channelSettings';
     });
     assert.strictEqual(channels.content.settings.balance, 0);
+
+    socket.sendJSON({target: 'signal-flow', header: 'getState'});
+    const routingState = await waitForMessage(socket, function (message) {
+      return message.target === 'signal-flow' && message.header === 'state';
+    });
+    assert.strictEqual(routingState.content.capabilities.outputs.length, 4);
+    assert.strictEqual(routingState.content.runtime.deploymentStatus, 'not-deployed');
+    assert.strictEqual(routingState.content.runtime.simulated, true);
+    const routingDraft = routingModel.clone(routingState.content.configuration);
+    Object.assign(routingDraft.outputs[0], {enabled: true, role: 'woofer', side: 'left', label: 'Left bass'});
+    routingDraft.connections.push({source: 'left', destination: 'output-a', enabled: true});
+    socket.sendJSON({
+      target: 'signal-flow',
+      header: 'save',
+      content: {configuration: routingDraft, revision: routingState.content.revision}
+    });
+    const routingSaved = await waitForMessage(socket, function (message) {
+      return message.target === 'signal-flow' && message.header === 'saveResult';
+    });
+    assert.strictEqual(routingSaved.content.success, true);
+    assert.strictEqual(routingSaved.content.verified, true);
+    assert.strictEqual(routingSaved.content.deploymentStatus, 'not-deployed');
+    const routingPath = path.join(server.root, 'state', 'signal-flow.json');
+    assert.strictEqual(JSON.parse(fs.readFileSync(routingPath)).outputs[0].label, 'Left bass');
+    socket.sendJSON({target: 'signal-flow', header: 'getState'});
+    const reloadedRouting = await waitForMessage(socket, function (message) {
+      return message.target === 'signal-flow' && message.header === 'state';
+    });
+    assert.strictEqual(reloadedRouting.content.configuration.outputs[0].label, 'Left bass');
+    assert.strictEqual(reloadedRouting.content.revision, routingSaved.content.revision);
 
     socket.sendJSON({
       target: 'general',
@@ -189,6 +221,12 @@ test('starts disconnected simulator without contacting hardware', async function
       return message.target === 'dsp-programs' && message.header === 'status';
     });
     assert.deepStrictEqual(firstStatus.content, {dspConnected: false, dspResponding: false});
+    first.sendJSON({target: 'signal-flow', header: 'getState'});
+    const disconnectedRouting = await waitForMessage(first, function (message) {
+      return message.target === 'signal-flow' && message.header === 'state';
+    });
+    assert.strictEqual(disconnectedRouting.content.runtime.connected, false);
+    assert.strictEqual(disconnectedRouting.content.runtime.deploymentStatus, 'not-deployed');
     first.destroy();
     await first.waitForClose();
 

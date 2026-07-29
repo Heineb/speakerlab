@@ -10,6 +10,7 @@ const path = require('path');
 const atomicJSONFile = require('../Beocreate2/beo-system/atomic-json-file');
 const configurationBackup = require('../Beocreate2/beo-system/configuration-backup');
 const settingsStore = require('../Beocreate2/beo-system/settings-store');
+const signalFlowModel = require('../Beocreate2/beo-extensions/signal-flow/routing-model');
 const tests = [];
 const roots = [];
 const FIXED_DATE = new Date('2026-07-29T11:00:00.000Z');
@@ -71,6 +72,25 @@ test('successfully restores multiple files, overwrites existing files and create
   assert.deepStrictEqual(readJSON(path.join(current.dataDirectory, 'channels.json')), {role: 'left'});
   assert.strictEqual(readJSON(path.join(current.dataDirectory, 'beo-speaker-presets', 'speaker.json'))['speaker-preset'].presetName, 'Restored');
   assert.strictEqual(result.restartRequired, true);
+});
+
+test('restores and rolls back signal-flow settings as central configuration', function () {
+  const current = fixture('signal-flow');
+  const routingPath = path.join(current.dataDirectory, 'signal-flow.json');
+  const original = signalFlowModel.defaultConfiguration();
+  Object.assign(original.outputs[0], {label: 'Original', role: 'woofer', side: 'left', enabled: true});
+  original.connections.push({source: 'left', destination: 'output-a', enabled: true});
+  writeJSON(routingPath, original);
+  const backup = current.service.collectBackup();
+  const changed = JSON.parse(JSON.stringify(original));
+  changed.outputs[0].label = 'Changed';
+  writeJSON(routingPath, changed);
+  const result = previewAndRestore(current, backup);
+  assert.strictEqual(result.status, 'success');
+  assert.deepStrictEqual(readJSON(routingPath), original);
+  const snapshot = current.service.parseAndValidate(fs.readFileSync(path.join(current.dataDirectory, '.speakerlab-last-known-good.json'))).backup;
+  const previous = snapshot.configuration.settings.items.find(function (item) { return item.name === 'signal-flow.json'; });
+  assert.strictEqual(previous.data.outputs[0].label, 'Changed');
 });
 
 test('creates and verifies a separate immediate pre-restore last-known-good snapshot', function () {
