@@ -1,5 +1,11 @@
 # SpeakerLab Architecture Baseline
 
+## Browser acceptance boundary
+
+The UI acceptance boundary is the assembled existing browser application served by `scripts/start-local-server.js`, not a replacement UI and not Electron. Playwright drives Chromium against a loopback-only instance with per-test temporary state and the current-Beocreate DSP simulator. Tests interact with visible setup, routing, crossover and configuration controls, while lower-level Node/VM suites continue to own model edge cases and protocol permutations.
+
+The boundary deliberately includes generated script order, extension registration, static assets, CSS visibility, browser/WebSocket lifecycle and the configuration HTTP routes. It excludes host services and physical audio behavior. A local-development-only `dsp-programs` seam acknowledges fallback-program installation according to simulated connection state so the unchanged speaker-profile setup workflow can complete without loading the hardware-dependent production extension.
+
 ## Status and scope
 
 This document records the established Beocreate architecture and its incremental SpeakerLab development seams. It describes the existing product; it does not propose future-hardware support or a generic DSP abstraction.

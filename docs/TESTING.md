@@ -1,5 +1,31 @@
 # SpeakerLab Testing Baseline
 
+## Real-browser UI acceptance
+
+The repository uses `@playwright/test` 1.62 with Chromium for a narrow real-browser acceptance layer. The package requires Node.js 20 or newer; SpeakerLab develops and runs CI on the repository-pinned Node.js 24. Install the committed root dependencies and browser once:
+
+```sh
+npm ci
+npx playwright install chromium
+```
+
+Linux CI uses `npx playwright install --with-deps chromium`. Run all journeys or a focused group with:
+
+```sh
+npm run test:ui-acceptance
+npm run test:setup-acceptance
+npm run test:signal-flow-acceptance
+npm run test:crossover-acceptance
+npm run test:backup-restore-acceptance
+npm run test:reconnect-acceptance
+```
+
+`npm run verify` includes the complete browser suite after the existing Node tests and syntax check. Each test starts the existing local server on an isolated loopback port with a fresh temporary runtime and simulated current-Beocreate DSP; no real configuration, external network, root privilege, HiFiBerryOS service or hardware is used.
+
+The journeys cover first-run `Other Speaker` and named Beovox setup, configured refresh/restart, responsive setup at desktop/tablet/mobile widths, all locally enabled menu screens, two-way stereo routing, validation, Crossover filter editing/copy/preview/persistence, explicit disconnected state, clean and conflicting reconnect, configuration download/preview/restore and visible rollback-success feedback. Unexpected page exceptions, console errors, request failures, HTTP 5xx and non-favicon 404s fail tests. Expected WebSocket/static-loader interruption during a deliberate restart and Chromium's successful-download `ERR_ABORTED` are narrowly classified.
+
+Playwright retains a screenshot, trace and video on failure; the fixture also attaches browser diagnostics and the local-server log. CI uploads `playwright-report/` and `test-results/` on failure. This suite does not cover every production extension, Electron, real DSP deployment, acoustic or audible results, GPIO, systemd, SigmaTCP framing, or hardware recovery. Keyboard-only traversal, screen-reader testing and comprehensive visual-regression snapshots remain future focused work.
+
 ## Current state
 
 The repository now has zero-dependency automated tests for the workspace-local Beocreate deployment layout, central settings-file loading/default merging and portable repository-wide JavaScript syntax verification. A minimal GitHub Actions workflow runs these checks on Ubuntu and macOS. There is still no general application test framework, linter, formatter, type checker or coverage configuration.

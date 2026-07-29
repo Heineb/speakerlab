@@ -2,48 +2,32 @@
 
 ## Current milestone
 
-**M8 — Crossover Editor Foundation**
+**M1 — UI Acceptance and Regression Test Foundation**
 
 Current working branch: `develop`.
 
 ## Latest completed slice
 
-The local speaker-profile setup path now includes the existing Product Information extension without invoking its deployed Raspberry Pi/HiFiBerryOS identity behavior. Local mode reports the fixed, truthful identity **SpeakerLab Local Simulator** and reads shipped product identities only for named profile previews. It does not rename the host, advertise Bonjour, change the simulator identity after profile application or claim physical DSP deployment.
+Playwright 1.62 and Chromium now exercise the assembled UI against an isolated local server and simulated current-Beocreate DSP. Acceptance journeys cover first-run and configured setup, named and generic speaker profiles, enabled-screen navigation, responsive widths, Signal Flow/Crossover editing and persistence, interrupted WebSocket reconnect with clean or unsaved state, explicit disconnected behavior, and configuration backup/restore with rollback feedback.
 
-`product_information` remains owned by `product-information-client.js`. Its client object initializes before messages, is idempotent, retains valid state across reconnect, tolerates optional fields and diagnoses malformed state once per target/header.
-
-Speaker Preset no longer assumes Product Information has already loaded. Out-of-order or absent optional identity state produces a minimal preview with one diagnostic instead of an uncaught `ReferenceError`; invalid previews produce visible feedback.
-
-Automated browser-like and live server tests cover both message orders, setup state arriving first, reconnect, malformed/missing metadata, `Other Speaker`, a named Beovox profile, preview confirmation, selected-state refresh, setup transition, generated script order and continued Signal Flow/Crossover availability.
+Real-browser testing exposed and now protects five concrete defects: the local simulator could not acknowledge a preset fallback-program install, Signal Flow omitted its declared navigation icon, global legacy `section` CSS hid all routing and crossover controls, a disconnected runtime state was overwritten as connected in the UI model, and reconnect conflicts were not explained visibly. Only the explicit local-development DSP seam changes server behavior; deployed hardware startup remains unchanged.
 
 ## Verification
 
 ```sh
-npm run test:product-information-client
-npm run test:client-initialization
-npm run test:setup-navigation
-npm run test:signal-flow
-npm run test:routing-ui
-npm run test:crossover-ui
-npm run test:websocket-contract
-npm run test:websocket-lifecycle
-npm run test:websocket-client
-npm run test:local-server
+npm run test:ui-acceptance
 npm test
-npm run verify
 npm run check:syntax
+npm run verify
 git diff --check
 ```
 
-Focused product-information, client-initialization, connected/disconnected local-server and complete repository verification passes.
+CI installs locked root and server dependencies, installs Chromium, runs verification on Ubuntu and macOS, and uploads Playwright traces, screenshots, videos and logs on failure.
 
-## Known limitations
+## Remaining risks
 
-* Manual clean-browser click-through remains unverified because no controllable browser session was available. Connected local startup and clean shutdown were verified.
-* The browser-like harness does not validate layout, pointer behavior or rendering.
-* Local profile application persists simulated configuration but never deploys it to physical DSP hardware.
-* Production HiFiBerryOS and physical hardware behavior remain unverified.
+Physical DSP deployment, audio output, GPIO/systemd/HiFiBerryOS integration, Electron, comprehensive keyboard/screen-reader behavior and visual snapshot regression remain outside this browser layer. The requested manual browser pass remains unverified because no interactive browser session was available; the equivalent automated Chromium journey is green.
 
 ## Next recommended slice
 
-Run the documented connected/disconnected clean-browser setup, named/Other Speaker preview, refresh, Signal Flow and Crossover smoke path when a browser session is available. Do not continue feature development until that manual lifecycle gap has been reviewed.
+Add a focused keyboard and screen-reader smoke slice for the existing setup, routing, crossover and restore controls. Do not broaden into UI redesign or hardware deployment.
