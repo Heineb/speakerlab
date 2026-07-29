@@ -8,6 +8,10 @@ Current working branch: `develop`.
 
 ## Latest completed slice
 
+The verification workflow is stabilized for current Ubuntu and macOS runners. An Ubuntu-only WebSocket contract failure was traced to fixed 20–30 ms test delays: the server had not necessarily processed every queued frame before assertions ran. The tests now await the same characterized messages with bounded failure timeouts, preserving all assertions and production behavior.
+
+GitHub Actions now uses checkout/setup-node v6, selects Node 24 from `.nvmrc`, disables automatic package-manager caching, exposes important subsystem failures in named steps and runs the complete repository verification only once.
+
 Signal Flow and Channel Routing Editor v1 adds a responsive design screen under Sound adjustments for the current Beocreate platform.
 
 The `org.speakerlab.signal-flow` version 1 model exposes Left, Right and Mono logical inputs and four outputs, A through D. Each output has a custom driver label, role, side/position, enabled state and at most one input. The conservative default leaves every output disabled, unrouted and unassigned.
@@ -21,6 +25,7 @@ The saved design is included in configuration backup, preview, last-known-good c
 ## Verification
 
 ```sh
+npm run test:websocket-contract
 npm run test:signal-flow
 npm run test:channel-routing
 npm run test:routing-contract

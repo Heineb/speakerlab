@@ -86,11 +86,22 @@ test('characterizes missing and wrong envelope fields without transport rejectio
   const app = await fixture();
   try {
     const received = [];
-    app.communication.on('data', function (data) { received.push(data); });
+    const receivedBoth = new Promise(function (resolve, reject) {
+      const timeout = setTimeout(function () {
+        reject(new Error('Timed out waiting for both characterized envelopes.'));
+      }, 2000);
+      app.communication.on('data', function (data) {
+        received.push(data);
+        if (received.length === 2) {
+          clearTimeout(timeout);
+          resolve();
+        }
+      });
+    });
     const client = await testClient.connect({port: app.port});
     client.sendJSON({});
     client.sendJSON({target: 42, header: [], content: 'legacy transport preserves values'});
-    await new Promise(function (resolve) { setTimeout(resolve, 20); });
+    await receivedBoth;
     assert.deepStrictEqual(received, [
       {},
       {target: 42, header: [], content: 'legacy transport preserves values'}
@@ -108,6 +119,17 @@ test('survives malformed JSON, repeated invalid input and handler failure', asyn
   const errors = [];
   console.error = function () { errors.push(Array.from(arguments).join(' ')); };
   try {
+    const stillAvailable = new Promise(function (resolve, reject) {
+      const timeout = setTimeout(function () {
+        reject(new Error('Timed out waiting for the post-failure envelope.'));
+      }, 2000);
+      app.communication.on('data', function (data) {
+        if (data.header === 'stillAvailable') {
+          clearTimeout(timeout);
+          resolve();
+        }
+      });
+    });
     app.communication.on('data', function (data) {
       if (data.header === 'throw') throw new Error('fixture handler failure');
     });
@@ -118,7 +140,7 @@ test('survives malformed JSON, repeated invalid input and handler failure', asyn
     client.sendText('{');
     client.sendJSON({target: 'fixture', header: 'throw'});
     client.sendJSON({target: 'fixture', header: 'stillAvailable'});
-    await new Promise(function (resolve) { setTimeout(resolve, 30); });
+    await stillAvailable;
     assert.strictEqual(app.communication.connections.length, 1);
     assert.ok(errors.some(function (line) { return line.includes('Further invalid'); }));
     client.close();

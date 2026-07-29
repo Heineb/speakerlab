@@ -332,9 +332,13 @@ This is not complete application verification. It covers isolated HTTP/UI startu
 
 ## Continuous integration
 
-`.github/workflows/verify.yml` runs on pushes to `master` and `develop`, and on pull requests targeting either branch. Its matrix uses `ubuntu-latest` and `macos-latest`, checks out SpeakerLab, selects Node.js 24, performs a clean server `npm ci`, runs `npm test`, and runs `npm run verify`.
+`.github/workflows/verify.yml` runs on pushes to `master` and `develop`, and on pull requests targeting either branch. Its matrix uses `ubuntu-latest` and `macos-latest`. The workflow uses `actions/checkout@v6` and `actions/setup-node@v6`, selects the version from `.nvmrc`, explicitly disables setup-node's automatic package-manager cache, and performs a clean server `npm ci`.
 
-The root tooling has no dependencies. CI installs only the modern server lockfile before running the local lifecycle test; it does not use a dependency cache. The workflow does not write to `/opt`, use sudo or secrets, start host services, contact physical hardware, install Beocreate Connect dependencies, package Electron or remediate npm audit findings.
+WebSocket, signal-flow/routing, configuration backup/restore and isolated-server commands run in named focused steps so their failures are visible directly. The final `npm run verify` remains authoritative and runs the complete focused suite plus the repository-wide syntax sweep once; CI no longer runs the complete `npm test` suite a second time as a separate step.
+
+The WebSocket contract tests synchronize on the characterized application events instead of assuming that Ubuntu and macOS will process multiple frames within a fixed 20–30 ms delay. A two-second timeout remains only as a clear failure bound; the assertions and malformed-message/handler-failure coverage are unchanged.
+
+The root tooling has no dependencies. CI installs only the modern server lockfile; it does not use a dependency cache. The workflow does not write to `/opt`, use sudo or secrets, start host services, contact physical hardware, install Beocreate Connect dependencies, package Electron or remediate npm audit findings.
 
 ## Commands found
 

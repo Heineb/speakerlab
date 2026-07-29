@@ -26,18 +26,37 @@ jobs:
 
     steps:
       - name: Check out SpeakerLab
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Use Node.js 24
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
-          node-version: 24
+          node-version-file: .nvmrc
+          package-manager-cache: false
 
       - name: Install locked Beocreate server dependencies
         run: npm ci --prefix Beocreate2/beo-system
 
-      - name: Run focused tests
-        run: npm test
+      - name: Test WebSocket contracts
+        run: |
+          npm run test:websocket-contract
+          npm run test:websocket-lifecycle
+          npm run test:websocket-client
+
+      - name: Test signal-flow and routing contracts
+        run: |
+          npm run test:signal-flow
+          npm run test:channel-routing
+          npm run test:routing-contract
+          npm run test:routing-ui
+
+      - name: Test configuration backup and restore
+        run: |
+          npm run test:configuration-backup
+          npm run test:configuration-restore
+
+      - name: Test isolated local server
+        run: npm run test:local-server
 
       - name: Run repository verification
         run: npm run verify
