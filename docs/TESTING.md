@@ -251,9 +251,9 @@ API contract tests exercise capabilities, download, preview, confirmation, inval
 
 The UI tests exercise the pure state/rendering seam in `configuration-backup-ui.js`; there is still no full browser automation, DOM layout, keyboard/accessibility or live client/server end-to-end test. The API tests call route handlers directly rather than starting Express. Real signal/restart behavior, HiFiBerryOS filesystem permissions, cross-process writers and physical power-loss recovery remain unverified.
 
-## Provisional development-tooling runtime
+## Supported server development runtime
 
-Node.js 24 is the provisional baseline only for root repository scripts, the local layout harness, current zero-dependency tests, the syntax verifier and GitHub Actions. `.nvmrc` and `.node-version` both select major version 24.
+Node.js 24 is the supported baseline for root repository scripts and the isolated Beocreate server. `.nvmrc` and `.node-version` both select major version 24. The server manifest records npm 11.6.2, which generated its lockfile version 3.
 
 With nvm:
 
@@ -262,9 +262,23 @@ nvm install
 nvm use
 ```
 
-Other version managers that understand `.node-version` can select the same baseline from that file. The root manifest intentionally has no `engines` field because Node.js 24 support has not been established for every legacy application nested in the repository.
+Other version managers that understand `.node-version` can select the same baseline from that file. Install the locked server tree with:
 
-Node.js 24 is not a verified production runtime for the deployed Beocreate server, HiFiBerryOS, Beocreate Connect, Electron packaging or physical Beocreate hardware. Those runtime questions remain separate and unresolved. The tooling was most recently run locally on Node.js 26.4.0; Node.js 24 execution is configured in CI and must still be confirmed by a hosted workflow run.
+```sh
+npm ci --prefix Beocreate2/beo-system
+```
+
+Node.js 24.18.0 and npm 11.6.2 were verified on Apple Silicon for clean install and the complete isolated suite. CI selects Node.js 24 on current Ubuntu and macOS runners. The clean tree contains no native binding or install lifecycle script.
+
+Node.js 24 is not a verified production runtime for HiFiBerryOS, Beocreate Connect, Electron packaging or physical Beocreate hardware. The deployed service invokes an unversioned `/usr/bin/node`; its actual appliance version remains unresolved. The root manifest intentionally has no `engines` field because the supported claim does not extend to every legacy nested application.
+
+### Server dependency wave 1
+
+The controlled pure-JavaScript wave updates EventEmitter3 3.1.2 to 5.0.4, Express 4.17.1 to 4.22.2 and Underscore 1.9.1 to 1.13.8. Express stays on major 4. `aplay` stays at 1.2.0 because it invokes platform audio; production-global modules, extension platform dependencies, DSPToolkit, SigmaTCP and Electron remain deferred.
+
+Before the wave, npm audit reported eight findings: three low, four high and one critical. The modern locked tree reports zero findings. No `npm audit fix` was used. This covers only server-owned packages at the assessment date and does not establish application or production-image security.
+
+The clean install grows from 53 to 71 packages. The material additions are Express transitive call/prototype and side-channel helpers (`call-bind-apply-helpers`, `call-bound`, `dunder-proto`, `es-*`, `function-bind`, `get-*`, `gopd`, `has-*`, `math-intrinsics`, `object-inspect` and `side-channel*`) plus Express's nested `ms`; no direct dependency was added or removed.
 
 ## Repository verification
 
@@ -288,13 +302,13 @@ npm run verify
 
 `npm run verify` runs the focused tests and then checks every repository `.js` file selected by `scripts/verify-javascript-syntax.js`. Selection is deterministic; `.git`, `node_modules`, `.speakerlab-local` and symbolic-link directories are not traversed. Each file is passed as a separate argument to the active Node executable's `--check` mode, so paths containing spaces are safe and failures identify the affected relative path.
 
-This is not complete application verification. It starts the isolated local server and checks HTTP UI assembly, but it does not run legacy placeholder package tests, communicate over the browser WebSocket, access hardware or HiFiBerryOS, communicate with SigmaTCP, package Electron, lint, type-check or audit dependencies.
+This is not complete application verification. It covers isolated HTTP/UI startup, the browser WebSocket contract, configuration paths, connected/disconnected simulation and graceful shutdown, but it does not access hardware or HiFiBerryOS, validate SigmaTCP framing/read queues/reconnect limits, package Electron, lint, type-check or assess production-global dependencies.
 
 ## Continuous integration
 
-`.github/workflows/verify.yml` runs on pushes to `master` and pull requests targeting `master`. Its matrix uses `ubuntu-latest` and `macos-latest`, checks out SpeakerLab, selects Node.js 24, runs `npm test`, and runs `npm run verify`.
+`.github/workflows/verify.yml` runs on pushes to `master` and `develop`, and on pull requests targeting either branch. Its matrix uses `ubuntu-latest` and `macos-latest`, checks out SpeakerLab, selects Node.js 24, performs a clean server `npm ci`, runs `npm test`, and runs `npm run verify`.
 
-The root tooling has no dependencies. CI installs only the existing Beocreate server lockfile before running the local lifecycle test; it does not use a dependency cache. The workflow does not write to `/opt`, use sudo or secrets, start host services, contact physical hardware, install Beocreate Connect dependencies, package Electron or remediate npm audit findings.
+The root tooling has no dependencies. CI installs only the modern server lockfile before running the local lifecycle test; it does not use a dependency cache. The workflow does not write to `/opt`, use sudo or secrets, start host services, contact physical hardware, install Beocreate Connect dependencies, package Electron or remediate npm audit findings.
 
 ## Commands found
 

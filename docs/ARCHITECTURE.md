@@ -2,7 +2,7 @@
 
 ## Status and scope
 
-This document records the M0 architecture found in the repository at commit `64dc331`. It describes the existing Beocreate implementation; it does not propose future-hardware support or a generic DSP abstraction.
+This document records the established Beocreate architecture and its incremental SpeakerLab development seams. It describes the existing product; it does not propose future-hardware support or a generic DSP abstraction.
 
 ## Repository and deployed layout
 
@@ -46,12 +46,17 @@ Electron 9.4.0 is declared as a development dependency. `npm start` runs `electr
 
 ## Runtime and package assumptions
 
-- No `engines`, `.nvmrc`, `.node-version`, Volta or toolchain pin exists.
+- `.nvmrc` and `.node-version` select Node.js 24 for supported repository and isolated-server development. GitHub Actions verifies that runtime on Ubuntu and macOS.
 - The server service assumes `/usr/bin/node`, Linux, root privileges, systemd, HiFiBerryOS paths and globally installed modules.
-- Both principal lockfiles are npm lockfile version 1, created by an older npm generation.
+- The server package records npm 11.6.2 and has an npm lockfile version 3. Beocreate Connect retains its separate legacy lockfile and runtime.
 - The only committed lockfiles cover `Beocreate2/beo-system`, Beocreate Connect, and selected extensions. `beocreate_essentials` and many extensions have manifests but no lockfile.
-- Server dependencies can be installed with current npm, but this does not reproduce the global-module/deployed image arrangement.
+- `npm ci --prefix Beocreate2/beo-system` reproducibly installs the server-owned dependency tree on Apple Silicon and in the Ubuntu/macOS CI matrix. It does not install the global `websocket` and `dnssd2` modules or reproduce the HiFiBerryOS image.
+- Node.js 24.18.0 with npm 11.6.2 is verified for the isolated local server and repository suite. The deployed appliance's `/usr/bin/node` version is not recorded in this repository, so Node.js 24 is not claimed as the production HiFiBerryOS runtime.
 - Electron 9.4.0 defines the desktop runtime; the repository does not state a compatible host Node version for installation/building.
+
+The server-owned direct packages are Express (HTTP/static/REST handling), EventEmitter3 (the shared extension bus), Underscore (utility use in DSP-program metadata handling) and `aplay` (startup audio playback). Express 4.22.2, EventEmitter3 5.0.4 and Underscore 1.13.8 are pure JavaScript and form the first controlled modernisation wave. `aplay` remains at 1.2.0 because it invokes platform audio and is bypassed by quiet local startup. The resulting 71-package dependency tree contains no native binding, `binding.gyp`, or install lifecycle script.
+
+Express remains on major 4. Express 5 routing/API migration is deferred. Production-global modules, optional extension packages, DSPToolkit, SigmaTCP, GPIO, discovery, Linux networking and Electron dependencies are outside this server wave.
 
 ## Extension architecture
 

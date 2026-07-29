@@ -2,77 +2,41 @@
 
 ## Current milestone
 
-**M0/M1 foundation — reproducible local application and current-Beocreate contract testing**
+**M2 — incremental server runtime and dependency modernisation**
 
 Current working branch: `develop`.
 
 ## Latest completed slice
 
-The isolated local server now supports the existing Beocreate browser WebSocket contract:
+The Beocreate server-owned dependency foundation now has a reproducible npm 11.6.2 lockfile and a verified Node.js 24 isolated-development baseline.
 
-```sh
-npm run dev
-```
+The first controlled pure-JavaScript wave upgrades EventEmitter3 to 5.0.4, Express within major 4 to 4.22.2 and Underscore to 1.13.8. `aplay` and all platform-, discovery-, DSP- and Electron-sensitive packages remain unchanged. Production source and runtime behavior did not require a compatibility patch.
 
-The printed loopback URL serves the existing UI and accepts `ws://<host>/` connections with subprotocol `beocreate`. The browser and server exchange the existing `{target, header, content?}` JSON envelopes without simulator-specific client messages.
-
-Local startup remains isolated below `.speakerlab-local/runtime`, uses an audited hardware-free extension subset and selects connected or disconnected current-Beocreate DSP simulation:
-
-```sh
-npm run dev -- --dsp-state connected
-npm run dev -- --dsp-state disconnected
-```
-
-On connection, the existing client establishes its own visible connection state. The local server emits the existing `dsp-programs/status` envelope to that connection, then ordinary client activation and state requests use the unchanged extension bus. Reconnection creates a new connection identity and re-sends current simulated DSP status.
-
-System Tools backup/restore retains its established split: WebSocket connection and activation enable the UI and deliver capabilities; export, preview and confirmed restore remain HTTP operations.
-
-Bonjour is neither loaded nor required locally. Production Bonjour, WebSocket selection, binding, DSP and audio behavior remain unchanged.
+On Apple Silicon, clean `npm ci` installs 71 packages without native compilation or lifecycle install scripts. The server-owned audit changed from eight findings to zero. This is not a security claim for the complete application or HiFiBerryOS image.
 
 ## Verification
 
-Run:
-
 ```sh
-npm run test:websocket-contract
-npm run test:websocket-lifecycle
-npm run test:websocket-client
-npm run test:local-server
+npm ci --prefix Beocreate2/beo-system
 npm run verify
+npm audit --prefix Beocreate2/beo-system
+git diff --check
 ```
 
-The WebSocket suites cover routing, content preservation, malformed/invalid input, handler failure, binary and 1 MiB size rejection, clean/abrupt close, reconnect, multiple clients, broadcast, targeted response, ordering, ping/pong and shutdown. The existing client script is executed in a deterministic harness for envelope construction, dispatch, connection state, malformed server data and reconnect behavior.
-
-The complete normal suite remains hardware-free and uses only isolated state and loopback networking.
-
-## Foundation currently available
-
-* local deployed `/opt/beocreate` shape without writing to real `/opt`
-* isolated HTTP/UI and WebSocket startup without root or HiFiBerryOS
-* deterministic current-Beocreate DSP wrapper simulation
-* settings, preset and listening-mode characterization
-* atomic central settings persistence
-* versioned configuration backup, preview, restore and rollback
-* repository-wide JavaScript syntax verification
-* Ubuntu/macOS CI on provisional tooling Node.js 24
+The complete isolated suite covers UI loading, WebSocket connection/routing/initial state, extension loading, settings and atomic persistence, configuration backup/restore, connected and disconnected current-Beocreate DSP simulation, repeated startup and graceful shutdown. CI performs the clean install and suite on Node.js 24 across Ubuntu and macOS.
 
 ## Known gaps and risks
 
-* The zero-dependency local WebSocket transport is intentionally limited to browser features used by Beocreate; it is not a general WebSocket implementation.
+* The production HiFiBerryOS `/usr/bin/node` version remains unknown; Node.js 24 is a supported development runtime, not an appliance claim.
 * Production still relies on globally supplied legacy `websocket` and `dnssd2` modules.
-* The application contract has no request IDs, acknowledgements, authentication, heartbeat or automatic arbitrary state replay.
-* Unknown extension/header messages are silently ignored by the legacy event routing.
-* Hardware-dependent extensions remain disabled locally.
-* SigmaTCP framing, real DSP readback, GPIO mute safety, deployment rollback and audible behavior still require protocol-peer or hardware-in-the-loop coverage.
-* Beocreate Connect installation and Electron packaging remain blocked by obsolete native dependencies on the audited Apple Silicon environment.
-* Interactive browser automation is not yet part of the repository suite.
+* `aplay`, hardware-dependent extensions, Linux services, GPIO and networking packages remain outside this wave.
+* SigmaTCP framing, real DSP read queues/reconnect limits, GPIO mute safety, deployment rollback and audible behavior remain unverified without protocol-peer or physical-hardware work.
+* Beocreate Connect and Electron installation remain separate and blocked by obsolete native dependencies on Apple Silicon.
 
 ## Next recommended slice
 
-Characterize the real SigmaTCP wire framing, read queue and reconnect limit with golden protocol fixtures while continuing to use the current Beocreate-only DSP boundary.
-
-Do not begin broad dependency modernization until the remaining production transport paths are protected.
+Characterize the real SigmaTCP framing, read queue and reconnect limit with golden fixtures before changing that transport. Keep it current-Beocreate-specific and separate from server package upgrades.
 
 ## Deferred
 
-The root `README.md` update remains deferred until development setup, supported runtime claims and project maturity are sufficiently verified. Future hardware remains outside the roadmap.
+Express 5, production-global dependency modernization, `aplay`, Electron, future hardware and the root `README.md` update remain separate tasks.
