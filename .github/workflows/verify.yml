@@ -66,6 +66,15 @@ jobs:
       - name: Test channel gain, delay and polarity in Chromium
         run: npm run test:channel-processing-acceptance
 
+      - name: Test DSP compilation and simulated readback
+        run: |
+          npm run test:dsp-compilation
+          npm run test:dsp-readback
+          npm run test:dsp-deployment-preview
+
+      - name: Test DSP compilation journeys in Chromium
+        run: npm run test:dsp-compilation-acceptance
+
       - name: Test configuration backup and restore
         run: |
           npm run test:configuration-backup

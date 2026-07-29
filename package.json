@@ -3,7 +3,7 @@
   "private": true,
   "scripts": {
     "dev": "node scripts/start-local-server.js",
-    "test": "npm run test:local-layout && npm run test:websocket-contract && npm run test:websocket-lifecycle && npm run test:websocket-client && npm run test:client-initialization && npm run test:product-information-client && npm run test:setup-navigation && npm run test:local-server && npm run test:dsp-simulator && npm run test:signal-flow && npm run test:channel-processing && npm run test:crossover-model && npm run test:crossover-response && npm run test:channel-routing && npm run test:routing-contract && npm run test:routing-ui && npm run test:crossover-ui && npm run test:syntax-verification && npm run test:settings-store && npm run test:configuration-read && npm run test:configuration-write && npm run test:configuration-backup && npm run test:configuration-restore && npm run test:configuration-api && npm run test:configuration-ui",
+    "test": "npm run test:local-layout && npm run test:websocket-contract && npm run test:websocket-lifecycle && npm run test:websocket-client && npm run test:client-initialization && npm run test:product-information-client && npm run test:setup-navigation && npm run test:local-server && npm run test:dsp-simulator && npm run test:dsp-compilation && npm run test:dsp-readback && npm run test:dsp-deployment-preview && npm run test:signal-flow && npm run test:channel-processing && npm run test:crossover-model && npm run test:crossover-response && npm run test:channel-routing && npm run test:routing-contract && npm run test:routing-ui && npm run test:crossover-ui && npm run test:syntax-verification && npm run test:settings-store && npm run test:configuration-read && npm run test:configuration-write && npm run test:configuration-backup && npm run test:configuration-restore && npm run test:configuration-api && npm run test:configuration-ui",
     "test:local-layout": "node test/local-beocreate-layout.test.js",
     "test:websocket-contract": "node test/websocket-contract.test.js",
     "test:websocket-lifecycle": "node test/websocket-lifecycle.test.js",
@@ -13,6 +13,9 @@
     "test:setup-navigation": "node test/setup-navigation.test.js",
     "test:local-server": "node test/local-server.test.js",
     "test:dsp-simulator": "node test/dsp-simulator.test.js",
+    "test:dsp-compilation": "node test/dsp-compilation.test.js",
+    "test:dsp-readback": "node test/dsp-readback.test.js",
+    "test:dsp-deployment-preview": "node test/dsp-deployment-preview.test.js",
     "test:signal-flow": "node test/signal-flow-model.test.js",
     "test:channel-processing": "node test/channel-processing-model.test.js",
     "test:gain-delay-polarity-ui": "node test/routing-ui.test.js",
@@ -42,6 +45,8 @@
     "test:reconnect-acceptance": "playwright test test/ui-acceptance/reconnect-acceptance.spec.js",
     "test:channel-processing-acceptance": "playwright test test/ui-acceptance/channel-processing-acceptance.spec.js",
     "test:accessibility-smoke": "playwright test test/ui-acceptance/channel-processing-acceptance.spec.js --grep keyboard",
+    "test:dsp-compilation-acceptance": "playwright test test/ui-acceptance/dsp-compilation-acceptance.spec.js",
+    "test:dsp-deployment-accessibility": "playwright test test/ui-acceptance/dsp-compilation-acceptance.spec.js --grep keyboard",
     "check:syntax": "node scripts/verify-javascript-syntax.js",
     "verify": "npm test && npm run check:syntax && npm run test:ui-acceptance"
   },
