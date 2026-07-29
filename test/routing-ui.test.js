@@ -44,6 +44,26 @@ test('creates and removes routing while retaining custom labels and roles', func
   assert.deepStrictEqual(state.draft.connections, []);
 });
 
+test('edits and receives copied channel-processing drafts without losing unsaved state', function () {
+  const state = populated();
+  ui.editProcessing(state, 'output-a', 'gain', 'valueDb', -2.5);
+  ui.editProcessing(state, 'output-a', 'delay', 'valueMs', 0.42);
+  ui.editProcessing(state, 'output-a', 'polarity', 'inverted', true);
+  assert.deepStrictEqual(state.draft.channelProcessing.outputs[0], {
+    outputId: 'output-a', gain: {valueDb: -2.5}, delay: {valueMs: 0.42}, polarity: {inverted: true}
+  });
+  const copied = model.clone(state.draft);
+  copied.channelProcessing.outputs[1].gain.valueDb = -2.5;
+  ui.receiveProcessingDraft(state, {
+    configuration: copied,
+    validation: model.validate(copied),
+    revision: state.revision,
+    action: 'copy'
+  });
+  assert.strictEqual(state.draft.channelProcessing.outputs[1].gain.valueDb, -2.5);
+  assert.strictEqual(state.dirty, true);
+});
+
 test('errors disable save while warnings permit it', function () {
   const state = populated();
   ui.editOutput(state, 'output-a', 'label', 'Bass');

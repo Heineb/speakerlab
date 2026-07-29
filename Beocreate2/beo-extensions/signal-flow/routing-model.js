@@ -2,6 +2,7 @@
 
 var crypto = require('crypto');
 var crossoverModel = require('./crossover-model');
+var processingModel = require('./channel-processing-model');
 
 var FORMAT = 'org.speakerlab.signal-flow';
 var VERSION = 1;
@@ -35,7 +36,8 @@ function capabilities(available) {
 				available: isAvailable
 			};
 		}),
-		crossover: crossoverModel.capabilities(crossoverModel.DEFAULT_SAMPLE_RATE_HZ)
+		crossover: crossoverModel.capabilities(crossoverModel.DEFAULT_SAMPLE_RATE_HZ),
+		channelProcessing: processingModel.capabilities()
 	};
 }
 
@@ -54,7 +56,8 @@ function defaultConfiguration() {
 			};
 		}),
 		connections: [],
-		crossover: crossoverModel.defaultConfiguration(OUTPUT_IDS, crossoverModel.DEFAULT_SAMPLE_RATE_HZ)
+		crossover: crossoverModel.defaultConfiguration(OUTPUT_IDS, crossoverModel.DEFAULT_SAMPLE_RATE_HZ),
+		channelProcessing: processingModel.defaultConfiguration(OUTPUT_IDS)
 	};
 }
 
@@ -80,7 +83,8 @@ function normalize(configuration) {
 				enabled: connection.enabled
 			};
 		}),
-		crossover: crossover
+		crossover: crossover,
+		channelProcessing: processingModel.normalize(configuration.channelProcessing, OUTPUT_IDS)
 	};
 }
 
@@ -219,6 +223,10 @@ function validate(configuration, availableCapabilities) {
 	var crossoverValidation = crossoverModel.validate(crossoverConfiguration, OUTPUT_IDS, Array.isArray(configuration.outputs) ? configuration.outputs : []);
 	errors = errors.concat(crossoverValidation.errors);
 	warnings = warnings.concat(crossoverValidation.warnings);
+	var processingConfiguration = configuration.channelProcessing || processingModel.defaultConfiguration(OUTPUT_IDS);
+	var processingValidation = processingModel.validate(processingConfiguration, OUTPUT_IDS, Array.isArray(configuration.outputs) ? configuration.outputs : [], Array.isArray(configuration.connections) ? configuration.connections : []);
+	errors = errors.concat(processingValidation.errors);
+	warnings = warnings.concat(processingValidation.warnings);
 	warnings.push(issue('warning', 'DESIGN_NOT_DEPLOYED', 'Saved crossover settings are a simulated design and are not deployed to hardware.', 'crossover'));
 
 	return {valid: errors.length === 0, errors: errors, warnings: warnings};
@@ -231,6 +239,7 @@ module.exports = {
 	SIDES: SIDES,
 	OUTPUT_IDS: OUTPUT_IDS,
 	crossoverModel: crossoverModel,
+	processingModel: processingModel,
 	capabilities: capabilities,
 	defaultConfiguration: defaultConfiguration,
 	normalize: normalize,

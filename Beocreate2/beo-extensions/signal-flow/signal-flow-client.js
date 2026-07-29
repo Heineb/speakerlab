@@ -29,6 +29,7 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 		'subwoofer': 'Subwoofer'
 	};
 	var sideLabels = {unassigned: 'Unassigned', left: 'Left', right: 'Right', mono: 'Mono'};
+	var processingUnits = {};
 
 	$(document).on('general', function(event, data) {
 		if (data.header === 'activatedExtension' && data.content.extension === 'signal-flow') {
@@ -52,6 +53,9 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 		if (data.header === 'crossoverDraft') {
 			signalFlowUIState.receiveCrossoverDraft(state, data.content);
 			if (state.draft) state.draft.outputs.forEach(function(output) { requestPreview(output.id); });
+		}
+		if (data.header === 'processingDraft') {
+			signalFlowUIState.receiveProcessingDraft(state, data.content);
 		}
 		if (data.header === 'crossoverResponse') {
 			signalFlowUIState.receiveCrossoverResponse(state, data.content);
@@ -138,7 +142,43 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 			'<p class="signal-flow-response-summary">Does not include driver or enclosure response.</p></div>';
 	}
 
-	function render() {
+	function processingControls(output) {
+		var processing = state.draft.channelProcessing.outputs.find(function(item) { return item.outputId === output.id; });
+		var unit = processingUnits[output.id] || 'ms';
+		var speed = state.capabilities.channelProcessing.delay.speedOfSoundMetresPerSecond;
+		var displayValue = processing.delay.valueMs;
+		if (unit === 'cm') displayValue = Math.round(processing.delay.valueMs / 1000 * speed * 10000) / 100;
+		if (unit === 'm') displayValue = Math.round(processing.delay.valueMs / 1000 * speed * 10000) / 10000;
+		var samples = Math.round(processing.delay.valueMs / 1000 * state.capabilities.channelProcessing.delay.sampleRateHz);
+		return '<section class="signal-flow-processing" aria-label="Level, delay and polarity for ' + escapeHTML(output.label) + '">' +
+			'<h3>Channel processing</h3><div class="signal-flow-processing-grid">' +
+			'<div class="signal-flow-field"><label for="signal-flow-gain-' + output.id + '">Gain</label><div class="signal-flow-unit-input">' +
+			'<input id="signal-flow-gain-' + output.id + '" type="number" step="0.1" min="' + state.capabilities.channelProcessing.gain.minimumDb +
+			'" max="' + state.capabilities.channelProcessing.gain.maximumDb + '" value="' + processing.gain.valueDb +
+			'" aria-describedby="signal-flow-validation" onkeydown="signalFlow.processingTab(event, \'signal-flow-delay-' + output.id + '\');" onchange="signalFlow.updateProcessing(\'' + output.id + '\', \'gain\', \'valueDb\', this.value, event.relatedTarget && event.relatedTarget.id);"><span>dB</span></div></div>' +
+			'<div class="signal-flow-field"><label for="signal-flow-delay-' + output.id + '">Delay</label><div class="signal-flow-unit-input">' +
+			'<input id="signal-flow-delay-' + output.id + '" type="number" step="0.01" min="0" value="' + displayValue +
+			'" aria-describedby="signal-flow-delay-details-' + output.id + ' signal-flow-validation" onkeydown="signalFlow.processingTab(event, \'signal-flow-delay-unit-' + output.id + '\');" onchange="signalFlow.updateDelay(\'' + output.id + '\', this.value, event.relatedTarget && event.relatedTarget.id);">' +
+			'<select id="signal-flow-delay-unit-' + output.id + '" aria-label="Delay unit for ' + escapeHTML(output.label) +
+			'" onkeydown="signalFlow.processingTab(event, \'signal-flow-polarity-' + output.id + '\');" onchange="signalFlow.changeDelayUnit(\'' + output.id + '\', this.value, event.relatedTarget && event.relatedTarget.id);">' +
+			option('ms', 'ms', unit) + option('cm', 'cm', unit) + option('m', 'm', unit) + '</select></div>' +
+			'<p id="signal-flow-delay-details-' + output.id + '" class="signal-flow-processing-detail">Equivalent distance ' +
+			(Math.round(processing.delay.valueMs / 1000 * speed * 10000) / 100) + ' cm · ' + samples + ' samples at ' +
+			state.capabilities.channelProcessing.delay.sampleRateHz + ' Hz</p></div>' +
+			'<div class="signal-flow-field"><label for="signal-flow-polarity-' + output.id + '">Polarity</label><select id="signal-flow-polarity-' + output.id +
+			'" aria-describedby="signal-flow-validation" onchange="signalFlow.updateProcessing(\'' + output.id + '\', \'polarity\', \'inverted\', this.value === \'inverted\', event.relatedTarget && event.relatedTarget.id);">' +
+			option('normal', 'Normal', processing.polarity.inverted ? 'inverted' : 'normal') +
+			option('inverted', 'Inverted', processing.polarity.inverted ? 'inverted' : 'normal') + '</select></div></div>' +
+			'<p class="signal-flow-processing-summary">' + processing.gain.valueDb + ' dB · ' + processing.delay.valueMs +
+			' ms · ' + (processing.polarity.inverted ? 'Polarity inverted' : 'Polarity normal') + '</p>' +
+			'<div class="signal-flow-processing-actions"><button type="button" class="button pill outline" onclick="signalFlow.resetProcessing(\'' + output.id + '\');">Reset processing</button>' +
+			'<label for="signal-flow-processing-copy-' + output.id + '">Copy processing to</label><select id="signal-flow-processing-copy-' + output.id + '">' +
+			state.draft.outputs.filter(function(item) { return item.id !== output.id; }).map(function(item) { return option(item.id, item.label, ''); }).join('') +
+			'</select><button type="button" class="button pill outline" onclick="signalFlow.copyProcessing(\'' + output.id + '\', document.getElementById(\'signal-flow-processing-copy-' + output.id + '\').value);">Copy processing</button></div></section>';
+	}
+
+	function render(preferredFocusId) {
+		var activeControlId = preferredFocusId || (document.activeElement && document.activeElement.id);
 		if (state.loading || !state.draft) {
 			$('#signal-flow-runtime-status').text('Loading routing design…');
 			return;
@@ -168,7 +208,7 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 			var copyOptions = state.draft.outputs.filter(function(item) { return item.id !== output.id; }).map(function(item) {
 				return option(item.id, item.label, '');
 			}).join('');
-			return '<article class="signal-flow-output" data-output-id="' + output.id + '">' +
+			return '<article class="signal-flow-output" data-output-id="' + output.id + '" aria-label="' + escapeHTML(output.label) + ' output channel">' +
 				'<div class="signal-flow-output-header"><strong>' + escapeHTML(output.dspChannel.toUpperCase()) + ' · ' + escapeHTML(output.label) + '</strong>' +
 				"<label><input type=\"checkbox\" " + (output.enabled ? "checked " : "") + "onchange=\"signalFlow.update('" + output.id + "', 'enabled', this.checked);\"> Enabled</label></div>" +
 				'<div class="signal-flow-output-grid">' +
@@ -186,7 +226,7 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 				'<label for="signal-flow-copy-' + output.id + '">Copy to</label><select id="signal-flow-copy-' + output.id + '">' +
 				option('', 'Choose output', '') + copyOptions + '</select><button type="button" class="button pill outline" ' +
 				"onclick=\"signalFlow.copyCrossover('" + output.id + "', document.getElementById('signal-flow-copy-" + output.id + "').value);\">Copy</button></div>" +
-				'</section></article>';
+				'</section>' + processingControls(output) + '</article>';
 		}).join(''));
 
 		var issues = state.validation.errors.concat(state.validation.warnings);
@@ -200,9 +240,13 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 			summary.unassigned + ' unassigned · ' + summary.errors + ' errors · ' +
 			summary.warnings + ' warnings · ' + (summary.dirty ? 'Unsaved changes' : 'Saved design')
 		);
-		$('#signal-flow-save').toggleClass('disabled', !signalFlowUIState.canSave(state));
-		$('#signal-flow-discard').toggleClass('disabled', !state.dirty);
+		$('#signal-flow-save').toggleClass('disabled', !signalFlowUIState.canSave(state)).prop('disabled', !signalFlowUIState.canSave(state));
+		$('#signal-flow-discard').toggleClass('disabled', !state.dirty).prop('disabled', !state.dirty);
 		$('#signal-flow-message').toggleClass('hidden', !state.message).text(state.message || '');
+		if (activeControlId) {
+			var replacement = document.getElementById(activeControlId);
+			if (replacement) replacement.focus({preventScroll: true});
+		}
 	}
 
 	function validateDraft() {
@@ -224,6 +268,49 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 		validateDraft();
 		requestPreview(outputID);
 		render();
+	}
+
+	function updateProcessing(outputID, section, field, value, preferredFocusId) {
+		var normalized = section === 'gain' || section === 'delay' ? Number(value) : value;
+		signalFlowUIState.editProcessing(state, outputID, section, field, normalized);
+		validateDraft();
+		render(preferredFocusId);
+	}
+
+	function updateDelay(outputID, value, preferredFocusId) {
+		var unit = processingUnits[outputID] || 'ms';
+		var numeric = Number(value);
+		var speed = state.capabilities.channelProcessing.delay.speedOfSoundMetresPerSecond;
+		var valueMs = unit === 'ms' ? numeric : (unit === 'cm' ? numeric / 100 : numeric) / speed * 1000;
+		updateProcessing(outputID, 'delay', 'valueMs', Math.round(valueMs * 1000000) / 1000000, preferredFocusId);
+	}
+
+	function changeDelayUnit(outputID, unit, preferredFocusId) {
+		processingUnits[outputID] = unit;
+		render(preferredFocusId);
+	}
+
+	function processingTab(event, nextControlId) {
+		if (event.key !== 'Tab' || event.shiftKey) return;
+		event.preventDefault();
+		event.currentTarget.blur();
+		window.setTimeout(function() {
+			var next = document.getElementById(nextControlId);
+			if (next) next.focus({preventScroll: true});
+		}, 0);
+	}
+
+	function copyProcessing(sourceOutputID, destinationOutputID) {
+		if (!destinationOutputID) return;
+		beo.send({target: 'signal-flow', header: 'copyProcessing', content: {
+			configuration: state.draft, sourceOutputId: sourceOutputID, destinationOutputId: destinationOutputID, revision: state.revision
+		}});
+	}
+
+	function resetProcessing(outputID) {
+		beo.send({target: 'signal-flow', header: 'resetProcessing', content: {
+			configuration: state.draft, outputId: outputID, revision: state.revision
+		}});
 	}
 
 	function requestPreview(outputID) {
@@ -276,6 +363,12 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 	return {
 		update: update,
 		updateCrossover: updateCrossover,
+		updateProcessing: updateProcessing,
+		updateDelay: updateDelay,
+		changeDelayUnit: changeDelayUnit,
+		processingTab: processingTab,
+		copyProcessing: copyProcessing,
+		resetProcessing: resetProcessing,
 		requestPreview: requestPreview,
 		resetCrossover: resetCrossover,
 		copyCrossover: copyCrossover,

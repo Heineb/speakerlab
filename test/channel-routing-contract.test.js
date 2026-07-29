@@ -45,6 +45,21 @@ function fixture() {
       output.lowPass = model.crossoverModel.defaultFilter('low-pass');
       return {configuration: reset, validation: model.validate(reset)};
     },
+    copyProcessing: function (draft, sourceID, destinationID) {
+      const copied = model.normalize(draft);
+      const source = copied.channelProcessing.outputs.find(function (item) { return item.outputId === sourceID; });
+      const destination = copied.channelProcessing.outputs.find(function (item) { return item.outputId === destinationID; });
+      destination.gain = model.clone(source.gain);
+      destination.delay = model.clone(source.delay);
+      destination.polarity = model.clone(source.polarity);
+      return {configuration: copied, validation: model.validate(copied)};
+    },
+    resetProcessing: function (draft, outputID) {
+      const reset = model.normalize(draft);
+      const index = reset.channelProcessing.outputs.findIndex(function (item) { return item.outputId === outputID; });
+      reset.channelProcessing.outputs[index] = model.processingModel.defaultConfiguration([outputID]).outputs[0];
+      return {configuration: reset, validation: model.validate(reset)};
+    },
     publicError: function (error) { return {code: error.code, message: error.message, details: error.details}; }
   };
   const controller = controllerModule.createController({
@@ -93,6 +108,23 @@ test('calculates, copies and resets crossover drafts through existing envelopes'
     configuration: current.sent[1].content.configuration, outputId: 'output-b', revision: null
   }});
   assert.strictEqual(current.sent[2].content.configuration.crossover.outputs[1].lowPass.enabled, false);
+});
+
+test('copies and resets processing drafts through existing envelopes', function () {
+  const current = fixture();
+  const draft = model.defaultConfiguration();
+  draft.channelProcessing.outputs[0].gain.valueDb = -3;
+  draft.channelProcessing.outputs[0].delay.valueMs = 0.5;
+  draft.channelProcessing.outputs[0].polarity.inverted = true;
+  current.controller.handle({header: 'copyProcessing', content: {
+    configuration: draft, sourceOutputId: 'output-a', destinationOutputId: 'output-b', revision: null
+  }});
+  assert.strictEqual(current.sent[0].header, 'processingDraft');
+  assert.strictEqual(current.sent[0].content.configuration.channelProcessing.outputs[1].gain.valueDb, -3);
+  current.controller.handle({header: 'resetProcessing', content: {
+    configuration: current.sent[0].content.configuration, outputId: 'output-b', revision: null
+  }});
+  assert.deepStrictEqual(current.sent[1].content.configuration.channelProcessing.outputs[1], model.processingModel.defaultConfiguration(['output-b']).outputs[0]);
 });
 
 test('saves a valid draft and reports verified not-deployed state', function () {

@@ -83,11 +83,17 @@ test('restores and rolls back signal-flow settings as central configuration', fu
   Object.assign(original.crossover.outputs[0].lowPass, {
     enabled: true, family: 'linkwitz-riley', slopeDbPerOctave: 24, cutoffHz: 1800
   });
+  Object.assign(original.channelProcessing.outputs[0], {
+    gain: {valueDb: -2.5}, delay: {valueMs: 0.42}, polarity: {inverted: true}
+  });
   writeJSON(routingPath, original);
   const backup = current.service.collectBackup();
   const changed = JSON.parse(JSON.stringify(original));
   changed.outputs[0].label = 'Changed';
   changed.crossover.outputs[0].lowPass.cutoffHz = 2400;
+  changed.channelProcessing.outputs[0].gain.valueDb = -6;
+  changed.channelProcessing.outputs[0].delay.valueMs = 1.25;
+  changed.channelProcessing.outputs[0].polarity.inverted = false;
   writeJSON(routingPath, changed);
   const result = previewAndRestore(current, backup);
   assert.strictEqual(result.status, 'success');
@@ -96,6 +102,9 @@ test('restores and rolls back signal-flow settings as central configuration', fu
   const previous = snapshot.configuration.settings.items.find(function (item) { return item.name === 'signal-flow.json'; });
   assert.strictEqual(previous.data.outputs[0].label, 'Changed');
   assert.strictEqual(previous.data.crossover.outputs[0].lowPass.cutoffHz, 2400);
+  assert.strictEqual(previous.data.channelProcessing.outputs[0].gain.valueDb, -6);
+  assert.strictEqual(previous.data.channelProcessing.outputs[0].delay.valueMs, 1.25);
+  assert.strictEqual(previous.data.channelProcessing.outputs[0].polarity.inverted, false);
 });
 
 test('creates and verifies a separate immediate pre-restore last-known-good snapshot', function () {

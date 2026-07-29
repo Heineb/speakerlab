@@ -215,6 +215,27 @@ function createService(options) {
 		return {configuration: normalized, validation: validateDesign(normalized)};
 	}
 
+	function copyProcessing(configuration, sourceOutputID, destinationOutputID) {
+		var normalized = model.normalize(configuration);
+		var source = normalized.channelProcessing.outputs.find(function(item) { return item.outputId === sourceOutputID; });
+		var destination = normalized.channelProcessing.outputs.find(function(item) { return item.outputId === destinationOutputID; });
+		if (!source || !destination || source === destination) {
+			throw routingError('INVALID_PROCESSING_COPY', 'Choose two different available outputs for processing copy.');
+		}
+		destination.gain = model.clone(source.gain);
+		destination.delay = model.clone(source.delay);
+		destination.polarity = model.clone(source.polarity);
+		return {configuration: normalized, validation: validateDesign(normalized)};
+	}
+
+	function resetProcessing(configuration, outputID) {
+		var normalized = model.normalize(configuration);
+		var index = normalized.channelProcessing.outputs.findIndex(function(item) { return item.outputId === outputID; });
+		if (index === -1) throw routingError('UNKNOWN_PROCESSING_OUTPUT', 'The selected processing output is not available.');
+		normalized.channelProcessing.outputs[index] = model.processingModel.defaultConfiguration([outputID]).outputs[0];
+		return {configuration: normalized, validation: validateDesign(normalized)};
+	}
+
 	return {
 		target: target,
 		state: state,
@@ -224,6 +245,8 @@ function createService(options) {
 		crossoverPreview: crossoverPreview,
 		copyCrossover: copyCrossover,
 		resetCrossover: resetCrossover,
+		copyProcessing: copyProcessing,
+		resetProcessing: resetProcessing,
 		publicError: publicError
 	};
 }

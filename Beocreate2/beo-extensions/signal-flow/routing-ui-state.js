@@ -86,6 +86,23 @@
 		return state;
 	}
 
+	function editProcessing(state, outputID, section, field, value) {
+		if (!state.draft || !state.draft.channelProcessing) return state;
+		var output = state.draft.channelProcessing.outputs.find(function(item) { return item.outputId === outputID; });
+		if (output && output[section]) output[section][field] = value;
+		state.dirty = true;
+		state.message = null;
+		return state;
+	}
+
+	function receiveProcessingDraft(state, payload) {
+		state.draft = clone(payload.configuration);
+		state.validation = clone(payload.validation);
+		state.dirty = true;
+		state.message = payload.action === 'copy' ? 'Channel processing copied. Save the design to keep it.' : 'Channel processing reset in this draft. Save the design to keep it.';
+		return state;
+	}
+
 	function receiveCrossoverResponse(state, payload) {
 		state.crossoverResponses[payload.outputId] = clone(payload.response);
 		return state;
@@ -167,7 +184,9 @@
 		editOutput: editOutput,
 		routeOutput: routeOutput,
 		editCrossover: editCrossover,
+		editProcessing: editProcessing,
 		receiveCrossoverDraft: receiveCrossoverDraft,
+		receiveProcessingDraft: receiveProcessingDraft,
 		receiveCrossoverResponse: receiveCrossoverResponse,
 		receiveValidation: receiveValidation,
 		beginSave: beginSave,

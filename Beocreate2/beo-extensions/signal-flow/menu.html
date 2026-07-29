@@ -27,9 +27,9 @@
 			<div class="signal-flow-message hidden" id="signal-flow-message" role="status" aria-live="polite"></div>
 
 			<div class="signal-flow-actions">
-				<div class="button pill black disabled" id="signal-flow-save" onclick="signalFlow.save();">Save design</div>
-				<div class="button pill outline disabled" id="signal-flow-discard" onclick="signalFlow.discard();">Discard changes</div>
-				<div class="button pill outline" onclick="beo.ask('signal-flow-reset');">Reset to default</div>
+				<button type="button" class="button pill black disabled" id="signal-flow-save" disabled onclick="signalFlow.save();">Save design</button>
+				<button type="button" class="button pill outline disabled" id="signal-flow-discard" disabled onclick="signalFlow.discard();">Discard changes</button>
+				<button type="button" class="button pill outline" onclick="beo.ask('signal-flow-reset');">Reset to default</button>
 			</div>
 		</div>
 	</div>
@@ -38,8 +38,8 @@
 		<h2>Reset signal flow?</h2>
 		<p>This replaces the saved design with four disabled, unrouted and unassigned outputs. It does not change the DSP.</p>
 		<div class="ask-buttons">
-			<div class="button pill grey cancel" onclick="beo.ask();">Cancel</div>
-			<div class="button pill red" onclick="signalFlow.reset();">Reset design</div>
+			<button type="button" class="button pill grey cancel" onclick="beo.ask();">Cancel</button>
+			<button type="button" class="button pill red" onclick="signalFlow.reset();">Reset design</button>
 		</div>
 	</div>
 </div>

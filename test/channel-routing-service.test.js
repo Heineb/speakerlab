@@ -75,6 +75,24 @@ test('copies and resets crossover settings in a draft without writing', function
   assert.strictEqual(reset.configuration.crossover.outputs[0].lowPass.enabled, true);
 });
 
+test('copies, resets and persists channel processing without deploying it', function (root) {
+  const current = service(root);
+  const design = validDesign();
+  Object.assign(design.channelProcessing.outputs[0], {
+    gain: {valueDb: -2.5}, delay: {valueMs: 0.42}, polarity: {inverted: true}
+  });
+  const copied = current.copyProcessing(design, 'output-a', 'output-b');
+  assert.deepStrictEqual(copied.configuration.channelProcessing.outputs[1], Object.assign(
+    {}, copied.configuration.channelProcessing.outputs[0], {outputId: 'output-b'}
+  ));
+  assert.strictEqual(fs.existsSync(current.target), false);
+  const reset = current.resetProcessing(copied.configuration, 'output-b');
+  assert.deepStrictEqual(reset.configuration.channelProcessing.outputs[1], model.processingModel.defaultConfiguration(['output-b']).outputs[0]);
+  const saved = current.save(copied.configuration, null);
+  assert.deepStrictEqual(JSON.parse(fs.readFileSync(current.target)).channelProcessing, saved.configuration.channelProcessing);
+  assert.strictEqual(saved.configuration.channelProcessing.outputs[0].delay.valueMs, 0.42);
+});
+
 test('supports data paths containing spaces', function (root) {
   const spaced = path.join(root, 'routing state with spaces');
   fs.mkdirSync(spaced);

@@ -126,6 +126,35 @@
 	gap: 8px;
 	margin-top: 10px;
 }
+.signal-flow-processing {
+	border-top: 1px solid rgba(0, 0, 0, 0.12);
+	margin-top: 14px;
+	padding-top: 8px;
+}
+.signal-flow-processing-grid {
+	display: grid;
+	grid-template-columns: 1fr 1.5fr 1fr;
+	gap: 10px;
+}
+.signal-flow-unit-input,
+.signal-flow-processing-actions {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 8px;
+}
+.signal-flow-unit-input input {
+	flex: 1;
+	min-width: 90px;
+}
+.signal-flow-processing-detail,
+.signal-flow-processing-summary {
+	font-size: 0.82em;
+	margin: 6px 0 0;
+}
+.signal-flow-processing-actions {
+	margin-top: 10px;
+}
 .signal-flow-issues {
 	margin: 8px 0 0;
 	padding-left: 22px;
@@ -147,7 +176,8 @@
 		grid-template-columns: 1fr;
 	}
 	.signal-flow-crossover-grid,
-	.signal-flow-crossover-fields {
+	.signal-flow-crossover-fields,
+	.signal-flow-processing-grid {
 		grid-template-columns: 1fr;
 	}
 	.signal-flow-actions .button {

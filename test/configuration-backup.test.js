@@ -111,11 +111,15 @@ test('includes the versioned signal-flow settings without changing its format', 
   Object.assign(routing.crossover.outputs[0].lowPass, {
     enabled: true, family: 'linkwitz-riley', slopeDbPerOctave: 24, cutoffHz: 1800
   });
+  Object.assign(routing.channelProcessing.outputs[0], {
+    gain: {valueDb: -2.5}, delay: {valueMs: 0.42}, polarity: {inverted: true}
+  });
   writeJSON(path.join(current.dataDirectory, 'signal-flow.json'), routing);
   const backup = current.service.collectBackup();
   const item = backup.configuration.settings.items.find(function (entry) { return entry.name === 'signal-flow.json'; });
   assert.deepStrictEqual(item.data, routing);
   assert.strictEqual(item.data.crossover.outputs[0].lowPass.cutoffHz, 1800);
+  assert.deepStrictEqual(item.data.channelProcessing.outputs[0], routing.channelProcessing.outputs[0]);
   assert.strictEqual(item.checksum, configurationBackup.checksum(routing));
 });
 
