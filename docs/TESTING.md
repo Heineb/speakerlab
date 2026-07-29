@@ -16,13 +16,15 @@ npm run test:ui-acceptance
 npm run test:setup-acceptance
 npm run test:signal-flow-acceptance
 npm run test:crossover-acceptance
+npm run test:channel-processing-acceptance
+npm run test:accessibility-smoke
 npm run test:backup-restore-acceptance
 npm run test:reconnect-acceptance
 ```
 
 `npm run verify` includes the complete browser suite after the existing Node tests and syntax check. Each test starts the existing local server on an isolated loopback port with a fresh temporary runtime and simulated current-Beocreate DSP; no real configuration, external network, root privilege, HiFiBerryOS service or hardware is used.
 
-The journeys cover first-run `Other Speaker` and named Beovox setup, configured refresh/restart, responsive setup at desktop/tablet/mobile widths, all locally enabled menu screens, two-way stereo routing, validation, Crossover filter editing/copy/preview/persistence, explicit disconnected state, clean and conflicting reconnect, configuration download/preview/restore and visible rollback-success feedback. Unexpected page exceptions, console errors, request failures, HTTP 5xx and non-favicon 404s fail tests. Expected WebSocket/static-loader interruption during a deliberate restart and Chromium's successful-download `ERR_ABORTED` are narrowly classified.
+The journeys cover first-run `Other Speaker` and named Beovox setup, configured refresh/restart, responsive setup at desktop/tablet/mobile widths, all locally enabled menu screens, two-way stereo routing, validation, Crossover filter editing/copy/preview/persistence, gain/delay/polarity editing/copy/reset/persistence, explicit disconnected state, clean and conflicting reconnect, configuration download/preview/restore and visible rollback-success feedback. Unexpected page exceptions, console errors, request failures, HTTP 5xx and non-favicon 404s fail tests. Expected WebSocket/static-loader interruption during a deliberate restart and Chromium's successful-download `ERR_ABORTED` are narrowly classified.
 
 Playwright retains a screenshot, trace and video on failure; the fixture also attaches browser diagnostics and the local-server log. CI uploads `playwright-report/` and `test-results/` on failure. This suite does not cover every production extension, Electron, real DSP deployment, acoustic or audible results, GPIO, systemd, SigmaTCP framing, or hardware recovery. Keyboard-only traversal, screen-reader testing and comprehensive visual-regression snapshots remain future focused work.
 
@@ -233,6 +235,21 @@ Service and contract tests cover atomic persistence without authoritative coeffi
 Backup tests prove exact crossover inclusion and reject unsupported crossover versions. Restore and last-known-good tests prove filter round-trip and prior-filter capture. The isolated server test requests a real WebSocket preview, saves a Linkwitz–Riley low-pass, reads it back and retains the simulated/not-deployed state.
 
 No test or implementation applies these settings to `equaliser.json`, speaker presets, DSP filter banks, SigmaTCP or physical hardware. The preview is electrical only and excludes driver, enclosure, impedance, directivity and multi-driver acoustic summation. Browser click-through and visual viewport inspection remain manual verification items.
+
+## Channel Gain, Delay and Polarity v1
+
+```sh
+npm run test:channel-processing
+npm run test:gain-delay-polarity-ui
+npm run test:channel-processing-acceptance
+npm run test:accessibility-smoke
+```
+
+The zero-dependency model tests cover neutral defaults, −60 to +6 dB boundaries, non-finite and malformed values, 48 kHz sample conversion, the 2,000-sample/41.666667 ms limit, centimetre/metre conversion at 343 m/s, polarity, canonical round-trip and design warnings. Service, WebSocket and UI-state suites cover draft copy/reset, validation, revision-safe atomic save and explicit `not-deployed` status.
+
+Playwright covers mouse and keyboard edits, ordinary labelled controls, unit switching, visible equivalent values, warning/error feedback, disabled Save semantics, narrow/tablet layouts, refresh and server-restart persistence. Existing reconnect and backup/restore journeys now carry representative gain, delay and polarity values. All automated paths use isolated temporary state and the current-Beocreate simulator; they require no network, root, HiFiBerryOS service or physical hardware.
+
+These tests do not prove DSP-register mapping, applied/read-back state, output headroom, audible timing, polarity at terminals or hardware recovery.
 
 ## Settings loading characterization
 

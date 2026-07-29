@@ -253,6 +253,8 @@ A pull request may contain multiple focused commits.
 
 ## Testing requirements
 
+For every user-visible design feature, add focused model, server/contract, UI-state and real-browser tests where those boundaries exist. Cover refresh/restart persistence, responsive layout, keyboard operation, semantic status/error exposure, disconnected and reconnect behavior, backup/restore, and explicit distinction between saved, simulated and physically deployed state. Normal verification must remain hardware-free; hardware-in-the-loop evidence is separate and must never be implied by simulator results.
+
 Every intentional behaviour change must have appropriate tests.
 
 Use the smallest suitable test level:

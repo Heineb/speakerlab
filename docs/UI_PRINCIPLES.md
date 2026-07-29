@@ -41,4 +41,4 @@ Configuration restore establishes a reusable destructive-workflow pattern: selec
 
 ## Accessibility baseline to establish
 
-The repository has no automated accessibility checks. M0/M1 should record keyboard navigation, focus visibility, semantic labels, contrast, reduced-motion behaviour and screen-reader announcements for status/error changes before substantial UI work. Accessibility fixes should preserve the established visual and navigation model.
+Focused browser accessibility smoke checks now protect labelled native channel-processing controls, keyboard editing order, focus preservation across reactive rendering, live validation and semantic disabled Save state. Full legacy-navigation traversal, automated screen-reader output, contrast, reduced-motion behavior and visual regression remain to be established. Accessibility fixes should preserve the established visual and navigation model.

@@ -2,32 +2,37 @@
 
 ## Current milestone
 
-**M1 — UI Acceptance and Regression Test Foundation**
+**M8 — Channel Gain, Delay and Polarity v1**
 
 Current working branch: `develop`.
 
 ## Latest completed slice
 
-Playwright 1.62 and Chromium now exercise the assembled UI against an isolated local server and simulated current-Beocreate DSP. Acceptance journeys cover first-run and configured setup, named and generic speaker profiles, enabled-screen navigation, responsive widths, Signal Flow/Crossover editing and persistence, interrupted WebSocket reconnect with clean or unsaved state, explicit disconnected behavior, and configuration backup/restore with rollback feedback.
+Signal Flow now includes design-only per-output gain, delay and polarity controls alongside routing and crossover. The versioned model uses −60 to +6 dB gain, 0–2,000 delay samples at 48 kHz (0–41.666667 ms), and normal/inverted polarity. Delay can be entered as milliseconds, centimetres or metres using 343 m/s at 20 °C; milliseconds remain authoritative persisted data.
 
-Real-browser testing exposed and now protects five concrete defects: the local simulator could not acknowledge a preset fallback-program install, Signal Flow omitted its declared navigation icon, global legacy `section` CSS hid all routing and crossover controls, a disconnected runtime state was overwritten as connected in the UI model, and reconnect conflicts were not explained visibly. Only the explicit local-development DSP seam changes server behavior; deployed hardware startup remains unchanged.
+The server owns capability limits, conversion, validation, warnings, copy/reset behavior, revision checks and atomic persistence. Backup/restore, last-known-good capture, reconnect conflict handling and browser refresh/restart preserve the values. The UI uses labelled native controls, visible units and equivalent values, semantic disabled buttons, live validation, keyboard-focus preservation and responsive output cards.
+
+Saved values remain explicitly **not deployed**. No legacy `channels.json`, preset, DSP program, SigmaTCP or physical output behavior changes.
 
 ## Verification
 
 ```sh
-npm run test:ui-acceptance
+npm run test:channel-processing
+npm run test:gain-delay-polarity-ui
+npm run test:channel-processing-acceptance
+npm run test:accessibility-smoke
 npm test
 npm run check:syntax
 npm run verify
 git diff --check
 ```
 
-CI installs locked root and server dependencies, installs Chromium, runs verification on Ubuntu and macOS, and uploads Playwright traces, screenshots, videos and logs on failure.
+CI runs the focused channel-processing model and browser journey as named steps on Ubuntu and macOS, then runs the complete verification command.
 
 ## Remaining risks
 
-Physical DSP deployment, audio output, GPIO/systemd/HiFiBerryOS integration, Electron, comprehensive keyboard/screen-reader behavior and visual snapshot regression remain outside this browser layer. The requested manual browser pass remains unverified because no interactive browser session was available; the equivalent automated Chromium journey is green.
+Physical-DSP mapping, gain staging/headroom, audible delay and polarity, restart/application behavior on HiFiBerryOS, and hardware failure recovery remain unverified. The design model intentionally cannot claim that saved values are active. Full keyboard traversal of the legacy global navigation, automated screen-reader output, contrast and visual-regression coverage remain open accessibility work.
 
 ## Next recommended slice
 
-Add a focused keyboard and screen-reader smoke slice for the existing setup, routing, crossover and restore controls. Do not broaden into UI redesign or hardware deployment.
+Define and characterize the smallest current-Beocreate DSP transport contract for applying and reading back the already-saved routing, crossover and channel-processing design. Do not deploy values until register mappings, safe startup/failure behavior and hardware-in-the-loop questions are explicitly resolved.
