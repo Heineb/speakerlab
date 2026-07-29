@@ -20,9 +20,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os:
-          - ubuntu-latest
-          - macos-latest
+        include:
+          - os: ubuntu-latest
+            browser_install: npx playwright install --with-deps chromium
+          - os: macos-latest
+            browser_install: npx playwright install chromium
 
     steps:
       - name: Check out SpeakerLab
@@ -36,6 +38,12 @@ jobs:
 
       - name: Install locked Beocreate server dependencies
         run: npm ci --prefix Beocreate2/beo-system
+
+      - name: Install locked UI acceptance dependencies
+        run: npm ci
+
+      - name: Install Chromium for UI acceptance
+        run: ${{ matrix.browser_install }}
 
       - name: Test WebSocket contracts
         run: |
@@ -63,3 +71,13 @@ jobs:
 
       - name: Run repository verification
         run: npm run verify
+
+      - name: Upload failed UI acceptance artifacts
+        if: failure()
+        uses: actions/upload-artifact@v6
+        with:
+          name: ui-acceptance-${{ matrix.os }}
+          path: |
+            playwright-report/
+            test-results/
+          if-no-files-found: ignore
