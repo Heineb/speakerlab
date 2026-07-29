@@ -1,4 +1,4 @@
-var speaker_preset = (function() {
+var speaker_preset = (typeof window != "undefined" && window.speaker_preset) ? window.speaker_preset : (function(productInformation) {
 
 speakerPresets = {};
 excludedSettings = [];
@@ -6,6 +6,7 @@ settingsCount = 0;
 currentSpeakerPreset = null;
 selectedSpeakerPreset = null;
 willInstallFallbackDSP = false;
+reportedMissingProductInformation = false;
 
 $(document).on("speaker-preset", function(event, data) {
 	if (data.header == "presets") {
@@ -100,8 +101,11 @@ $(document).on("speaker-preset", function(event, data) {
 			$(".speaker-preset-contents").empty();
 			$(".speaker-preset-install-fallback-dsp").addClass("hidden");
 			
-			if (product_information && product_information.clearPresetPreview) {
-				product_information.clearPresetPreview();
+			if (productInformation && productInformation.clearPresetPreview) {
+				productInformation.clearPresetPreview();
+			} else if (!reportedMissingProductInformation) {
+				console.error("Speaker Preset processed target='speaker-preset' header='presetPreview' with minimal metadata because product_information is unavailable.");
+				reportedMissingProductInformation = true;
 			}
 			
 			for (soundAdjustment in preset.content) {
@@ -147,6 +151,9 @@ $(document).on("speaker-preset", function(event, data) {
 			}
 			
 			beo.showPopupView("speaker-preset-preview-popup");
+		} else {
+			console.error("Speaker Preset ignored target='speaker-preset' header='presetPreview': preset content is missing.");
+			beo.notify({title: "Speaker preset unavailable", message: "The selected speaker profile could not be previewed.", timeout: false, buttonTitle: "Dismiss", buttonAction: "close"});
 		}
 		
 	}
@@ -264,4 +271,4 @@ return {
 	replaceExistingPreset: replaceExistingPreset
 }
 
-})();
+})(typeof window != "undefined" ? window.product_information : null);

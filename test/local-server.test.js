@@ -45,12 +45,17 @@ function assertOrderedOnce(sources, dependency, client) {
     dependency + ' must load before ' + client);
 }
 
-async function waitForMessage(client, predicate) {
+async function waitForMessage(client, predicate, label) {
   for (let index = 0; index < 20; index += 1) {
-    const message = await client.nextJSON();
+    let message;
+    try {
+      message = await client.nextJSON();
+    } catch (error) {
+      throw new Error((label ? label + ': ' : '') + error.message);
+    }
     if (predicate(message)) return message;
   }
-  throw new Error('Expected WebSocket message was not received.');
+  throw new Error((label ? label + ': ' : '') + 'Expected WebSocket message was not received.');
 }
 
 function startServer(dspState) {
@@ -156,6 +161,7 @@ test('starts existing UI with connected simulator and shuts down cleanly', async
     assert.match(response.body, /signal-flow/);
     assert.match(response.body, /class="menu-screen[^"]*" id="setup"/);
     assert.match(response.body, /class="menu-screen[^"]*" id="speaker-preset"/);
+    assert.match(response.body, /class="menu-screen[^"]*" id="product-information"/);
     assert.match(response.body, /class="menu-screen[^"]*" id="signal-flow"/);
     assert.match(response.body, /id="signal-flow-outputs"/);
     const sources = scriptSources(response.body);
@@ -168,6 +174,11 @@ test('starts existing UI with connected simulator and shuts down cleanly', async
       sources,
       '/extensions/signal-flow/routing-ui-state.js',
       '/extensions/signal-flow/signal-flow-client.js'
+    );
+    assertOrderedOnce(
+      sources,
+      '/extensions/product-information/product-information-client.js',
+      '/extensions/speaker-preset/speaker-preset-client.js'
     );
     const repeatedResponse = await request('http://127.0.0.1:' + server.port + '/');
     assert.strictEqual(repeatedResponse.status, 200);
@@ -192,6 +203,79 @@ test('starts existing UI with connected simulator and shuts down cleanly', async
       return message.target === 'setup' && message.header === 'showExtension';
     });
     assert.strictEqual(nextSetupStep.content.extension, 'speaker-preset');
+    socket.sendJSON({
+      target: 'general',
+      header: 'activatedExtension',
+      content: {extension: 'speaker-preset', deepMenu: null}
+    });
+    const presetList = await waitForMessage(socket, function (message) {
+      return message.target === 'speaker-preset' && message.header === 'presets';
+    }, 'speaker preset list');
+    assert.ok(presetList.content.compactPresetList['other-speaker']);
+    assert.ok(presetList.content.compactPresetList['beovox-cx50']);
+
+    socket.sendJSON({target: 'product-information', header: 'getBasicProductInformation'});
+    const productInformation = await waitForMessage(socket, function (message) {
+      return message.target === 'product-information' && message.header === 'basicProductInformation';
+    }, 'local product information');
+    assert.strictEqual(productInformation.content.systemName, 'SpeakerLab Local Simulator');
+    assert.strictEqual(productInformation.content.systemID, 'speakerlab-local');
+    assert.strictEqual(productInformation.content.localDevelopment, true);
+
+    socket.sendJSON({
+      target: 'speaker-preset',
+      header: 'selectSpeakerPreset',
+      content: {presetID: 'beovox-cx50'}
+    });
+    const namedPreview = await waitForMessage(socket, function (message) {
+      return message.target === 'speaker-preset' && message.header === 'presetPreview';
+    }, 'named speaker preview');
+    assert.strictEqual(namedPreview.content.preset.presetName, 'Beovox CX 50');
+    assert.strictEqual(namedPreview.content.preset.content['product-information'].status, 0);
+    assert.strictEqual(
+      namedPreview.content.preset.content['product-information'].report.previewProcessor,
+      'product_information.generateSettingsPreview'
+    );
+
+    socket.sendJSON({
+      target: 'speaker-preset',
+      header: 'selectSpeakerPreset',
+      content: {presetID: 'other-speaker'}
+    });
+    const otherPreview = await waitForMessage(socket, function (message) {
+      return message.target === 'speaker-preset' && message.header === 'presetPreview';
+    }, 'Other Speaker preview');
+    assert.strictEqual(otherPreview.content.preset.presetName, 'Other Speaker');
+    socket.sendJSON({
+      target: 'speaker-preset',
+      header: 'applySpeakerPreset',
+      content: {
+        presetID: 'other-speaker',
+        excludedSettings: [],
+        installDefault: false
+      }
+    });
+    const presetApplied = await waitForMessage(socket, function (message) {
+      return message.target === 'speaker-preset' && message.header === 'presetApplied';
+    }, 'speaker preset application');
+    assert.strictEqual(presetApplied.content.presetID, 'other-speaker');
+    socket.sendJSON({target: 'setup', header: 'nextStep'});
+    const setupFinish = await waitForMessage(socket, function (message) {
+      return message.target === 'setup' && message.header === 'showExtension';
+    }, 'setup finish transition');
+    assert.strictEqual(setupFinish.content.extension, 'setup-finish');
+
+    const refreshedResponse = await request('http://127.0.0.1:' + server.port + '/');
+    assert.strictEqual(refreshedResponse.status, 200);
+    socket.sendJSON({
+      target: 'general',
+      header: 'activatedExtension',
+      content: {extension: 'speaker-preset', deepMenu: null}
+    });
+    const refreshedPresets = await waitForMessage(socket, function (message) {
+      return message.target === 'speaker-preset' && message.header === 'presets';
+    }, 'speaker preset state after page refresh');
+    assert.strictEqual(refreshedPresets.content.currentSpeakerPreset, 'other-speaker');
 
     socket.sendJSON({target: 'channels', header: 'getSettings'});
     const channels = await waitForMessage(socket, function (message) {

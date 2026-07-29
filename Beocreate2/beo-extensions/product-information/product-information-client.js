@@ -1,12 +1,12 @@
-var product_information = (function() {
+var product_information = (typeof window != "undefined" && window.product_information) ? window.product_information : (function(localState) {
 
 
-var systemName = "";
-var staticName = "";
-var modelName = "";
-var modelID = "";
-var systemID = "";
-var productImage = "";
+var systemName = localState ? "SpeakerLab Local Simulator" : "";
+var staticName = localState ? "speakerlab-local" : "";
+var modelName = localState ? "SpeakerLab Local Simulator" : "";
+var modelID = localState ? "speakerlab-local-simulator" : "";
+var systemID = localState ? "speakerlab-local" : "";
+var productImage = localState ? "/common/beocreate-generic.png" : "";
 var cardType = "";
 var showFullSystemID = false;
 var systemVersion = null;
@@ -16,15 +16,33 @@ var systemConfiguration = {};
 
 var productIdentities = {};
 var productImageShowTimeout = null;
+var reportedInvalidMessages = {};
+
+function requireContent(target, data) {
+	if (data && data.content && typeof data.content == "object") return true;
+	var header = data && data.header ? data.header : "unknown";
+	var key = target+"/"+header;
+	if (!reportedInvalidMessages[key]) {
+		console.error("Product Information could not process target='"+target+"' header='"+header+"': missing or malformed content; message ignored.");
+		reportedInvalidMessages[key] = true;
+	}
+	return false;
+}
 
 $(document).on("general", function(event, data) {
+	if (!data || typeof data.header != "string") {
+		requireContent("general", data);
+		return;
+	}
 	if (data.header == "connection") {
+		if (!requireContent("general", data)) return;
 		if (data.content.status == "connected") {
 			beo.send({target: "product-information", header: "getBasicProductInformation"});
 		}
 	}
 	
 	if (data.header == "activatedExtension") {
+		if (!requireContent("general", data)) return;
 		if (data.content.extension == "product-information") {
 			clearTimeout(productImageShowTimeout);
 			productImageShowTimeout = setTimeout(function() {
@@ -41,11 +59,16 @@ $(document).on("general", function(event, data) {
 });
 
 $(document).on("product-information", function(event, data) {
+	if (!data || typeof data.header != "string") {
+		requireContent("product-information", data);
+		return;
+	}
 	if (data.header == "showProductIdentity") {
-		systemName = data.content.systemName;
-		modelName = data.content.modelName;
-		modelID = data.content.modelID;
-		productImage = data.content.productImage;
+		if (!requireContent("product-information", data)) return;
+		if (data.content.systemName != undefined) systemName = data.content.systemName;
+		if (data.content.modelName != undefined) modelName = data.content.modelName;
+		if (data.content.modelID != undefined) modelID = data.content.modelID;
+		if (data.content.productImage != undefined) productImage = data.content.productImage;
 		$(".product-image").attr("src", productImage);
 		$(".product-image-bg").css("background-image", "url("+productImage+")");
 		$(".system-name").text(systemName);
@@ -56,9 +79,10 @@ $(document).on("product-information", function(event, data) {
 	}
 	
 	if (data.header == "showProductModel") {
-		modelName = data.content.modelName;
-		modelID = data.content.modelID;
-		productImage = data.content.productImage;
+		if (!requireContent("product-information", data)) return;
+		if (data.content.modelName != undefined) modelName = data.content.modelName;
+		if (data.content.modelID != undefined) modelID = data.content.modelID;
+		if (data.content.productImage != undefined) productImage = data.content.productImage;
 		$(".model-name").text(modelName);	
 		$(".product-identity-collection .collection-item").removeClass("checked");
 		$('.product-identity-collection .collection-item[data-model-id="'+modelID+'"]').addClass("checked");
@@ -67,12 +91,13 @@ $(document).on("product-information", function(event, data) {
 	}
 	
 	if (data.header == "basicProductInformation") {
-		systemName = data.content.systemName;
+		if (!requireContent("product-information", data)) return;
+		if (data.content.systemName != undefined) systemName = data.content.systemName;
 		$(".system-name").text(systemName);
-		staticName = data.content.staticName;
+		if (data.content.staticName != undefined) staticName = data.content.staticName;
 		$(".system-name-static").text(staticName.toLowerCase());
-		systemVersion = data.content.systemVersion;
-		systemID = data.content.systemID;
+		if (data.content.systemVersion != undefined) systemVersion = data.content.systemVersion;
+		if (data.content.systemID != undefined) systemID = data.content.systemID;
 		beo.sendToProductView({header: "systemName", content: {name: systemName}});
 		document.title = systemName;
 		systemUpdated = false;
@@ -105,9 +130,10 @@ $(document).on("product-information", function(event, data) {
 	}
 	
 	if (data.header == "showSystemName") {
-		systemName = data.content.systemName;
+		if (!requireContent("product-information", data)) return;
+		if (data.content.systemName != undefined) systemName = data.content.systemName;
 		$(".system-name").text(systemName);
-		staticName = data.content.staticName;
+		if (data.content.staticName != undefined) staticName = data.content.staticName;
 		$(".system-name-static").text(staticName.toLowerCase());
 		beo.sendToProductView({header: "systemName", content: {name: systemName}});
 		document.title = systemName;
@@ -126,7 +152,12 @@ $(document).on("product-information", function(event, data) {
 		}
 	}
 	
-	if (data.header == "allProductIdentities" && data.content.identities) {
+	if (data.header == "allProductIdentities") {
+		if (!requireContent("product-information", data)) return;
+		if (!data.content.identities || typeof data.content.identities != "object") {
+			requireContent("product-information", {header: "allProductIdentities"});
+			return;
+		}
 		productIdentities = data.content.identities;
 		$(".product-identity-collection").empty();
 		
@@ -358,4 +389,4 @@ return {
 	interactSetup: interactSetup
 };
 
-})();
+})(typeof localDevelopment != "undefined" && localDevelopment.active);
