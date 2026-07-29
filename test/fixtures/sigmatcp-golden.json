@@ -1,0 +1,21 @@
+{
+  "source": "Derived byte-for-byte from beocreate_essentials/dsp.js createSigmaReadRequest, createSigmaWriteRequest and signed 5.23 conversion.",
+  "confidence": "verified-current-code-generation",
+  "byteOrder": "big-endian",
+  "readParameter781Length4": {
+    "meaning": "Read four bytes from gain parameter 781.",
+    "hex": "0a000000000000000004030d0000",
+    "decoded": {"command": 10, "requestedLength": 4, "address": 781}
+  },
+  "writeParameter781Half": {
+    "meaning": "Write signed-5.23 value 0.5 to gain parameter 781.",
+    "hex": "090000000000120000000004030d00800000",
+    "decoded": {"command": 9, "frameLengthByte6": 18, "payloadLength": 4, "address": 781, "payloadHex": "00800000"}
+  },
+  "syntheticReadResponse": {
+    "meaning": "Test-generated current-decoder-compatible response for parameter 781; no repository protocol capture proves the response command byte.",
+    "confidence": "synthetic-strongly-evidenced-layout",
+    "hex": "0a000000000000000004030d000000800000",
+    "decoded": {"command": 10, "payloadLength": 4, "address": 781, "payloadHex": "00800000"}
+  }
+}
