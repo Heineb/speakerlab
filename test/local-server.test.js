@@ -32,6 +32,19 @@ function request(url) {
   });
 }
 
+function scriptSources(html) {
+  return Array.from(html.matchAll(/<script[^>]+src=["']([^"']+)["']/g), function (match) {
+    return match[1];
+  });
+}
+
+function assertOrderedOnce(sources, dependency, client) {
+  assert.strictEqual(sources.filter(function (source) { return source === dependency; }).length, 1);
+  assert.strictEqual(sources.filter(function (source) { return source === client; }).length, 1);
+  assert.ok(sources.indexOf(dependency) < sources.indexOf(client),
+    dependency + ' must load before ' + client);
+}
+
 async function waitForMessage(client, predicate) {
   for (let index = 0; index < 20; index += 1) {
     const message = await client.nextJSON();
@@ -141,12 +154,44 @@ test('starts existing UI with connected simulator and shuts down cleanly', async
     assert.match(response.body, /"dspState":"connected"/);
     assert.match(response.body, /hifiberry-system-tools/);
     assert.match(response.body, /signal-flow/);
+    assert.match(response.body, /class="menu-screen[^"]*" id="setup"/);
+    assert.match(response.body, /class="menu-screen[^"]*" id="speaker-preset"/);
+    assert.match(response.body, /class="menu-screen[^"]*" id="signal-flow"/);
+    assert.match(response.body, /id="signal-flow-outputs"/);
+    const sources = scriptSources(response.body);
+    assertOrderedOnce(
+      sources,
+      '/extensions/hifiberry-system-tools/configuration-backup-ui.js',
+      '/extensions/hifiberry-system-tools/hifiberry-system-tools-client.js'
+    );
+    assertOrderedOnce(
+      sources,
+      '/extensions/signal-flow/routing-ui-state.js',
+      '/extensions/signal-flow/signal-flow-client.js'
+    );
+    const repeatedResponse = await request('http://127.0.0.1:' + server.port + '/');
+    assert.strictEqual(repeatedResponse.status, 200);
+    assert.deepStrictEqual(scriptSources(repeatedResponse.body), sources);
     assert.doesNotMatch(server.output(), /127\\.0\\.1\\.1:8086|systemctl|dsptoolkit|pigs/);
     const socket = await websocketClient.connect({port: server.port});
     const dspStatus = await waitForMessage(socket, function (message) {
       return message.target === 'dsp-programs' && message.header === 'status';
     });
     assert.deepStrictEqual(dspStatus.content, {dspConnected: true, dspResponding: true});
+
+    socket.sendJSON({target: 'setup', header: 'getSetupStatus'});
+    const setupStatus = await waitForMessage(socket, function (message) {
+      return message.target === 'setup' && message.header === 'setupStatus';
+    });
+    assert.strictEqual(setupStatus.content.selectedExtension, 'setup');
+    assert.ok(setupStatus.content.setupFlow.some(function (step) {
+      return step.extension === 'speaker-preset';
+    }));
+    socket.sendJSON({target: 'setup', header: 'nextStep'});
+    const nextSetupStep = await waitForMessage(socket, function (message) {
+      return message.target === 'setup' && message.header === 'showExtension';
+    });
+    assert.strictEqual(nextSetupStep.content.extension, 'speaker-preset');
 
     socket.sendJSON({target: 'channels', header: 'getSettings'});
     const channels = await waitForMessage(socket, function (message) {

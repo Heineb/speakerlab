@@ -39,6 +39,7 @@ var EventEmitter = require('eventemitter3');
 var aplay = require('aplay');
 var _ = require('underscore');
 var settingsStore = require('./settings-store');
+var uiExtensionLoader = require('./ui-extension-loader');
 
 // Beocreate Essentials
 var beoCom = localDevelopment ?
@@ -758,13 +759,24 @@ function loadAppearance(appearance) {
 			if (shouldLoad) {
 				extensionsListClient[extensionName] = {assetPath: "/extensions/"+extensionName};
 				
-				menus.push(fs.readFileSync(shouldLoad.path, "utf8").replace(/^<script.*€.*/gm, "").replace(/€\//g, "/extensions/"+extensionName+"/")); // Read the menu from file, remove legacy client scripts and replace asset path placeholder.
+				var extensionMarkup = fs.readFileSync(shouldLoad.path, "utf8");
+				var declaredClientScripts = uiExtensionLoader.declaredClientScripts(extensionMarkup);
+				menus.push(uiExtensionLoader.stripClientScriptTags(extensionMarkup).replace(/€\//g, "/extensions/"+extensionName+"/"));
 				// Read scripts and stylesheets.
 				if (manifest.extensionScriptFileName || manifest.extensionStylesheetFileName) {
 					files = fs.readdirSync(shouldLoad.directory);
 					
-					// € matches extension name, * is a wildcard.
-					if (manifest.extensionScriptFileName.match(/€|\*/g)) {
+					// Explicit menu script tags declare ordered extension-local dependencies.
+					if (declaredClientScripts.length) {
+						for (var declaredScript of declaredClientScripts) {
+							if (files.indexOf(declaredScript) == -1) {
+								console.error("Extension '"+extensionName+"' declares missing client script '"+declaredScript+"'.");
+							} else {
+								var scriptURL = "/extensions/"+extensionName+"/"+declaredScript;
+								if (scripts.indexOf(scriptURL) == -1) scripts.push(scriptURL);
+							}
+						}
+					} else if (manifest.extensionScriptFileName.match(/€|\*/g)) {
 						pattern = manifest.extensionScriptFileName.replace(/€/g, extensionName).replace(/\*/g, ".*")+"\\.js";
 						regex = new RegExp(pattern);
 						filtered = files.filter(fn => (fn.match(regex) ? true : false));

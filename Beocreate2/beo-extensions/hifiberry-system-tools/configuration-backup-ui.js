@@ -1,10 +1,10 @@
 (function(root, factory) {
 	if (typeof module == "object" && module.exports) {
 		module.exports = factory();
-	} else {
+	} else if (!root.speakerlabConfigurationUI) {
 		root.speakerlabConfigurationUI = factory();
 	}
-}(this, function() {
+}(typeof window != "undefined" ? window : this, function() {
 	'use strict';
 
 	function initialState() {

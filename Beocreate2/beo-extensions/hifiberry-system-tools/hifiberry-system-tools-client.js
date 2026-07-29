@@ -1,9 +1,13 @@
-var hifiberry_system_tools = (function() {
+var hifiberry_system_tools = (typeof window != "undefined" && window.hifiberry_system_tools) ? window.hifiberry_system_tools : (function(configurationUI) {
 
 var newVersion = null;
 var archiveURL = null;
-var configurationState = speakerlabConfigurationUI.initialState();
+var configurationState = configurationUI ? configurationUI.initialState() : null;
 var configurationAPIBase = "/hifiberry-system-tools/configuration-backup";
+
+if (!configurationUI) {
+	console.error("System Tools configuration UI is unavailable because speakerlabConfigurationUI was not loaded.");
+}
 
 
 $(document).on("hifiberry-system-tools", function(event, data) {
@@ -59,7 +63,8 @@ $(document).on("hifiberry-system-tools", function(event, data) {
 
 $(document).on("general", function(event, data) {
 	if (data.header == "connection" && data.content) {
-		configurationState = speakerlabConfigurationUI.reduce(configurationState, {
+		if (!configurationUI) return;
+		configurationState = configurationUI.reduce(configurationState, {
 			type: "CONNECTION",
 			connected: data.content.status == "connected"
 		});
@@ -101,35 +106,36 @@ function downloadBackup() {
 }
 
 function chooseBackup() {
-	if (speakerlabConfigurationUI.viewModel(configurationState).canChooseFile) {
+	if (configurationUI && configurationUI.viewModel(configurationState).canChooseFile) {
 		$("#configuration-backup-file").trigger("click");
 	}
 }
 
 
 function validateBackupFile(file) {
+	if (!configurationUI) return;
 	if (file.size > 5*1024*1024) {
-		configurationState = speakerlabConfigurationUI.reduce(configurationState, {
+		configurationState = configurationUI.reduce(configurationState, {
 			type: "VALIDATION_FAILED",
 			error: {message: "The selected backup is larger than 5 MiB."}
 		});
 		renderConfigurationState();
 		return;
 	}
-	configurationState = speakerlabConfigurationUI.reduce(configurationState, {type: "VALIDATE"});
+	configurationState = configurationUI.reduce(configurationState, {type: "VALIDATE"});
 	renderConfigurationState();
 	var reader = new FileReader();
 	reader.onload = function() {
 		request(configurationAPIBase+"/preview", reader.result).then(function(preview) {
-			configurationState = speakerlabConfigurationUI.reduce(configurationState, {type: "PREVIEW", preview: preview});
+			configurationState = configurationUI.reduce(configurationState, {type: "PREVIEW", preview: preview});
 			renderConfigurationState();
 		}).catch(function(error) {
-			configurationState = speakerlabConfigurationUI.reduce(configurationState, {type: "VALIDATION_FAILED", error: error});
+			configurationState = configurationUI.reduce(configurationState, {type: "VALIDATION_FAILED", error: error});
 			renderConfigurationState();
 		});
 	};
 	reader.onerror = function() {
-		configurationState = speakerlabConfigurationUI.reduce(configurationState, {
+		configurationState = configurationUI.reduce(configurationState, {
 			type: "VALIDATION_FAILED",
 			error: {message: "The selected file could not be read."}
 		});
@@ -139,15 +145,16 @@ function validateBackupFile(file) {
 }
 
 function confirmRestore() {
-	var view = speakerlabConfigurationUI.viewModel(configurationState);
+	if (!configurationUI) return;
+	var view = configurationUI.viewModel(configurationState);
 	if (!view.canConfirm) return;
-	configurationState = speakerlabConfigurationUI.reduce(configurationState, {type: "CONFIRM_RESTORE"});
+	configurationState = configurationUI.reduce(configurationState, {type: "CONFIRM_RESTORE"});
 	renderConfigurationState();
 	request(configurationAPIBase+"/restore", JSON.stringify({token: configurationState.preview.token})).then(function(result) {
 		if (result.status == "success") {
-			configurationState = speakerlabConfigurationUI.reduce(configurationState, {type: "RESTORE_SUCCEEDED"});
+			configurationState = configurationUI.reduce(configurationState, {type: "RESTORE_SUCCEEDED"});
 		} else {
-			configurationState = speakerlabConfigurationUI.reduce(configurationState, {
+			configurationState = configurationUI.reduce(configurationState, {
 				type: "RESTORE_FAILED",
 				error: result.error,
 				rollback: result.rollback
@@ -155,7 +162,7 @@ function confirmRestore() {
 		}
 		renderConfigurationState();
 	}).catch(function(error) {
-		configurationState = speakerlabConfigurationUI.reduce(configurationState, {
+		configurationState = configurationUI.reduce(configurationState, {
 			type: "RESTORE_FAILED",
 			error: error,
 			rollback: error.rollback
@@ -165,7 +172,8 @@ function confirmRestore() {
 }
 
 function cancelRestore() {
-	configurationState = speakerlabConfigurationUI.reduce(configurationState, {type: "RESET"});
+	if (!configurationUI) return;
+	configurationState = configurationUI.reduce(configurationState, {type: "RESET"});
 	renderConfigurationState();
 }
 
@@ -188,7 +196,14 @@ function request(url, body) {
 }
 
 function renderConfigurationState() {
-	var view = speakerlabConfigurationUI.viewModel(configurationState);
+	if (!configurationUI) {
+		$("#restore-button").addClass("disabled");
+		$("#configuration-restore-status").removeClass("hidden");
+		$("#configuration-restore-title").text("Configuration tools unavailable");
+		$("#configuration-restore-message").text("Reload the interface. The configuration UI dependency did not load.");
+		return;
+	}
+	var view = configurationUI.viewModel(configurationState);
 	if (configurationState.status == "idle") {
 		$("#configuration-restore-status").addClass("hidden");
 	} else {
@@ -216,6 +231,8 @@ function renderConfigurationState() {
 }
 
 
+renderConfigurationState();
+
 return {
 	collect: collect,
 	downloadArchive: downloadArchive,
@@ -225,4 +242,4 @@ return {
 	cancelRestore: cancelRestore
 };
 
-})();
+})(typeof window != "undefined" ? window.speakerlabConfigurationUI : null);

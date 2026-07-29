@@ -1,6 +1,24 @@
-var signalFlow = (function() {
+var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.signalFlow : (function(stateModel) {
 	'use strict';
 
+	if (!stateModel) {
+		console.error('Signal Flow UI is unavailable because signalFlowUIState was not loaded.');
+		return {
+			available: false,
+			update: function() {},
+			updateCrossover: function() {},
+			requestPreview: function() {},
+			resetCrossover: function() {},
+			copyCrossover: function() {},
+			route: function() {},
+			save: function() {},
+			discard: function() {},
+			reset: function() {},
+			render: function() {},
+			getState: function() { return null; }
+		};
+	}
+	var signalFlowUIState = stateModel;
 	var state = signalFlowUIState.create();
 	var roleLabels = {
 		'unassigned': 'Unassigned',
@@ -268,4 +286,4 @@ var signalFlow = (function() {
 		render: render,
 		getState: function() { return state; }
 	};
-}());
+}(typeof window !== 'undefined' ? window.signalFlowUIState : null));

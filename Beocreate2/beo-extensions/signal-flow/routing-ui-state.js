@@ -1,7 +1,7 @@
 (function(root, factory) {
 	if (typeof module === 'object' && module.exports) module.exports = factory();
-	else root.signalFlowUIState = factory();
-}(this, function() {
+	else if (!root.signalFlowUIState) root.signalFlowUIState = factory();
+}(typeof window !== 'undefined' ? window : this, function() {
 	'use strict';
 
 	function clone(value) {
