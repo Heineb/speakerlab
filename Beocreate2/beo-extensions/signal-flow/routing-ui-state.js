@@ -28,13 +28,16 @@
 
 	function receiveState(state, payload) {
 		state.loading = false;
-		state.connected = true;
+		state.connected = !(payload.runtime && payload.runtime.connected === false);
 		state.capabilities = clone(payload.capabilities);
 		state.runtime = clone(payload.runtime);
 		state.validation = clone(payload.validation);
 		state.message = payload.loadError ? payload.loadError.message : null;
 		if (state.dirty) {
-			if (state.revision !== payload.revision) state.conflict = true;
+			if (state.revision !== payload.revision) {
+				state.conflict = true;
+				state.message = 'The server routing changed while you were editing. Your draft has been kept.';
+			}
 			return state;
 		}
 		state.saved = clone(payload.configuration);

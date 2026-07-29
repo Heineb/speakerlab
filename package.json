@@ -32,7 +32,16 @@
     "test:configuration-restore": "node test/configuration-restore.test.js",
     "test:configuration-api": "node test/configuration-api.test.js",
     "test:configuration-ui": "node test/configuration-ui.test.js",
+    "test:ui-acceptance": "playwright test",
+    "test:setup-acceptance": "playwright test test/ui-acceptance/setup-acceptance.spec.js",
+    "test:signal-flow-acceptance": "playwright test test/ui-acceptance/signal-flow-acceptance.spec.js",
+    "test:crossover-acceptance": "playwright test test/ui-acceptance/signal-flow-acceptance.spec.js --grep crossover",
+    "test:backup-restore-acceptance": "playwright test test/ui-acceptance/backup-restore-acceptance.spec.js",
+    "test:reconnect-acceptance": "playwright test test/ui-acceptance/reconnect-acceptance.spec.js",
     "check:syntax": "node scripts/verify-javascript-syntax.js",
-    "verify": "npm test && npm run check:syntax"
+    "verify": "npm test && npm run check:syntax && npm run test:ui-acceptance"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.62.0"
   }
 }

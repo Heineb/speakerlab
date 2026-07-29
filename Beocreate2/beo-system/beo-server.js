@@ -311,6 +311,16 @@ if (localDevelopment) {
 	}
 }
 loadAllServerExtensions();
+if (localDevelopment && simulatedDSP && !extensions["dsp-programs"]) {
+	extensions["dsp-programs"] = {
+		getCurrentProgramInfo: function() {
+			return {name: "SpeakerLab simulated DSP"};
+		},
+		installDSPProgram: function(program, callback) {
+			if (callback) callback(simulatedDSP.isConnected());
+		}
+	};
+}
 var selectedExtension = null;
 var selectedDeepMenu = null;
 

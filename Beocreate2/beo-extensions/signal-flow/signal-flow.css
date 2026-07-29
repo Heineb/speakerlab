@@ -1,6 +1,13 @@
 .signal-flow-content {
 	max-width: 760px;
 }
+.signal-flow-content section {
+	display: block;
+	position: static;
+	transition: none;
+	-webkit-user-select: auto;
+	user-select: auto;
+}
 .signal-flow-status,
 .signal-flow-summary,
 .signal-flow-message {
