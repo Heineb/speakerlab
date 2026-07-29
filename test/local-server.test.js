@@ -8,6 +8,7 @@ const os = require('os');
 const path = require('path');
 const runtime = require('../scripts/local-development-runtime');
 const layout = require('../scripts/prepare-local-beocreate-layout');
+const websocketClient = require('./websocket-test-client');
 
 const repositoryRoot = path.resolve(__dirname, '..');
 const tests = [];
@@ -28,6 +29,14 @@ function request(url) {
       });
     }).on('error', reject);
   });
+}
+
+async function waitForMessage(client, predicate) {
+  for (let index = 0; index < 20; index += 1) {
+    const message = await client.nextJSON();
+    if (predicate(message)) return message;
+  }
+  throw new Error('Expected WebSocket message was not received.');
 }
 
 function startServer(dspState) {
@@ -131,6 +140,37 @@ test('starts existing UI with connected simulator and shuts down cleanly', async
     assert.match(response.body, /"dspState":"connected"/);
     assert.match(response.body, /hifiberry-system-tools/);
     assert.doesNotMatch(server.output(), /127\\.0\\.1\\.1:8086|systemctl|dsptoolkit|pigs/);
+    const socket = await websocketClient.connect({port: server.port});
+    const dspStatus = await waitForMessage(socket, function (message) {
+      return message.target === 'dsp-programs' && message.header === 'status';
+    });
+    assert.deepStrictEqual(dspStatus.content, {dspConnected: true, dspResponding: true});
+
+    socket.sendJSON({target: 'channels', header: 'getSettings'});
+    const channels = await waitForMessage(socket, function (message) {
+      return message.target === 'channels' && message.header === 'channelSettings';
+    });
+    assert.strictEqual(channels.content.settings.balance, 0);
+
+    socket.sendJSON({
+      target: 'general',
+      header: 'activatedExtension',
+      content: {extension: 'hifiberry-system-tools', deepMenu: null}
+    });
+    const capabilities = await waitForMessage(socket, function (message) {
+      return message.target === 'hifiberry-system-tools' &&
+        message.header === 'configurationBackupCapabilities';
+    });
+    assert.strictEqual(capabilities.content.format, 'org.speakerlab.configuration-backup');
+
+    socket.sendJSON({target: 'unknown-extension', header: 'unknown-header'});
+    socket.sendText('{');
+    socket.sendJSON({target: 'channels', header: 'getSettings'});
+    await waitForMessage(socket, function (message) {
+      return message.target === 'channels' && message.header === 'channelSettings';
+    });
+    socket.close();
+    await socket.waitForClose();
   } finally {
     await stopServer(server);
     fs.rmSync(server.root, {recursive: true, force: true});
@@ -144,8 +184,25 @@ test('starts disconnected simulator without contacting hardware', async function
     assert.strictEqual(response.status, 200);
     assert.match(response.body, /"dspState":"disconnected"/);
     assert.doesNotMatch(server.output(), /127\\.0\\.1\\.1:8086/);
-  } finally {
+    const first = await websocketClient.connect({port: server.port});
+    const firstStatus = await waitForMessage(first, function (message) {
+      return message.target === 'dsp-programs' && message.header === 'status';
+    });
+    assert.deepStrictEqual(firstStatus.content, {dspConnected: false, dspResponding: false});
+    first.destroy();
+    await first.waitForClose();
+
+    const second = await websocketClient.connect({port: server.port});
+    const secondStatus = await waitForMessage(second, function (message) {
+      return message.target === 'dsp-programs' && message.header === 'status';
+    });
+    assert.deepStrictEqual(secondStatus.content, firstStatus.content);
+    const closeFrame = second.nextFrame();
     await stopServer(server);
+    assert.strictEqual((await closeFrame).opcode, 0x8);
+    server.stopped = true;
+  } finally {
+    if (!server.stopped) await stopServer(server);
     fs.rmSync(server.root, {recursive: true, force: true});
   }
 });

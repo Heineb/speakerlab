@@ -825,6 +825,16 @@ function loadAppearance(appearance) {
 beoCom.on("open", function(connectionID, protocol) {
 	// Connection opens. Nothing actually needs to be done here. The client will request setup status, which will get processed by the "setup" extension.
 	beoBus.emit('general', {header: "connected"});
+	if (localDevelopment && simulatedDSP) {
+		beoCom.send({
+			target: "dsp-programs",
+			header: "status",
+			content: {
+				dspConnected: simulatedDSP.isConnected(),
+				dspResponding: simulatedDSP.isConnected()
+			}
+		}, connectionID);
+	}
 });
 
 
@@ -1051,6 +1061,15 @@ function completeShutdown() {
 		if (debugMode) console.log("Saving pending settings...");
 		savePendingSettings();
 		if (debugMode) console.log("Stopped WebSocket communication.");
+		if (localDevelopment) {
+			if (beoServer.closeAllConnections) beoServer.closeAllConnections();
+			beoServer.close();
+			if (debugMode) console.log("Stopped HTTP server. Shutdown complete.");
+			shutdownDone = true;
+			console.log("Exiting Beocreate 2.");
+			process.exit(0);
+			return;
+		}
 		beoServer.close(function() {
 			if (debugMode) console.log("Stopped HTTP server. Shutdown complete.");
 			shutdownDone = true;
