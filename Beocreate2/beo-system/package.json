@@ -1,6 +1,8 @@
 {
   "name": "beocreate-2",
   "version": "2.3.0",
+  "private": true,
+  "packageManager": "npm@11.6.2",
   "description": "Software for Beocreate sound systems",
   "main": "beo-server.js",
   "scripts": {
@@ -8,7 +10,8 @@
   },
   "repository": {
     "type": "git",
-    "url": "github.com/bang-olufsen/create"
+    "url": "https://github.com/Heineb/speakerlab.git",
+    "directory": "Beocreate2/beo-system"
   },
   "keywords": [
     "beocreate",
@@ -21,8 +24,8 @@
   "license": "MIT",
   "dependencies": {
     "aplay": "^1.2.0",
-    "eventemitter3": "^3.1.2",
-    "express": "^4.17.1",
-	"underscore": "^1.9.1"
+    "eventemitter3": "^5.0.4",
+    "express": "^4.22.2",
+    "underscore": "^1.13.8"
   }
 }
