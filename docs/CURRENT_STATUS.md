@@ -8,17 +8,18 @@ Current working branch: `develop`.
 
 ## Latest completed slice
 
-Local UI assembly now preserves ordered extension-local client dependencies declared by active `src="€/..."` script tags. Configuration backup state loads before System Tools, and the Signal Flow state model loads before its client. Both globals are explicit, idempotent `window` properties; repeated page generation emits each script once, and repeated client evaluation does not duplicate handlers.
+The local speaker-profile setup path now includes the existing Product Information extension without invoking its deployed Raspberry Pi/HiFiBerryOS identity behavior. Local mode reports the fixed, truthful identity **SpeakerLab Local Simulator** and reads shipped product identities only for named profile previews. It does not rename the host, advertise Bonjour, change the simulator identity after profile application or claim physical DSP deployment.
 
-System Tools reports and visibly disables configuration restore if its optional state helper is absent. Signal Flow reports an unavailable client instead of throwing if its required state helper is absent.
+`product_information` remains owned by `product-information-client.js`. Its client object initializes before messages, is idempotent, retains valid state across reconnect, tolerates optional fields and diagnoses malformed state once per target/header.
 
-Menu registration now assigns `parentMenu` only when the declared destination exists. This keeps locally enabled Speaker Preset and Signal Flow screens navigable when the hardware-dependent Sound parent is filtered out. `showExtension` returns a clear diagnostic for unknown screens, missing menu metadata, invalid parents or navigation already in progress instead of throwing.
+Speaker Preset no longer assumes Product Information has already loaded. Out-of-order or absent optional identity state produces a minimal preview with one diagnostic instead of an uncaught `ReferenceError`; invalid previews produce visible feedback.
 
-Focused tests cover actual menu declaration order, generated script order, top-level browser-like execution, idempotent initialization, setup destinations and progression, Signal Flow/Crossover reachability, repeated UI generation, WebSocket state and reconnect.
+Automated browser-like and live server tests cover both message orders, setup state arriving first, reconnect, malformed/missing metadata, `Other Speaker`, a named Beovox profile, preview confirmation, selected-state refresh, setup transition, generated script order and continued Signal Flow/Crossover availability.
 
 ## Verification
 
 ```sh
+npm run test:product-information-client
 npm run test:client-initialization
 npm run test:setup-navigation
 npm run test:signal-flow
@@ -34,15 +35,15 @@ npm run check:syntax
 git diff --check
 ```
 
-Automated focused and complete verification passes on the development runtime.
+Focused product-information, client-initialization, connected/disconnected local-server and complete repository verification passes.
 
 ## Known limitations
 
-* Manual browser click-through remains unverified because no controllable browser session was available. Connected local startup and clean shutdown were verified.
-* The browser-like harness is intentionally minimal and does not validate layout, pointer events or browser rendering.
+* Manual clean-browser click-through remains unverified because no controllable browser session was available. Connected local startup and clean shutdown were verified.
+* The browser-like harness does not validate layout, pointer behavior or rendering.
+* Local profile application persists simulated configuration but never deploys it to physical DSP hardware.
 * Production HiFiBerryOS and physical hardware behavior remain unverified.
-* Crossover designs remain simulated and are not deployed to the DSP.
 
 ## Next recommended slice
 
-Run the documented clean-browser connected/disconnected setup, Signal Flow, Crossover and refresh smoke path when a browser session is available. After that verification, resume the planned Channel Gain, Delay and Polarity v1 slice as a separate task.
+Run the documented connected/disconnected clean-browser setup, named/Other Speaker preview, refresh, Signal Flow and Crossover smoke path when a browser session is available. Do not continue feature development until that manual lifecycle gap has been reviewed.

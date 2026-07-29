@@ -92,6 +92,40 @@ The setup-navigation suite executes the existing `beo-ui.js` with a minimal DOM/
 
 No new browser framework or dependency was added. A manual connected-mode server startup and clean shutdown were completed, but the requested clean-session click-through and disconnected visual pass could not be performed because no controllable browser session was available in the execution environment. Visual layout, real pointer interaction, browser-specific console behavior and manual refresh behavior therefore remain unverified.
 
+## Product information and speaker-profile setup
+
+Run:
+
+```sh
+npm run test:product-information-client
+npm run test:client-initialization
+npm run test:setup-navigation
+npm run test:local-server
+```
+
+`product_information` is owned by `product-information-client.js`. Speaker Preset uses `clearPresetPreview` before rendering every preview and uses `product_information.generateSettingsPreview` for named profiles whose server-side identity report declares that processor. Local mode previously excluded the complete Product Information extension because its deployed server startup reads Raspberry Pi/HiFiBerryOS identity and manages host naming and Bonjour. The client object was therefore absent, and the bare identifier at the start of `speaker-preset/presetPreview` raised a `ReferenceError` before any preview could open.
+
+Local mode now loads the existing Product Information extension with a truthful fixed identity:
+
+| Field | Local value |
+| --- | --- |
+| System/model name | `SpeakerLab Local Simulator` |
+| Model ID | `speakerlab-local-simulator` |
+| System ID/static name | `speakerlab-local` |
+| Product image | existing generic Beocreate image |
+
+The local branch never queries or renames the host, reads deployed identity files under `/etc`, starts Bonjour, changes the fixed simulator identity after applying a profile, or claims physical DSP application. It still reads the shipped repository product identities so named speaker profiles receive their established manufacturer/model preview metadata. Production startup and identity behavior are unchanged.
+
+The Product Information client initializes that local state before messages arrive, updates the same object when valid server state arrives, retains existing values when optional fields are absent, and re-requests state on reconnect without clearing valid state. Malformed state is ignored with one target/header diagnostic per failure type. Repeated script evaluation reuses the client object and handlers.
+
+Speaker Preset receives Product Information explicitly at initialization. If it is unavailable or a preset message arrives first, the preview continues with minimal metadata and emits one diagnostic instead of throwing. A preview without preset content produces a visible unavailable notification. This removes the valid-message-order assumption while preserving identity enrichment when Product Information is available.
+
+The seven focused client cases cover local initialization, valid and optional server state, idempotence, product-before-preset and preset-before-product delivery, setup-before-both delivery, reconnect refresh, missing Product Information, malformed repeated state, named/minimal previews, selection, confirmation and invalid-preview feedback. The browser-like harness executes the actual client files and event handlers without predefining `product_information`.
+
+The live local-server test additionally proves that Product Information loads before Speaker Preset in generated HTML, reports the fixed local identity, supplies repository identity metadata for a named Beovox profile, previews and applies `Other Speaker`, enables the next setup transition, retains the selected preset across another page fetch, and keeps Signal Flow/Crossover and connected/disconnected simulation operational.
+
+A connected local server was started and stopped cleanly. The requested clean/incognito browser clicks, visual preview inspection, console inspection and disconnected manual repeat remain unverified because no controllable browser session was available.
+
 ## WebSocket contract and lifecycle
 
 Run:
