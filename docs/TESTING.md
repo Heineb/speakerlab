@@ -66,6 +66,32 @@ The DSP suite calls the same method names and callback shapes currently consumed
 
 Local mode does not load the deployed global `websocket`/`dnssd2` packages or advertise Bonjour. It now provides the existing browser WebSocket application contract through a zero-dependency loopback transport.
 
+## Client extension initialization and setup navigation
+
+Run:
+
+```sh
+npm run test:client-initialization
+npm run test:setup-navigation
+npm run test:local-server
+```
+
+The System Tools menu declares `configuration-backup-ui.js` before `hifiberry-system-tools-client.js`; the first script defines `window.speakerlabConfigurationUI`. The Signal Flow menu likewise declares `routing-ui-state.js` before `signal-flow-client.js`; the first defines the authoritative `window.signalFlowUIState`. Previously, UI assembly removed every `src="€/..."` tag and selected only the single manifest-matching `€-client` file. Both helpers were therefore absent from the generated page even though isolated tests loaded them manually.
+
+The initialization suite parses the real menu declarations and executes the actual helper and client files in that order in a built-in `vm` browser-like harness. It catches top-level exceptions, proves each required state exists before first use, checks repeated evaluation does not duplicate document handlers, and verifies that absent optional configuration support degrades visibly. A missing Signal Flow state produces an explicit unavailable client instead of an uncaught `ReferenceError`.
+
+The setup-navigation suite executes the existing `beo-ui.js` with a minimal DOM/jQuery harness. It covers unknown extensions, missing parent metadata, repeat attempts after a rejected navigation, the active-navigation diagnostic, and real destination checks during menu registration. The live local-server suite additionally proves:
+
+* setup, speaker-preset and Signal Flow menu screens exist in assembled HTML;
+* helper scripts occur exactly once and before their consumers;
+* repeated HTTP UI generation returns the same script list without duplication;
+* the setup WebSocket flow advances from `setup` to the locally available `speaker-preset` destination;
+* Signal Flow state, crossover preview/save and reconnect remain operational in simulation.
+
+`speaker-preset` and `signal-flow` retain their deployed `sound/...` contexts, while the local allow-list excludes the hardware-dependent `sound` extension. Menu preparation now assigns a parent only when that destination exists; otherwise those selected local screens remain top-level and navigable. This is a local composition consequence, not a new production navigation hierarchy.
+
+No new browser framework or dependency was added. A manual connected-mode server startup and clean shutdown were completed, but the requested clean-session click-through and disconnected visual pass could not be performed because no controllable browser session was available in the execution environment. Visual layout, real pointer interaction, browser-specific console behavior and manual refresh behavior therefore remain unverified.
+
 ## WebSocket contract and lifecycle
 
 Run:
