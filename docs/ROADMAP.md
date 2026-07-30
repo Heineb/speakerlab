@@ -342,6 +342,10 @@ Provide a dedicated loudspeaker crossover workflow instead of requiring users to
 
 The primary controls should use loudspeaker terminology rather than biquad terminology.
 
+### Completed simulator-first extension: Parametric EQ Editor v1
+
+Each output now supports up to 12 peaking, low-shelf and high-shelf bands inside the complete Signal Flow design. Pure RBJ mathematics, validation, combined electrical response, estimated headroom, atomic persistence, backup/restore, current-target compilation, simulator readback and responsive accessible browser journeys are covered. Physical deployment remains blocked; legacy equaliser and speaker-preset data are unchanged.
+
 ---
 
 ## M9 — Measurement import

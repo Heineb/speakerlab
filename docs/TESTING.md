@@ -536,6 +536,7 @@ The root tooling has no dependencies. CI installs only the modern server lockfil
 | Configuration write and atomic persistence | none | central settings writer seam only | none | `npm run test:configuration-write`; focused: `test:settings-write`, `test:atomic-settings` |
 | Configuration backup and restore | none | service, REST-handler and client-state seams | none | focused: `test:configuration-backup`, `test:configuration-restore`, `test:configuration-api`, `test:configuration-ui` |
 | Signal flow and channel routing | none | `npm run dev`, then open Signal Flow | none | focused: `test:signal-flow`, `test:channel-routing`, `test:routing-contract`, `test:routing-ui`, `test:local-server` |
+| Parametric EQ v1 | root locked Playwright only for browser journeys | Signal Flow in isolated local mode | none | focused: `test:parametric-eq`, `test:eq-response`, `test:eq-ui`, `test:eq-acceptance` |
 | Repository verification | none | not applicable | none | `npm run verify`; syntax only: `npm run check:syntax` |
 
 `npm install` is documented for Beocreate Connect in the upstream README; `npm ci` is the reproducibility check where a committed lockfile exists.
@@ -586,6 +587,8 @@ Environment: macOS, Node `v26.4.0`, npm `11.17.0`.
 No command failed in this change. The checks did not install dependencies, use the network, access `/etc` or `/opt`, start the complete server, contact hardware or invoke HiFiBerryOS services.
 
 ## What can run without hardware today
+
+Parametric EQ mathematics, validation, draft operations, atomic complete-design persistence, compiler output, simulator readback and browser workflows run without hardware. They use temporary state, the isolated local server and no network after locked dependencies are installed. They do not exercise legacy preset application, SigmaTCP writes, GPIO mute, audible output or acoustic behavior.
 
 The central settings/default, configuration, syntax, deployed-layout and simulated DSP suites run without hardware. The local-server suite starts the existing server and HTTP UI assembly with an audited extension subset, isolated temporary state and no HiFiBerryOS services. Once the existing locked server modules are installed, tests perform no external network access. A clean `npm run dev` may use registry access to install those locked modules automatically.
 

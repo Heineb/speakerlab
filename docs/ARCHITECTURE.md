@@ -152,6 +152,14 @@ Preset application can change routing, gain, delay, polarity and filters. It has
 
 ## DSP communication path
 
+## Parametric EQ design boundary
+
+Signal Flow owns a nested `parametricEQ` v1 value alongside routing, crossover and channel processing. `parametric-eq-model.js` is the pure authority for capabilities, normalization, validation, RBJ coefficient design, stability, response, headroom estimation and deterministic band operations. `routing-service.js` validates and persists the complete design atomically; there is no independent EQ file.
+
+The browser stores only transient selection and server-returned response points. The server calculates the combined crossover + EQ response. Enabled bands compile after crossover sections into the same 16-section current-Beocreate IIR bank. Compiler operations retain `parametricEQ.<band-id>` and the stable `bandId`, use signed 5.23 quantization and support simulator readback/mismatch reporting. The legacy `equaliser` extension, `equaliser.json` and speaker-preset EQ remain separate and unchanged.
+
+This is a current-Beocreate design/simulator boundary, not a generic hardware abstraction. Repository mapping evidence remains insufficient for physical Apply.
+
 The current path is:
 
 `browser control -> WebSocket/REST -> extension bus handler -> extension -> beocreate_essentials/dsp.js -> SigmaTCP server at 127.0.1.1:8086 -> Beocreate SigmaDSP hardware`

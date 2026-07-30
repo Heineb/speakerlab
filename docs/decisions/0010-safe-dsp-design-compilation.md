@@ -1,5 +1,7 @@
 # ADR 0010: Safe DSP Design Compilation Foundation
 
+Parametric EQ v1 extends this compiler under ADR 0011. EQ shares the evidenced output IIR banks, carries stable band IDs and remains simulator-only; physical readiness is unchanged.
+
 - Status: Accepted
 - Date: 2026-07-29
 - Milestone: M4 – Safe DSP Deployment

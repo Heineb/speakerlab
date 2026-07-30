@@ -21,6 +21,8 @@ The existing DSP Programs extension requests checksum and XML, parses `<beometa>
 
 The addresses below agree between shipped XML metadata and current legacy application code. They are **strongly evidenced**, not physically verified: no committed capture or readback proves that a write changed the intended DSP block.
 
+Parametric EQ v1 compiles enabled peaking, low-shelf and high-shelf bands after crossover sections in the same 80-word/16-biquad output bank. Design coefficients use normalized `{b0,b1,b2,a1,a2}` form; target words use legacy `[b2,b1,b0,-a2,-a1]` order and signed 5.23 quantization. The conservative 12-band limit reserves four sections for crossover. Stable band IDs accompany simulator operations and mismatch reports. This does not promote the map to physically verified or authorize physical Apply.
+
 | Output | Route selector | Polarity | IIR bank | Gain | Delay |
 | --- | ---: | ---: | ---: | ---: | ---: |
 | A | 4860 | 4866 | 691/80 | 781 | 786 |
