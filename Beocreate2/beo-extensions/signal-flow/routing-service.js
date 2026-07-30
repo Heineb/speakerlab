@@ -73,6 +73,12 @@ function createService(options) {
 				model.crossoverModel.designFilter('low-pass', output.lowPass, configuration.crossover.sampleRateHz);
 				model.crossoverModel.preview(output, configuration.crossover.sampleRateHz, {points: 9});
 			});
+			var eqConfiguration = configuration.parametricEQ || model.eqModel.defaultConfiguration(model.OUTPUT_IDS);
+			eqConfiguration.outputs.forEach(function(output) {
+				output.bands.filter(function(band) { return band.enabled; }).forEach(function(band) {
+					model.eqModel.designBand(band, eqConfiguration.sampleRateHz);
+				});
+			});
 		} catch (error) {
 			validation.valid = false;
 			validation.errors.push({
@@ -280,6 +286,48 @@ function createService(options) {
 		return {configuration: normalized, validation: validateDesign(normalized)};
 	}
 
+	function eqPreview(configuration, outputID) {
+		var validation = validateDesign(configuration);
+		if (!validation.valid) throw routingError('VALIDATION_FAILED', 'An EQ preview cannot be calculated while the design contains errors.', validation);
+		var normalized = model.normalize(configuration);
+		var output = normalized.parametricEQ.outputs.find(function(item) { return item.outputId === outputID; });
+		var crossover = normalized.crossover.outputs.find(function(item) { return item.outputId === outputID; });
+		var processing = normalized.channelProcessing.outputs.find(function(item) { return item.outputId === outputID; });
+		if (!output) throw routingError('UNKNOWN_EQ_OUTPUT', 'The selected EQ output is not available.');
+		return {
+			outputId: outputID,
+			response: model.eqModel.preview(output, crossover, model.crossoverModel, processing.gain.valueDb),
+			deploymentStatus: 'not-deployed'
+		};
+	}
+
+	function eqDraft(configuration, action, outputID, bandID, type, destinationOutputID) {
+		var normalized = model.normalize(configuration);
+		var result;
+		try {
+			if (action === 'add') result = model.eqModel.addBand(normalized.parametricEQ, outputID, type);
+			if (action === 'duplicate') result = model.eqModel.duplicateBand(normalized.parametricEQ, outputID, bandID);
+			if (action === 'remove') result = {configuration: model.eqModel.removeBand(normalized.parametricEQ, outputID, bandID)};
+			if (action === 'reset') {
+				var resetOutput = normalized.parametricEQ.outputs.find(function(item) { return item.outputId === outputID; });
+				if (!resetOutput) throw new Error('Unknown EQ output.');
+				resetOutput.bands = [];
+				result = {configuration: normalized.parametricEQ};
+			}
+			if (action === 'copy') result = {configuration: model.eqModel.copyEQ(normalized.parametricEQ, outputID, destinationOutputID)};
+		} catch (error) {
+			throw routingError('INVALID_EQ_DRAFT_OPERATION', error.message);
+		}
+		if (!result) throw routingError('UNKNOWN_EQ_DRAFT_OPERATION', 'Unknown EQ draft operation.');
+		normalized.parametricEQ = result.configuration;
+		return {
+			action: action,
+			configuration: normalized,
+			bandId: result.bandId || null,
+			validation: validateDesign(normalized)
+		};
+	}
+
 	function prepareForDSP(expectedRevision, runtime) {
 		var current = state(runtime);
 		if (!current.hasSavedConfiguration) throw routingError('NO_SAVED_DESIGN', 'Save a valid design before preparing it for DSP.');
@@ -345,6 +393,8 @@ function createService(options) {
 		resetCrossover: resetCrossover,
 		copyProcessing: copyProcessing,
 		resetProcessing: resetProcessing,
+		eqPreview: eqPreview,
+		eqDraft: eqDraft,
 		prepareForDSP: prepareForDSP,
 		applyToSimulator: applyToSimulator,
 		readSimulator: readSimulator,

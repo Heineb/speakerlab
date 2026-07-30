@@ -81,7 +81,10 @@ function compile(configuration, options) {
 		var connection = canonical.connections.find(function(item) { return item.destination === output.id && item.enabled; });
 		var crossover = canonical.crossover.outputs.find(function(item) { return item.outputId === output.id; });
 		var processing = canonical.channelProcessing.outputs.find(function(item) { return item.outputId === output.id; });
-		var summary = {outputId: output.id, label: output.label, operations: [], status: 'prepared'};
+		var equaliser = canonical.parametricEQ.outputs.find(function(item) { return item.outputId === output.id; });
+		var summary = {outputId: output.id, label: output.label, operations: [], status: 'prepared',
+			eqBandsEnabled: equaliser.bands.filter(function(band) { return band.enabled; }).length,
+			filterCapacity: capability.crossover.sectionsPerOutput};
 		if (!mapping) {
 			errors.push(issue('error', 'UNKNOWN_OUTPUT_MAPPING', output.id + ' has no verified target mapping.', output.id));
 			unsupported.push({outputId: output.id, field: 'output', reason: 'No verified target mapping.'});
@@ -112,6 +115,16 @@ function compile(configuration, options) {
 				sections.push({section: section, field: 'crossover.' + filterName, requested: clone(filter)});
 			});
 		});
+		equaliser.bands.filter(function(band) { return band.enabled; }).forEach(function(band) {
+			try {
+				var section = routingModel.eqModel.designBand(band, capability.identity.sampleRateHz);
+				if (!stable(section)) errors.push(issue('error', 'UNSTABLE_EQ_COEFFICIENTS', output.label + ' EQ band ' + band.id + ' is unstable.', output.id + '.parametricEQ.' + band.id));
+				sections.push({section: section, field: 'parametricEQ.' + band.id, requested: clone(band), bandId: band.id});
+			} catch (error) {
+				errors.push(issue('error', 'NON_FINITE_EQ_COEFFICIENTS', output.label + ' EQ band ' + band.id + ' could not be encoded: ' + error.message, output.id + '.parametricEQ.' + band.id));
+				unsupported.push({outputId: output.id, field: 'parametricEQ.' + band.id, reason: error.message});
+			}
+		});
 		if (output.enabled && output.role === 'tweeter' && !crossover.highPass.enabled) {
 			errors.push(issue('error', 'TWEETER_PROTECTION_REQUIRED', output.label + ' requires a verified high-pass before preparation.', output.id + '.crossover.highPass'));
 		}
@@ -131,7 +144,7 @@ function compile(configuration, options) {
 				integer: words.map(function(word) { return word.integer; }),
 				hex: words.map(function(word) { return word.hex; }),
 				decoded: words.map(function(word) { return word.decoded; })
-			}, 1 / FULL_SCALE, 'audio-filter', {sectionIndex: sectionIndex, quantizationDifference: quantization}));
+			}, 1 / FULL_SCALE, 'audio-filter', {sectionIndex: sectionIndex, bandId: selected.bandId || null, quantizationDifference: quantization}));
 		}
 		var gainDb = output.enabled ? processing.gain.valueDb : -Infinity;
 		if (output.enabled && !Number.isFinite(gainDb)) {

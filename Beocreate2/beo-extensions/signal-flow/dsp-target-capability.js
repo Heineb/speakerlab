@@ -36,6 +36,14 @@ function capability(options) {
 			encoding: 'signed-5.23-fixed-point',
 			readback: 'raw-coefficients'
 		},
+		parametricEQ: {
+			types: ['peaking', 'low-shelf', 'high-shelf'],
+			maximumBandsPerOutput: 12,
+			sharedSectionsPerOutput: 16,
+			encoding: 'signed-5.23-fixed-point',
+			readback: 'raw-coefficients',
+			mappingConfidence: 'strongly-evidenced-not-physically-verified'
+		},
 		gain: {minimumDb: -60, maximumVerifiedDb: 0, encoding: 'signed-5.23-fixed-point'},
 		delay: {minimumSamples: 0, maximumSamples: 2000, encoding: 'unsigned-integer-parameter'},
 		polarity: {normal: 0, inverted: 1, encoding: 'unsigned-integer-parameter'},

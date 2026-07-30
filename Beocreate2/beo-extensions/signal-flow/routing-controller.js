@@ -62,6 +62,20 @@ function createController(options) {
 						revision: content.revision === undefined ? null : content.revision
 					});
 					break;
+				case 'calculateEQResponse':
+					send('eqResponse', service.eqPreview(content.configuration, content.outputId));
+					break;
+				case 'eqDraft':
+					var eqDraft = service.eqDraft(content.configuration, content.action, content.outputId,
+						content.bandId, content.type, content.destinationOutputId);
+					send('eqDraft', {
+						action: eqDraft.action,
+						configuration: eqDraft.configuration,
+						bandId: eqDraft.bandId,
+						validation: eqDraft.validation,
+						revision: content.revision === undefined ? null : content.revision
+					});
+					break;
 				case 'prepareForDSP':
 					send('deploymentResult', {action: 'compile', deployment: service.prepareForDSP(content.revision, runtime())});
 					break;

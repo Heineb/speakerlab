@@ -3,6 +3,7 @@
 var crypto = require('crypto');
 var crossoverModel = require('./crossover-model');
 var processingModel = require('./channel-processing-model');
+var eqModel = require('./parametric-eq-model');
 
 var FORMAT = 'org.speakerlab.signal-flow';
 var VERSION = 1;
@@ -37,7 +38,8 @@ function capabilities(available) {
 			};
 		}),
 		crossover: crossoverModel.capabilities(crossoverModel.DEFAULT_SAMPLE_RATE_HZ),
-		channelProcessing: processingModel.capabilities()
+		channelProcessing: processingModel.capabilities(),
+		parametricEQ: eqModel.capabilities()
 	};
 }
 
@@ -57,7 +59,8 @@ function defaultConfiguration() {
 		}),
 		connections: [],
 		crossover: crossoverModel.defaultConfiguration(OUTPUT_IDS, crossoverModel.DEFAULT_SAMPLE_RATE_HZ),
-		channelProcessing: processingModel.defaultConfiguration(OUTPUT_IDS)
+		channelProcessing: processingModel.defaultConfiguration(OUTPUT_IDS),
+		parametricEQ: eqModel.defaultConfiguration(OUTPUT_IDS)
 	};
 }
 
@@ -84,7 +87,8 @@ function normalize(configuration) {
 			};
 		}),
 		crossover: crossover,
-		channelProcessing: processingModel.normalize(configuration.channelProcessing, OUTPUT_IDS)
+		channelProcessing: processingModel.normalize(configuration.channelProcessing, OUTPUT_IDS),
+		parametricEQ: eqModel.normalize(configuration.parametricEQ, OUTPUT_IDS)
 	};
 }
 
@@ -227,6 +231,13 @@ function validate(configuration, availableCapabilities) {
 	var processingValidation = processingModel.validate(processingConfiguration, OUTPUT_IDS, Array.isArray(configuration.outputs) ? configuration.outputs : [], Array.isArray(configuration.connections) ? configuration.connections : []);
 	errors = errors.concat(processingValidation.errors);
 	warnings = warnings.concat(processingValidation.warnings);
+	var eqConfiguration = configuration.parametricEQ || eqModel.defaultConfiguration(OUTPUT_IDS);
+	var eqValidation = eqModel.validate(eqConfiguration, OUTPUT_IDS,
+		Array.isArray(configuration.outputs) ? configuration.outputs : [],
+		Array.isArray(configuration.connections) ? configuration.connections : [],
+		crossoverConfiguration, crossoverModel);
+	errors = errors.concat(eqValidation.errors);
+	warnings = warnings.concat(eqValidation.warnings);
 	warnings.push(issue('warning', 'DESIGN_NOT_DEPLOYED', 'Saved crossover settings are a simulated design and are not deployed to hardware.', 'crossover'));
 
 	return {valid: errors.length === 0, errors: errors, warnings: warnings};
@@ -240,6 +251,7 @@ module.exports = {
 	OUTPUT_IDS: OUTPUT_IDS,
 	crossoverModel: crossoverModel,
 	processingModel: processingModel,
+	eqModel: eqModel,
 	capabilities: capabilities,
 	defaultConfiguration: defaultConfiguration,
 	normalize: normalize,

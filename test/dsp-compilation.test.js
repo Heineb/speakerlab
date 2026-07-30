@@ -135,5 +135,19 @@ test('blocks conflicting target parameters and non-finite values without throwin
   assert.strictEqual(result.status, 'unsupported');
 });
 
+test('compiles enabled EQ bands into the shared filter bank with quantized band readback', function () {
+  const configuration = design();
+  configuration.parametricEQ = routing.eqModel.addBand(configuration.parametricEQ, 'output-a', 'peaking').configuration;
+  Object.assign(configuration.parametricEQ.outputs[0].bands[0], {frequencyHz: 1000, gainDb: -3, shape: 1});
+  const result = compile(configuration);
+  const operation = result.operations.find(function (item) { return item.bandId === 'eq-a-1'; });
+  assert.strictEqual(result.status, 'prepared');
+  assert.strictEqual(operation.logicalField, 'parametricEQ.eq-a-1');
+  assert.strictEqual(operation.encoding, 'signed-5.23-fixed-point-array');
+  assert.strictEqual(operation.encodedValue.hex.length, 5);
+  assert.ok(operation.quantizationDifference > 0);
+  assert.strictEqual(target.capability().physicalReadiness.physicalApplyReady, false);
+});
+
 if (failed) process.exitCode = 1;
 console.log('\n' + passed + ' passed, ' + failed + ' failed');

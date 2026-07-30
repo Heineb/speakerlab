@@ -17,6 +17,7 @@ function matrix(outputs) {
 		[
 			['routing', mapping.routing, 'unsigned integer selector', EVIDENCE.metadata + '; ' + EVIDENCE.channels, 'audio-routing'],
 			['crossover', mapping.filters + '/80 words', '16 × [b2,b1,b0,-a2,-a1], signed 5.23', EVIDENCE.metadata + '; ' + EVIDENCE.equaliser, 'driver-protection'],
+			['parametric-eq', mapping.filters + '/80 words shared with crossover', 'up to 12 RBJ biquads within 16-section bank, signed 5.23', EVIDENCE.metadata + '; ' + EVIDENCE.equaliser, 'audio-equalisation'],
 			['gain', mapping.gain, 'linear signed 5.23, verified legacy range 0..1', EVIDENCE.metadata + '; ' + EVIDENCE.channels, 'audio-gain'],
 			['delay', mapping.delay, 'whole samples, 0..2000 at 48 kHz', EVIDENCE.metadata + '; ' + EVIDENCE.channels, 'audio-delay'],
 			['polarity', mapping.polarity, 'integer 0 normal / 1 inverted', EVIDENCE.metadata + '; ' + EVIDENCE.channels, 'audio-polarity']
@@ -141,7 +142,8 @@ function classifyOperations(compilation, readiness) {
 	var byField = {};
 	readiness.matrix.forEach(function(row) { byField[row.outputId + ':' + row.field] = row; });
 	return compilation.operations.map(function(operation) {
-		var field = operation.group === 'filter-coefficients' ? 'crossover' : operation.group;
+		var field = operation.group === 'filter-coefficients' ?
+			(operation.logicalField && operation.logicalField.indexOf('parametricEQ.') === 0 ? 'parametric-eq' : 'crossover') : operation.group;
 		if (operation.group === 'enter-safe-state' || operation.group === 'leave-safe-state') field = 'safe-state';
 		var row = byField[(operation.outputId || 'system') + ':' + field];
 		return {
