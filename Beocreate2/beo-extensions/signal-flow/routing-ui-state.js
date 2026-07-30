@@ -22,6 +22,8 @@
 			conflict: false,
 			message: null,
 			crossoverResponses: {},
+			eqResponses: {},
+			selectedEQBands: {},
 			deployment: null,
 			runtime: {deploymentStatus: 'not-deployed', statusLabel: 'Saved design · Not deployed to DSP'}
 		};
@@ -109,6 +111,62 @@
 		return state;
 	}
 
+	function editEQBand(state, outputID, bandID, field, value) {
+		if (!state.draft || !state.draft.parametricEQ) return state;
+		var output = state.draft.parametricEQ.outputs.find(function(item) { return item.outputId === outputID; });
+		var band = output && output.bands.find(function(item) { return item.id === bandID; });
+		if (band) band[field] = value;
+		state.dirty = true;
+		state.message = null;
+		delete state.eqResponses[outputID];
+		if (state.deployment && state.deployment.compilation) state.deployment.stale = true;
+		return state;
+	}
+
+	function selectEQBand(state, outputID, bandID) {
+		state.selectedEQBands[outputID] = bandID;
+		return state;
+	}
+
+	function reorderEQBand(state, outputID, bandID, direction) {
+		if (!state.draft || !state.draft.parametricEQ) return state;
+		var output = state.draft.parametricEQ.outputs.find(function(item) { return item.outputId === outputID; });
+		if (!output) return state;
+		var index = output.bands.findIndex(function(item) { return item.id === bandID; });
+		var destination = index + direction;
+		if (index < 0 || destination < 0 || destination >= output.bands.length) return state;
+		var moved = output.bands.splice(index, 1)[0];
+		output.bands.splice(destination, 0, moved);
+		state.dirty = true;
+		state.message = 'EQ band order changed. Ideal cascaded response is unchanged; implementation order is preserved.';
+		delete state.eqResponses[outputID];
+		if (state.deployment && state.deployment.compilation) state.deployment.stale = true;
+		return state;
+	}
+
+	function receiveEQDraft(state, payload) {
+		state.draft = clone(payload.configuration);
+		state.validation = clone(payload.validation);
+		state.dirty = true;
+		if (payload.bandId) state.selectedEQBands[payload.configuration.parametricEQ.outputs.find(function(output) {
+			return output.bands.some(function(band) { return band.id === payload.bandId; });
+		}).outputId] = payload.bandId;
+		state.message = {
+			add: 'EQ band added. Save the design to keep it.',
+			duplicate: 'EQ band duplicated with a distinct identifier.',
+			remove: 'EQ band removed from this draft.',
+			reset: 'Parametric EQ reset in this draft.',
+			copy: 'Parametric EQ copied with distinct destination identifiers.'
+		}[payload.action] || 'Parametric EQ draft updated.';
+		state.eqResponses = {};
+		return state;
+	}
+
+	function receiveEQResponse(state, payload) {
+		state.eqResponses[payload.outputId] = clone(payload.response);
+		return state;
+	}
+
 	function receiveCrossoverResponse(state, payload) {
 		state.crossoverResponses[payload.outputId] = clone(payload.response);
 		return state;
@@ -177,6 +235,7 @@
 		state.conflict = false;
 		state.message = null;
 		state.crossoverResponses = {};
+		state.eqResponses = {};
 		return state;
 	}
 
@@ -210,8 +269,13 @@
 		routeOutput: routeOutput,
 		editCrossover: editCrossover,
 		editProcessing: editProcessing,
+		editEQBand: editEQBand,
+		selectEQBand: selectEQBand,
+		reorderEQBand: reorderEQBand,
 		receiveCrossoverDraft: receiveCrossoverDraft,
 		receiveProcessingDraft: receiveProcessingDraft,
+		receiveEQDraft: receiveEQDraft,
+		receiveEQResponse: receiveEQResponse,
 		receiveCrossoverResponse: receiveCrossoverResponse,
 		receiveDeployment: receiveDeployment,
 		deploymentError: deploymentError,

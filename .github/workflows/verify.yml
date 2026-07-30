@@ -56,15 +56,21 @@ jobs:
           npm run test:signal-flow
           npm run test:crossover-model
           npm run test:crossover-response
+          npm run test:parametric-eq
+          npm run test:eq-response
           npm run test:channel-routing
           npm run test:routing-contract
           npm run test:routing-ui
           npm run test:crossover-ui
+          npm run test:eq-ui
           npm run test:channel-processing
           npm run test:gain-delay-polarity-ui
 
       - name: Test channel gain, delay and polarity in Chromium
         run: npm run test:channel-processing-acceptance
+
+      - name: Test parametric EQ journeys in Chromium
+        run: npm run test:eq-acceptance
 
       - name: Test DSP compilation and simulated readback
         run: |

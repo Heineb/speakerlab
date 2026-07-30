@@ -106,6 +106,12 @@
 	stroke: #2470a0;
 	stroke-width: 2.5;
 }
+.signal-flow-eq-response-line {
+	fill: none;
+	stroke: #7b4fa3;
+	stroke-width: 2;
+	stroke-dasharray: 5 4;
+}
 .signal-flow-cutoff {
 	stroke: #a05b24;
 	stroke-width: 1;
@@ -130,6 +136,60 @@
 	border-top: 1px solid rgba(0, 0, 0, 0.12);
 	margin-top: 14px;
 	padding-top: 8px;
+}
+.signal-flow-eq {
+	border-top: 1px solid rgba(0, 0, 0, 0.12);
+	margin-top: 14px;
+	padding-top: 8px;
+}
+.signal-flow-eq-layout {
+	display: grid;
+	grid-template-columns: minmax(210px, 0.8fr) minmax(300px, 1.4fr);
+	gap: 12px;
+}
+.signal-flow-eq-list {
+	list-style: none;
+	margin: 0 0 10px;
+	padding: 0;
+}
+.signal-flow-eq-list li {
+	display: grid;
+	grid-template-columns: 1fr auto auto;
+	gap: 4px;
+	margin-bottom: 5px;
+}
+.signal-flow-eq-band {
+	display: grid;
+	text-align: left;
+	border: 1px solid rgba(0, 0, 0, 0.15);
+	border-radius: 6px;
+	background: transparent;
+	padding: 7px;
+}
+.signal-flow-eq-band.selected {
+	border-color: #2470a0;
+	box-shadow: inset 3px 0 #2470a0;
+}
+.signal-flow-eq-band span + span {
+	font-size: 0.78em;
+}
+.signal-flow-eq-editor {
+	border: 1px solid rgba(0, 0, 0, 0.12);
+	border-radius: 8px;
+	padding: 10px;
+}
+.signal-flow-eq-fields {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 8px;
+	margin-top: 8px;
+}
+.signal-flow-eq-actions {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin-top: 10px;
 }
 .signal-flow-processing-grid {
 	display: grid;
@@ -248,7 +308,9 @@
 	}
 	.signal-flow-crossover-grid,
 	.signal-flow-crossover-fields,
-	.signal-flow-processing-grid {
+	.signal-flow-processing-grid,
+	.signal-flow-eq-layout,
+	.signal-flow-eq-fields {
 		grid-template-columns: 1fr;
 	}
 	.signal-flow-deployment-output dl {

@@ -36,6 +36,7 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 	};
 	var sideLabels = {unassigned: 'Unassigned', left: 'Left', right: 'Right', mono: 'Mono'};
 	var processingUnits = {};
+	var pendingEQResetOutput = null;
 	var pendingDeploymentFocusId = null;
 	var pendingDeploymentFocusSourceId = null;
 
@@ -64,6 +65,13 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 		}
 		if (data.header === 'processingDraft') {
 			signalFlowUIState.receiveProcessingDraft(state, data.content);
+		}
+		if (data.header === 'eqDraft') {
+			signalFlowUIState.receiveEQDraft(state, data.content);
+			if (state.draft) state.draft.outputs.forEach(function(output) { requestPreview(output.id); });
+		}
+		if (data.header === 'eqResponse') {
+			signalFlowUIState.receiveEQResponse(state, data.content);
 		}
 		if (data.header === 'crossoverResponse') {
 			signalFlowUIState.receiveCrossoverResponse(state, data.content);
@@ -119,7 +127,7 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 	}
 
 	function responsePreview(outputID) {
-		var response = state.crossoverResponses[outputID];
+		var response = state.eqResponses[outputID] || state.crossoverResponses[outputID];
 		if (!response) return '<div class="signal-flow-response pending"><p>Electrical filter response</p><p>Waiting for a valid simulated preview…</p></div>';
 		var width = 560;
 		var height = 180;
@@ -129,12 +137,14 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 		var graphHeight = height - top - 28;
 		var minimumLog = Math.log(response.minimumHz);
 		var rangeLog = Math.log(response.maximumHz) - minimumLog;
-		var points = response.points.map(function(point) {
+		function graphPoints(field) { return response.points.map(function(point) {
 			var x = left + (Math.log(point.frequencyHz) - minimumLog) / rangeLog * graphWidth;
-			var db = Math.max(-60, Math.min(6, point.magnitudeDb));
-			var y = top + (6 - db) / 66 * graphHeight;
+			var db = Math.max(-60, Math.min(18, point[field]));
+			var y = top + (18 - db) / 78 * graphHeight;
 			return x.toFixed(1) + ',' + y.toFixed(1);
-		}).join(' ');
+		}).join(' '); }
+		var points = graphPoints('magnitudeDb');
+		var eqPoints = response.points[0].eqMagnitudeDb === undefined ? '' : graphPoints('eqMagnitudeDb');
 		function marker(frequency, label) {
 			if (!frequency) return '';
 			var x = left + (Math.log(frequency) - minimumLog) / rangeLog * graphWidth;
@@ -142,15 +152,83 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 				'<text x="' + x.toFixed(1) + '" y="' + (height - 3) + '" text-anchor="middle">' + label + '</text>';
 		}
 		return '<div class="signal-flow-response"><p><strong>Electrical filter response</strong> · Simulated</p>' +
-			'<svg viewBox="0 0 ' + width + ' ' + height + '" role="img" aria-label="' + escapeHTML(response.summary) + '">' +
+			'<svg viewBox="0 0 ' + width + ' ' + height + '" role="img" aria-label="Electrical response graph. See the textual headroom estimate below.">' +
 			'<line x1="' + left + '" y1="' + top + '" x2="' + left + '" y2="' + (top + graphHeight) + '" class="signal-flow-axis"></line>' +
 			'<line x1="' + left + '" y1="' + (top + graphHeight) + '" x2="' + (left + graphWidth) + '" y2="' + (top + graphHeight) + '" class="signal-flow-axis"></line>' +
-			'<text x="4" y="' + (top + 5) + '">+6 dB</text><text x="4" y="' + (top + graphHeight) + '">−60</text>' +
+			'<text x="4" y="' + (top + 5) + '">+18 dB</text><text x="4" y="' + (top + graphHeight) + '">−60</text>' +
+			(eqPoints ? '<polyline points="' + eqPoints + '" class="signal-flow-eq-response-line"></polyline>' : '') +
 			'<polyline points="' + points + '" class="signal-flow-response-line"></polyline>' +
 			marker(response.highPassCutoffHz, 'HP ' + response.highPassCutoffHz + ' Hz') +
 			marker(response.lowPassCutoffHz, 'LP ' + response.lowPassCutoffHz + ' Hz') + '</svg>' +
 			'<p class="signal-flow-response-summary">' + escapeHTML(response.summary) + '</p>' +
-			'<p class="signal-flow-response-summary">Does not include driver or enclosure response.</p></div>';
+			'<p class="signal-flow-response-summary">Combined crossover + EQ is solid; EQ contribution is dashed. Does not include driver or enclosure response, room effects or acoustic summation.</p></div>';
+	}
+
+	function parametricEQControls(output) {
+		var eqOutput = state.draft.parametricEQ.outputs.find(function(item) { return item.outputId === output.id; });
+		var bands = eqOutput.bands;
+		var selectedID = state.selectedEQBands[output.id];
+		var selected = bands.find(function(band) { return band.id === selectedID; }) || bands[0];
+		if (selected) state.selectedEQBands[output.id] = selected.id;
+		var rows = bands.map(function(band, index) {
+			var type = state.capabilities.parametricEQ.types.find(function(item) { return item.id === band.type; });
+			var name = (band.label ? band.label + ', ' : '') + type.name + ', ' + band.frequencyHz + ' hertz, ' +
+				band.gainDb + ' decibels, ' + type.shapeName + ' ' + band.shape + ', ' + (band.enabled ? 'enabled' : 'bypassed');
+			return '<li><button type="button" class="signal-flow-eq-band' + (selected && selected.id === band.id ? ' selected' : '') +
+				'" aria-pressed="' + (selected && selected.id === band.id) + '" aria-label="' + escapeHTML(name) +
+				'" onclick="signalFlow.selectEQBand(\'' + output.id + '\', \'' + band.id + '\');"><span>' +
+				escapeHTML(band.label || type.name) + '</span><span>' + band.frequencyHz + ' Hz · ' + band.gainDb + ' dB · ' +
+				escapeHTML(type.shapeName) + ' ' + band.shape + '</span><span>' + (band.enabled ? 'Enabled' : 'Bypassed') +
+				'</span></button><button type="button" aria-label="Move ' + escapeHTML(name) + ' up" ' + (index ? '' : 'disabled ') +
+				'onclick="signalFlow.moveEQBand(\'' + output.id + '\', \'' + band.id + '\', -1);">↑</button>' +
+				'<button type="button" aria-label="Move ' + escapeHTML(name) + ' down" ' + (index < bands.length - 1 ? '' : 'disabled ') +
+				'onclick="signalFlow.moveEQBand(\'' + output.id + '\', \'' + band.id + '\', 1);">↓</button></li>';
+		}).join('');
+		var editor = '<p class="signal-flow-eq-empty">Add a band to begin equalisation.</p>';
+		if (selected) {
+			var selectedType = state.capabilities.parametricEQ.types.find(function(item) { return item.id === selected.type; });
+			var prefix = 'signal-flow-eq-' + output.id + '-' + selected.id;
+			editor = '<fieldset class="signal-flow-eq-editor"><legend>Edit ' + escapeHTML(selected.label || selectedType.name) + '</legend>' +
+				'<label><input id="' + prefix + '-enabled" type="checkbox" ' + (selected.enabled ? 'checked ' : '') +
+				'onchange="signalFlow.updateEQ(\'' + output.id + '\', \'' + selected.id + '\', \'enabled\', this.checked);"> Enabled (clear to bypass)</label>' +
+				'<div class="signal-flow-eq-fields"><div class="signal-flow-field"><label for="' + prefix + '-label">Optional band label</label>' +
+				'<input id="' + prefix + '-label" value="' + escapeHTML(selected.label) + '" onchange="signalFlow.updateEQ(\'' + output.id + '\', \'' + selected.id + '\', \'label\', this.value);"></div>' +
+				'<div class="signal-flow-field"><label for="' + prefix + '-type">Filter type</label><select id="' + prefix + '-type" ' +
+				'onchange="signalFlow.updateEQ(\'' + output.id + '\', \'' + selected.id + '\', \'type\', this.value);">' +
+				state.capabilities.parametricEQ.types.map(function(type) { return option(type.id, type.name, selected.type); }).join('') + '</select></div>' +
+				'<div class="signal-flow-field"><label for="' + prefix + '-frequency">Center or corner frequency (Hz)</label>' +
+				'<input id="' + prefix + '-frequency" type="number" min="' + state.capabilities.parametricEQ.minFrequencyHz + '" max="' +
+				state.capabilities.parametricEQ.maxFrequencyHz + '" value="' + selected.frequencyHz + '" aria-describedby="signal-flow-validation" ' +
+				'onchange="signalFlow.updateEQ(\'' + output.id + '\', \'' + selected.id + '\', \'frequencyHz\', this.value);"></div>' +
+				'<div class="signal-flow-field"><label for="' + prefix + '-gain">Gain (dB)</label><input id="' + prefix +
+				'-gain" type="number" step="0.1" min="' + state.capabilities.parametricEQ.minGainDb + '" max="' +
+				state.capabilities.parametricEQ.maxGainDb + '" value="' + selected.gainDb + '" aria-describedby="signal-flow-validation" ' +
+				'onchange="signalFlow.updateEQ(\'' + output.id + '\', \'' + selected.id + '\', \'gainDb\', this.value);"></div>' +
+				'<div class="signal-flow-field"><label for="' + prefix + '-shape">' + escapeHTML(selectedType.shapeName) + '</label><input id="' +
+				prefix + '-shape" type="number" step="0.01" min="' + selectedType.minimumShape + '" max="' + selectedType.maximumShape +
+				'" value="' + selected.shape + '" aria-describedby="' + prefix + '-shape-help signal-flow-validation" onchange="signalFlow.updateEQ(\'' +
+				output.id + '\', \'' + selected.id + '\', \'shape\', this.value);"><p id="' + prefix +
+				'-shape-help" class="signal-flow-processing-detail">' + (selected.type === 'peaking' ?
+					'Q controls peaking bandwidth.' : 'RBJ shelf slope S; 1 is the steepest supported shelf transition.') + '</p></div></div>' +
+				'<div class="signal-flow-eq-actions"><button type="button" class="button pill outline" onclick="signalFlow.resetEQBand(\'' +
+				output.id + '\', \'' + selected.id + '\');">Reset band</button><button type="button" class="button pill outline" aria-label="Duplicate ' +
+				escapeHTML(selected.label || selectedType.name) + '" onclick="signalFlow.eqDraft(\'duplicate\', \'' + output.id + '\', \'' +
+				selected.id + '\');">Duplicate band</button><button type="button" class="button pill red" aria-label="Remove ' +
+				escapeHTML(selected.label || selectedType.name) + '" onclick="signalFlow.eqDraft(\'remove\', \'' + output.id + '\', \'' +
+				selected.id + '\');">Remove band</button></div></fieldset>';
+		}
+		return '<section class="signal-flow-eq" aria-label="Parametric EQ for ' + escapeHTML(output.label) + '"><h3>Parametric EQ</h3>' +
+			'<p>Peaking EQ and shelves · electrical simulation · ' + bands.filter(function(band) { return band.enabled; }).length + '/' +
+			state.capabilities.parametricEQ.maxBandsPerOutput + ' enabled bands</p><div class="signal-flow-eq-layout"><div><h4 id="signal-flow-eq-list-' +
+			output.id + '">Band list</h4><ul class="signal-flow-eq-list" aria-labelledby="signal-flow-eq-list-' + output.id + '">' + rows +
+			'</ul><button type="button" class="button pill black" onclick="signalFlow.eqDraft(\'add\', \'' + output.id +
+			'\');">Add EQ band</button></div><div aria-label="Band editor">' + editor + '</div></div>' + responsePreview(output.id) +
+			'<div class="signal-flow-eq-actions"><label for="signal-flow-eq-copy-' + output.id + '">Copy EQ to</label><select id="signal-flow-eq-copy-' +
+			output.id + '">' + option('', 'Choose output', '') + state.draft.outputs.filter(function(item) { return item.id !== output.id; }).map(function(item) {
+				return option(item.id, item.label, '');
+			}).join('') + '</select><button type="button" class="button pill outline" onclick="signalFlow.copyEQ(\'' + output.id +
+			'\', document.getElementById(\'signal-flow-eq-copy-' + output.id + '\').value);">Copy EQ</button><button type="button" class="button pill outline" ' +
+			'onclick="signalFlow.confirmResetEQ(\'' + output.id + '\');">Reset all EQ</button></div></section>';
 	}
 
 	function processingControls(output) {
@@ -356,13 +434,12 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 				'<h3>Crossover</h3><div class="signal-flow-crossover-grid">' +
 				crossoverControls(output, crossover, 'highPass', 'High-pass') +
 				crossoverControls(output, crossover, 'lowPass', 'Low-pass') + '</div>' +
-				responsePreview(output.id) +
 				'<div class="signal-flow-crossover-actions"><button type="button" class="button pill outline" ' +
 				"onclick=\"signalFlow.resetCrossover('" + output.id + "');\">Reset crossover</button>" +
 				'<label for="signal-flow-copy-' + output.id + '">Copy to</label><select id="signal-flow-copy-' + output.id + '">' +
 				option('', 'Choose output', '') + copyOptions + '</select><button type="button" class="button pill outline" ' +
 				"onclick=\"signalFlow.copyCrossover('" + output.id + "', document.getElementById('signal-flow-copy-" + output.id + "').value);\">Copy</button></div>" +
-				'</section>' + processingControls(output) + '</article>';
+				'</section>' + parametricEQControls(output) + processingControls(output) + '</article>';
 		}).join(''));
 
 		var issues = state.validation.errors.concat(state.validation.warnings);
@@ -472,6 +549,69 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 
 	function requestPreview(outputID) {
 		beo.send({target: 'signal-flow', header: 'calculateCrossoverResponse', content: {configuration: state.draft, outputId: outputID}});
+		beo.send({target: 'signal-flow', header: 'calculateEQResponse', content: {configuration: state.draft, outputId: outputID}});
+	}
+
+	function selectEQBand(outputID, bandID) {
+		signalFlowUIState.selectEQBand(state, outputID, bandID);
+		render();
+	}
+
+	function updateEQ(outputID, bandID, field, value) {
+		if (field === 'frequencyHz' || field === 'gainDb' || field === 'shape') {
+			var numeric = Number(value);
+			value = String(value).trim() === '' ? '' : isFinite(numeric) ? numeric : value;
+		}
+		signalFlowUIState.editEQBand(state, outputID, bandID, field, value);
+		validateDraft();
+		requestPreview(outputID);
+		render();
+	}
+
+	function moveEQBand(outputID, bandID, direction) {
+		signalFlowUIState.reorderEQBand(state, outputID, bandID, direction);
+		validateDraft();
+		requestPreview(outputID);
+		render();
+	}
+
+	function eqDraft(action, outputID, bandID, type, destinationOutputID) {
+		beo.send({target: 'signal-flow', header: 'eqDraft', content: {
+			configuration: state.draft,
+			action: action,
+			outputId: outputID,
+			bandId: bandID || null,
+			type: type || null,
+			destinationOutputId: destinationOutputID || null,
+			revision: state.revision
+		}});
+	}
+
+	function resetEQBand(outputID, bandID) {
+		var output = state.draft.parametricEQ.outputs.find(function(item) { return item.outputId === outputID; });
+		var band = output.bands.find(function(item) { return item.id === bandID; });
+		var reset = {enabled: true, type: band.type, frequencyHz: 1000, gainDb: 0, shape: 0.7071, label: ''};
+		Object.keys(reset).forEach(function(field) { signalFlowUIState.editEQBand(state, outputID, bandID, field, reset[field]); });
+		validateDraft();
+		requestPreview(outputID);
+		render();
+	}
+
+	function copyEQ(sourceOutputID, destinationOutputID) {
+		if (destinationOutputID) eqDraft('copy', sourceOutputID, null, null, destinationOutputID);
+	}
+
+	function confirmResetEQ(outputID) {
+		var output = state.draft.parametricEQ.outputs.find(function(item) { return item.outputId === outputID; });
+		if (!output || !output.bands.length) return;
+		pendingEQResetOutput = outputID;
+		beo.ask('signal-flow-eq-reset');
+	}
+
+	function resetAllEQ() {
+		beo.ask();
+		if (pendingEQResetOutput) eqDraft('reset', pendingEQResetOutput);
+		pendingEQResetOutput = null;
 	}
 
 	function resetCrossover(outputID) {
@@ -531,6 +671,14 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 		update: update,
 		updateCrossover: updateCrossover,
 		updateProcessing: updateProcessing,
+		updateEQ: updateEQ,
+		selectEQBand: selectEQBand,
+		moveEQBand: moveEQBand,
+		eqDraft: eqDraft,
+		resetEQBand: resetEQBand,
+		copyEQ: copyEQ,
+		confirmResetEQ: confirmResetEQ,
+		resetAllEQ: resetAllEQ,
 		updateDelay: updateDelay,
 		changeDelayUnit: changeDelayUnit,
 		processingTab: processingTab,

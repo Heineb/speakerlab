@@ -72,6 +72,14 @@
 			<button type="button" class="button pill red" onclick="signalFlow.reset();">Reset design</button>
 		</div>
 	</div>
+	<div class="ask-menu" id="signal-flow-eq-reset">
+		<h2>Reset all EQ bands?</h2>
+		<p>This removes every parametric EQ band from the selected output draft. Save is still required, and no physical DSP is changed.</p>
+		<div class="ask-buttons">
+			<button type="button" class="button pill grey cancel" onclick="beo.ask();">Cancel</button>
+			<button type="button" class="button pill red" onclick="signalFlow.resetAllEQ();">Reset all EQ</button>
+		</div>
+	</div>
 </div>
 
 <script type="text/javascript" charset="utf-8" src="€/routing-ui-state.js"></script>
