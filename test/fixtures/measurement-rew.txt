@@ -1,0 +1,12 @@
+* Room EQ Wizard frequency response
+Frequency (Hz) SPL (dB) Phase (degrees)
+20 71 -12
+50 76.5 -20
+100 80 -35
+200 82 -60
+500 83 -90
+1000 82.5 -120
+2000 81 -150
+5000 78 170
+10000 74 120
+20000 68 70

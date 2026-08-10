@@ -23,6 +23,16 @@
 				<div id="signal-flow-validation" aria-live="polite"></div>
 			</section>
 
+			<section id="signal-flow-measurements" aria-labelledby="signal-flow-measurements-title">
+				<h2 id="signal-flow-measurements-title">Measurements</h2>
+				<p>Import measured frequency response for inspection and electrical-overlay comparison. Source data is preserved and is not used for automatic correction.</p>
+				<label for="signal-flow-measurement-file">Select measurement file</label>
+				<input id="signal-flow-measurement-file" type="file" accept=".txt,.frd,text/plain" onchange="signalFlow.selectMeasurementFile(this);">
+				<div id="signal-flow-measurement-preview" role="status" aria-live="polite"></div>
+				<div id="signal-flow-measurement-list" role="listbox" aria-label="Imported measurements"></div>
+				<div id="signal-flow-measurement-detail" role="region" aria-label="Selected measurement details"></div>
+			</section>
+
 			<section class="signal-flow-deployment" aria-labelledby="signal-flow-deployment-title">
 				<h2 id="signal-flow-deployment-title">Deployment preview</h2>
 				<p><strong>Prepared only · Simulated · Not deployed to physical DSP</strong></p>
@@ -79,6 +89,10 @@
 			<button type="button" class="button pill grey cancel" onclick="beo.ask();">Cancel</button>
 			<button type="button" class="button pill red" onclick="signalFlow.resetAllEQ();">Reset all EQ</button>
 		</div>
+	</div>
+	<div class="ask-menu" id="signal-flow-measurement-remove">
+		<h2>Remove measurement?</h2><p>This removes the measurement and its assignment from the saved design after you save.</p>
+		<div class="ask-buttons"><button type="button" class="button pill grey cancel" onclick="beo.ask();">Cancel</button><button type="button" class="button pill red" onclick="signalFlow.removeMeasurement();">Remove measurement</button></div>
 	</div>
 </div>
 

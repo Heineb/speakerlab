@@ -76,6 +76,16 @@ function createController(options) {
 						revision: content.revision === undefined ? null : content.revision
 					});
 					break;
+				case 'previewMeasurement':
+					send('measurementPreview', service.measurementPreview(content.text, content.filename));
+					break;
+				case 'measurementDraft':
+					var measurementDraft = service.measurementDraft(content.configuration, content.action, content);
+					send('measurementDraft', {action: measurementDraft.action, configuration: measurementDraft.configuration, measurementId: measurementDraft.measurementId, validation: measurementDraft.validation, revision: content.revision === undefined ? null : content.revision});
+					break;
+				case 'measurementOverlay':
+					send('measurementOverlay', service.measurementOverlay(content.configuration, content.measurementId));
+					break;
 				case 'prepareForDSP':
 					send('deploymentResult', {action: 'compile', deployment: service.prepareForDSP(content.revision, runtime())});
 					break;

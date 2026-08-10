@@ -162,6 +162,14 @@
 		return state;
 	}
 
+	function receiveMeasurementDraft(state, payload) {
+		state.draft = clone(payload.configuration);
+		state.validation = clone(payload.validation);
+		state.dirty = true;
+		state.message = 'Measurement ' + (payload.action === 'import' ? 'imported' : payload.action === 'remove' ? 'removed' : 'updated') + ' in this draft. Save the design to keep it.';
+		return state;
+	}
+
 	function receiveEQResponse(state, payload) {
 		state.eqResponses[payload.outputId] = clone(payload.response);
 		return state;
@@ -275,6 +283,7 @@
 		receiveCrossoverDraft: receiveCrossoverDraft,
 		receiveProcessingDraft: receiveProcessingDraft,
 		receiveEQDraft: receiveEQDraft,
+		receiveMeasurementDraft: receiveMeasurementDraft,
 		receiveEQResponse: receiveEQResponse,
 		receiveCrossoverResponse: receiveCrossoverResponse,
 		receiveDeployment: receiveDeployment,

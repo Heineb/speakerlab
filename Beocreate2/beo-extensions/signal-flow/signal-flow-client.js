@@ -39,6 +39,10 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 	var pendingEQResetOutput = null;
 	var pendingDeploymentFocusId = null;
 	var pendingDeploymentFocusSourceId = null;
+	var measurementPreview = null;
+	var selectedMeasurementId = null;
+	var pendingMeasurementRemove = null;
+	var measurementOverlay = null;
 
 	$(document).on('general', function(event, data) {
 		if (data.header === 'activatedExtension' && data.content.extension === 'signal-flow') {
@@ -73,6 +77,14 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 		if (data.header === 'eqResponse') {
 			signalFlowUIState.receiveEQResponse(state, data.content);
 		}
+		if (data.header === 'measurementPreview') measurementPreview = data.content;
+		if (data.header === 'measurementDraft') {
+			signalFlowUIState.receiveMeasurementDraft(state, data.content);
+			selectedMeasurementId = data.content.measurementId;
+			measurementPreview = null;
+			if (selectedMeasurementId) requestMeasurementOverlay(selectedMeasurementId);
+		}
+		if (data.header === 'measurementOverlay') measurementOverlay = data.content;
 		if (data.header === 'crossoverResponse') {
 			signalFlowUIState.receiveCrossoverResponse(state, data.content);
 		}
@@ -446,6 +458,7 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 		$('#signal-flow-validation').html(issues.length ? '<ul class="signal-flow-issues">' + issues.map(function(issue) {
 			return '<li class="signal-flow-' + issue.level + '">' + escapeHTML(issue.message) + '</li>';
 		}).join('') + '</ul>' : '<p>No routing-model issues found.</p>');
+		renderMeasurements();
 
 		var summary = signalFlowUIState.summary(state);
 		$('#signal-flow-summary').text(
@@ -470,6 +483,54 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 			if (replacement) replacement.focus({preventScroll: true});
 		}
 	}
+
+	function renderMeasurements() {
+		var measurements = state.draft.measurements ? state.draft.measurements.measurements : [];
+		if (selectedMeasurementId && !measurements.some(function(item) { return item.id === selectedMeasurementId; })) selectedMeasurementId = null;
+		var selected = measurements.find(function(item) { return item.id === selectedMeasurementId; }) || measurements[0];
+		if (selected) selectedMeasurementId = selected.id;
+		$('#signal-flow-measurement-preview').html(measurementPreview ? '<p><strong>Detected ' + escapeHTML(measurementPreview.detectedFormat) + '</strong> · ' + escapeHTML(measurementPreview.confidence) + ' confidence</p><p>' + measurementPreview.recognizedColumns.map(escapeHTML).join(', ') + ' · ' + measurementPreview.summary.pointCount + ' points · ' + measurementPreview.summary.minimumFrequencyHz + '–' + measurementPreview.summary.maximumFrequencyHz + ' Hz · Phase ' + (measurementPreview.summary.phaseAvailable ? 'available' : 'not available') + '</p>' + measurementPreview.warnings.map(function(item) { return '<p class="signal-flow-warning">' + escapeHTML(item.message) + '</p>'; }).join('') + '<button type="button" class="button pill black" onclick="signalFlow.confirmMeasurementImport();">Confirm import</button>' : '');
+		$('#signal-flow-measurement-list').html(measurements.length ? measurements.map(function(item) {
+			return '<button type="button" role="option" aria-selected="' + (selected && item.id === selected.id) + '" class="signal-flow-measurement-item' + (selected && item.id === selected.id ? ' selected' : '') + '" onclick="signalFlow.selectMeasurement(\'' + item.id + '\');"><strong>' + escapeHTML(item.name) + '</strong><span>' + escapeHTML(item.type) + ' · ' + item.points.length + ' points · ' + item.points[0].frequencyHz + '–' + item.points[item.points.length - 1].frequencyHz + ' Hz · Phase ' + (item.units.phase ? 'available' : 'not available') + '</span></button>';
+		}).join('') : '<p>No imported measurements.</p>');
+		if (!selected) { $('#signal-flow-measurement-detail').empty(); return; }
+		var outputOptions = option('', 'Unassigned', selected.assignedOutputId || '') + state.draft.outputs.map(function(output) { return option(output.id, output.label + ' · ' + roleLabels[output.role], selected.assignedOutputId || ''); }).join('');
+		var typeOptions = state.capabilities.measurements.types.map(function(type) { return option(type, type.replace(/-/g, ' '), selected.type); }).join('');
+		var graph = measurementGraph(selected);
+		$('#signal-flow-measurement-detail').html('<h3>' + escapeHTML(selected.name) + '</h3><div class="signal-flow-measurement-fields"><label>Name<input id="signal-flow-measurement-name" value="' + escapeHTML(selected.name) + '"></label><label>Notes<textarea id="signal-flow-measurement-notes">' + escapeHTML(selected.description) + '</textarea></label><label>Measurement type<select id="signal-flow-measurement-type">' + typeOptions + '</select></label><label>Assigned output<select id="signal-flow-measurement-output">' + outputOptions + '</select></label></div><button type="button" class="button pill black" onclick="signalFlow.updateMeasurement();">Update measurement</button><button type="button" class="button pill outline" onclick="signalFlow.confirmRemoveMeasurement();">Remove</button><p>Source: ' + escapeHTML(selected.sourceFilename || 'unnamed file') + ' · ' + escapeHTML(selected.sourceFormat) + ' · Imported ' + escapeHTML(selected.importedAt) + ' · Integrity ' + escapeHTML(selected.integrity.hash.slice(0, 12)) + '</p>' + graph + '<p><strong>Measured response</strong> is shown separately from crossover, EQ and combined electrical processing. This is not an acoustic prediction, calibration claim or automatic correction.</p>');
+	}
+
+	function measurementGraph(measurement) {
+		var points = measurement.points, width = 560, height = 180, left = 42, top = 12, min = Math.log(points[0].frequencyHz), range = Math.log(points[points.length - 1].frequencyHz) - min || 1;
+		var magnitudes = points.map(function(point) { return point.magnitudeDb; }), low = Math.min.apply(null, magnitudes), high = Math.max.apply(null, magnitudes), dbRange = high - low || 1;
+		var polyline = points.map(function(point) { return (left + (Math.log(point.frequencyHz) - min) / range * (width - left - 10)).toFixed(1) + ',' + (top + (high - point.magnitudeDb) / dbRange * (height - top - 28)).toFixed(1); }).join(' ');
+		var electrical = measurementOverlay && measurementOverlay.measurementId === measurement.id ? measurementOverlay.electrical : null;
+		function electricalLine(field, cssClass) {
+			if (!electrical || !electrical.points || electrical.points[0][field] === undefined) return '';
+			var value = electrical.points.map(function(point) { var db = Math.max(-60, Math.min(18, point[field])); return (left + (Math.log(point.frequencyHz) - min) / range * (width - left - 10)).toFixed(1) + ',' + (top + (18 - db) / 78 * (height - top - 28)).toFixed(1); }).join(' ');
+			return '<polyline points="' + value + '" class="' + cssClass + '"></polyline>';
+		}
+		return '<div class="signal-flow-measurement-overlay-controls" aria-label="Response overlay controls"><label><input type="checkbox" checked onchange="document.querySelector(\'.signal-flow-measured-response-line\').style.display=this.checked?\'\':\'none\'"> Measured response</label><label><input type="checkbox" checked onchange="document.querySelectorAll(\'.signal-flow-electrical-response-line\').forEach(function(line){line.style.display=this.checked?\'\':\'none\'}.bind(this))"> Electrical filters</label></div><svg class="signal-flow-measurement-graph" viewBox="0 0 ' + width + ' ' + height + '" role="img" aria-label="Measured magnitude response from ' + points[0].frequencyHz + ' to ' + points[points.length - 1].frequencyHz + ' hertz; ' + points.length + ' source points. Phase ' + (measurement.units.phase ? 'is available' : 'is not available') + '. Electrical curves use a separate relative decibel scale and are not an acoustic sum."><polyline points="' + polyline + '" class="signal-flow-measured-response-line"></polyline>' + electricalLine('crossoverMagnitudeDb', 'signal-flow-electrical-response-line crossover') + electricalLine('eqMagnitudeDb', 'signal-flow-electrical-response-line eq') + electricalLine('magnitudeDb', 'signal-flow-electrical-response-line combined') + '</svg><p class="signal-flow-overlay-legend">Measured response · Crossover electrical response · EQ electrical response · Combined electrical processing response</p>';
+	}
+
+	function selectMeasurementFile(input) {
+		var file = input.files && input.files[0];
+		if (!file) return;
+		if (file.size > state.capabilities.measurements.limits.fileBytes) { $('#signal-flow-measurement-preview').text('File exceeds the 2 MiB safety limit.'); return; }
+		var reader = new FileReader();
+		reader.onload = function() { beo.send({target: 'signal-flow', header: 'previewMeasurement', content: {filename: file.name, text: reader.result}}); };
+		reader.onerror = function() { $('#signal-flow-measurement-preview').text('The selected file could not be read.'); };
+		reader.readAsText(file, 'UTF-8');
+	}
+
+	function confirmMeasurementImport() { if (measurementPreview) beo.send({target: 'signal-flow', header: 'measurementDraft', content: {configuration: state.draft, action: 'import', token: measurementPreview.token, revision: state.revision}}); }
+	function selectMeasurement(id) { selectedMeasurementId = id; requestMeasurementOverlay(id); render(); }
+	function requestMeasurementOverlay(id) { beo.send({target: 'signal-flow', header: 'measurementOverlay', content: {configuration: state.draft, measurementId: id}}); }
+	function updateMeasurement() {
+		beo.send({target: 'signal-flow', header: 'measurementDraft', content: {configuration: state.draft, action: 'update', measurementId: selectedMeasurementId, name: $('#signal-flow-measurement-name').val(), description: $('#signal-flow-measurement-notes').val(), type: $('#signal-flow-measurement-type').val(), outputId: $('#signal-flow-measurement-output').val() || null, revision: state.revision}});
+	}
+	function confirmRemoveMeasurement() { pendingMeasurementRemove = selectedMeasurementId; beo.ask('signal-flow-measurement-remove'); }
+	function removeMeasurement() { beo.ask(); if (pendingMeasurementRemove) beo.send({target: 'signal-flow', header: 'measurementDraft', content: {configuration: state.draft, action: 'remove', measurementId: pendingMeasurementRemove, revision: state.revision}}); pendingMeasurementRemove = null; }
 
 	function validateDraft() {
 		beo.send({target: 'signal-flow', header: 'validate', content: {configuration: state.draft, revision: state.revision}});
@@ -679,6 +740,12 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 		copyEQ: copyEQ,
 		confirmResetEQ: confirmResetEQ,
 		resetAllEQ: resetAllEQ,
+		selectMeasurementFile: selectMeasurementFile,
+		confirmMeasurementImport: confirmMeasurementImport,
+		selectMeasurement: selectMeasurement,
+		updateMeasurement: updateMeasurement,
+		confirmRemoveMeasurement: confirmRemoveMeasurement,
+		removeMeasurement: removeMeasurement,
 		updateDelay: updateDelay,
 		changeDelayUnit: changeDelayUnit,
 		processingTab: processingTab,

@@ -24,6 +24,8 @@ function createService(options) {
 	var settingsCoordinator = options.settingsCoordinator || null;
 	var planSimulator = options.planSimulator || null;
 	var compiler = options.compiler || designCompiler;
+	var clock = options.clock || function() { return new Date(); };
+	var pendingMeasurements = {};
 	var lastCompilation = null;
 	var lastReadback = null;
 	var lastComparison = null;
@@ -328,6 +330,60 @@ function createService(options) {
 		};
 	}
 
+	function measurementPreview(text, filename) {
+		var preview = model.measurementModel.parseText(text);
+		var token = model.measurementModel.hash(preview.points).slice(0, 24);
+		pendingMeasurements = {};
+		pendingMeasurements[token] = {preview: preview, filename: String(filename || '').replace(/^.*[\\/]/, '')};
+		return {token: token, detectedFormat: preview.format, confidence: preview.confidence, recognizedColumns: preview.recognizedColumns, ignoredColumns: preview.ignoredColumns, warnings: preview.warnings, summary: preview.summary, sourceMetadata: preview.metadata.slice(0, 30)};
+	}
+
+	function measurementDraft(configuration, action, content) {
+		if (['import', 'update', 'assign', 'remove'].indexOf(action) === -1) throw routingError('UNKNOWN_MEASUREMENT_OPERATION', 'Unknown measurement draft operation.');
+		var normalized = model.normalize(configuration);
+		var list = normalized.measurements.measurements;
+		var measurement;
+		if (action === 'import') {
+			var pending = pendingMeasurements[content.token];
+			if (!pending) throw routingError('INVALID_MEASUREMENT_TOKEN', 'Measurement preview expired; select the file again.');
+			measurement = model.measurementModel.create(pending.preview, {filename: pending.filename, name: content.name, type: content.type, importedAt: clock().toISOString()});
+			if (list.some(function(item) { return item.id === measurement.id; })) throw routingError('DUPLICATE_MEASUREMENT_ID', 'This exact measurement is already present in the design.');
+			list.push(measurement);
+			delete pendingMeasurements[content.token];
+		} else {
+			measurement = list.find(function(item) { return item.id === content.measurementId; });
+			if (!measurement) throw routingError('UNKNOWN_MEASUREMENT', 'The selected measurement is not available.');
+			if (action === 'update') {
+				if (content.name !== undefined) measurement.name = String(content.name).trim().slice(0, 120);
+				if (content.description !== undefined) measurement.description = String(content.description).slice(0, 1000);
+				if (content.type !== undefined) measurement.type = content.type;
+				if (content.outputId !== undefined) {
+					measurement.assignedOutputId = content.outputId || null;
+					var updatedOutput = normalized.outputs.find(function(item) { return item.id === measurement.assignedOutputId; });
+					measurement.driverRole = updatedOutput ? updatedOutput.role : null;
+				}
+			}
+			if (action === 'assign') {
+				measurement.assignedOutputId = content.outputId || null;
+				var output = normalized.outputs.find(function(item) { return item.id === measurement.assignedOutputId; });
+				measurement.driverRole = output ? output.role : null;
+			}
+			if (action === 'remove') list.splice(list.indexOf(measurement), 1);
+		}
+		var validation = validateDesign(normalized);
+		if (!validation.valid) throw routingError('VALIDATION_FAILED', 'Measurement change is not valid.', validation);
+		return {action: action, configuration: normalized, measurementId: measurement ? measurement.id : null, validation: validation};
+	}
+
+	function measurementOverlay(configuration, measurementID) {
+		var normalized = model.normalize(configuration);
+		var measurement = normalized.measurements.measurements.find(function(item) { return item.id === measurementID; });
+		if (!measurement) throw routingError('UNKNOWN_MEASUREMENT', 'The selected measurement is not available.');
+		var electrical = null;
+		if (measurement.assignedOutputId) electrical = eqPreview(normalized, measurement.assignedOutputId).response;
+		return {measurementId: measurementID, measured: measurement.points, electrical: electrical, labels: ['Measured response', 'Crossover electrical response', 'EQ electrical response', 'Combined electrical processing response'], acousticPrediction: false};
+	}
+
 	function prepareForDSP(expectedRevision, runtime) {
 		var current = state(runtime);
 		if (!current.hasSavedConfiguration) throw routingError('NO_SAVED_DESIGN', 'Save a valid design before preparing it for DSP.');
@@ -395,6 +451,9 @@ function createService(options) {
 		resetProcessing: resetProcessing,
 		eqPreview: eqPreview,
 		eqDraft: eqDraft,
+		measurementPreview: measurementPreview,
+		measurementDraft: measurementDraft,
+		measurementOverlay: measurementOverlay,
 		prepareForDSP: prepareForDSP,
 		applyToSimulator: applyToSimulator,
 		readSimulator: readSimulator,
