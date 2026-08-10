@@ -93,6 +93,18 @@ function createController(options) {
 						revision: content.revision === undefined ? null : content.revision
 					});
 					break;
+				case 'eligibleAlignments':
+					send('eligibleAlignments', service.eligibleAlignments(content.configuration, content.outputId));
+					break;
+				case 'analyseAlignment':
+					send('alignmentAnalysis', service.analyseAlignment(content.configuration, content.measurementAId, content.measurementBId, content.options));
+					break;
+				case 'acceptAlignment':
+					var acceptedAlignment = service.acceptAlignment(content.configuration, content.analysisId, content.revision === undefined ? null : content.revision);
+					send('alignmentDraft', {configuration: acceptedAlignment.configuration, outputId: acceptedAlignment.outputId,
+						delayMs: acceptedAlignment.delayMs, polarityInverted: acceptedAlignment.polarityInverted,
+						validation: acceptedAlignment.validation, revision: content.revision === undefined ? null : content.revision});
+					break;
 				case 'calculateProtection':
 					send('protectionPreview', service.protectionPreview(content.configuration, content.outputId));
 					break;

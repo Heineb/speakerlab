@@ -28,6 +28,7 @@ function createService(options) {
 	var clock = options.clock || function() { return new Date(); };
 	var pendingMeasurements = {};
 	var pendingEQSuggestions = {};
+	var pendingAlignments = {};
 	var lastCompilation = null;
 	var lastReadback = null;
 	var lastComparison = null;
@@ -430,6 +431,60 @@ function createService(options) {
 		return {configuration: normalized, outputId: outputID, acceptedSuggestionIds: accepted.acceptedSuggestionIds, validation: validation};
 	}
 
+	function eligibleAlignments(configuration, outputID) {
+		var normalized = model.normalize(configuration);
+		if (model.OUTPUT_IDS.indexOf(outputID) === -1) throw routingError('UNKNOWN_ALIGNMENT_OUTPUT', 'The selected alignment output is not available.');
+		var primary = normalized.measurements.measurements.filter(function(item) { return item.assignedOutputId === outputID; });
+		var pairs = [];
+		primary.forEach(function(first) {
+			normalized.measurements.measurements.forEach(function(second) {
+				if (second.id === first.id || second.assignedOutputId === outputID) return;
+				var result = model.phaseAlignmentModel.eligibility(normalized, first, second);
+				pairs.push({measurementAId: first.id, measurementAName: first.name, measurementBId: second.id, measurementBName: second.name,
+					outputAId: first.assignedOutputId, outputBId: second.assignedOutputId, eligible: result.eligible,
+					errors: result.errors, warnings: result.warnings, referenceMode: result.referenceMode, crossoverContext: result.crossoverContext});
+			});
+		});
+		return {outputId: outputID, pairs: pairs, physicalDeploymentAllowed: false};
+	}
+
+	function analyseAlignment(configuration, measurementAID, measurementBID, alignmentOptions) {
+		var validation = validateDesign(configuration);
+		if (!validation.valid) throw routingError('VALIDATION_FAILED', 'Driver alignment requires a valid design draft.', validation);
+		var normalized = model.normalize(configuration);
+		var first = normalized.measurements.measurements.find(function(item) { return item.id === measurementAID; });
+		var second = normalized.measurements.measurements.find(function(item) { return item.id === measurementBID; });
+		var analysis = model.phaseAlignmentModel.analyse({configuration: normalized, measurementA: first, measurementB: second, options: alignmentOptions || {}}, {
+			crossover: model.crossoverModel, eq: model.eqModel, processing: model.processingModel
+		});
+		if (!analysis.valid) throw routingError('ALIGNMENT_ANALYSIS_FAILED', 'Driver phase/time alignment could not be analysed.', analysis);
+		var analysisID = 'alignment-analysis-' + crypto.createHash('sha256').update(JSON.stringify({revision: model.revision(normalized), analysis: analysis})).digest('hex').slice(0, 16);
+		analysis.analysisId = analysisID;
+		pendingAlignments[analysisID] = {analysis: model.clone(analysis), sourceRevision: model.revision(normalized)};
+		return analysis;
+	}
+
+	function acceptAlignment(configuration, analysisID, expectedRevision) {
+		var pending = pendingAlignments[analysisID];
+		if (!pending) throw routingError('STALE_ALIGNMENT_ANALYSIS', 'Generate a current alignment suggestion before accepting.');
+		var prior = parseSaved();
+		var currentRevision = prior.configuration ? model.revision(prior.configuration) : null;
+		if (expectedRevision !== currentRevision) throw routingError('REVISION_CONFLICT', 'The saved routing changed while this alignment was being reviewed.', {currentRevision: currentRevision});
+		var normalized = model.normalize(configuration);
+		if (model.revision(normalized) !== pending.sourceRevision) throw routingError('STALE_ALIGNMENT_ANALYSIS', 'The design draft changed; analyse alignment again before accepting.');
+		pending.analysis.sources.forEach(function(reference) {
+			var source = normalized.measurements.measurements.find(function(item) { return item.id === reference.id; });
+			if (!source || !source.integrity || source.integrity.hash !== reference.hash) throw routingError('STALE_ALIGNMENT_ANALYSIS', 'An alignment source changed; analyse again before accepting.');
+		});
+		var accepted;
+		try { accepted = model.phaseAlignmentModel.accept(normalized, pending.analysis, model.processingModel); }
+		catch (error) { throw routingError('INVALID_ALIGNMENT_ACCEPTANCE', error.message); }
+		var validation = validateDesign(accepted.configuration);
+		if (!validation.valid) throw routingError('VALIDATION_FAILED', 'The accepted alignment does not produce a valid processing draft.', validation);
+		delete pendingAlignments[analysisID];
+		return {configuration: accepted.configuration, outputId: accepted.outputId, delayMs: accepted.delayMs, polarityInverted: accepted.polarityInverted, validation: validation};
+	}
+
 	function measurementPreview(text, filename) {
 		var preview = model.measurementModel.parseText(text);
 		var token = model.measurementModel.hash(preview.points).slice(0, 24);
@@ -446,7 +501,7 @@ function createService(options) {
 		if (action === 'import') {
 			var pending = pendingMeasurements[content.token];
 			if (!pending) throw routingError('INVALID_MEASUREMENT_TOKEN', 'Measurement preview expired; select the file again.');
-			measurement = model.measurementModel.create(pending.preview, {filename: pending.filename, name: content.name, type: content.type, importedAt: clock().toISOString()});
+			measurement = model.measurementModel.create(pending.preview, {filename: pending.filename, name: content.name, type: content.type, importedAt: clock().toISOString(), conditions: {timingReference: {kind: content.timingReferenceKind || 'unknown', group: String(content.timingReferenceGroup || '').trim() || null}}});
 			if (list.some(function(item) { return item.id === measurement.id; })) throw routingError('DUPLICATE_MEASUREMENT_ID', 'This exact measurement is already present in the design.');
 			list.push(measurement);
 			delete pendingMeasurements[content.token];
@@ -457,6 +512,13 @@ function createService(options) {
 				if (content.name !== undefined) measurement.name = String(content.name).trim().slice(0, 120);
 				if (content.description !== undefined) measurement.description = String(content.description).slice(0, 1000);
 				if (content.type !== undefined) measurement.type = content.type;
+				if (content.timingReferenceKind !== undefined || content.timingReferenceGroup !== undefined) {
+					measurement.conditions = measurement.conditions || {};
+					measurement.conditions.timingReference = {
+						kind: content.timingReferenceKind || 'unknown',
+						group: String(content.timingReferenceGroup || '').trim() || null
+					};
+				}
 				if (content.outputId !== undefined) {
 					measurement.assignedOutputId = content.outputId || null;
 					var updatedOutput = normalized.outputs.find(function(item) { return item.id === measurement.assignedOutputId; });
@@ -597,6 +659,9 @@ function createService(options) {
 		eligibleEQMeasurements: eligibleEQMeasurements,
 		suggestEQ: suggestEQ,
 		acceptEQSuggestions: acceptEQSuggestions,
+		eligibleAlignments: eligibleAlignments,
+		analyseAlignment: analyseAlignment,
+		acceptAlignment: acceptAlignment,
 		protectionPreview: protectionPreview,
 		simulateProtection: simulateProtection,
 		measurementPreview: measurementPreview,

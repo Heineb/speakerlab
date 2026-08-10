@@ -354,6 +354,8 @@ Completed foundation: deterministic REW text and generic FRD magnitude/optional-
 
 Completed alignment/merge foundation: immutable source relationships, robust visible level suggestion, manual alignment, log-frequency interpolation without extrapolation, smooth raised-cosine transition, magnitude-only derived response, stale/dependency handling, backup/restore and responsive accessible browser journeys. Automatic baffle-step correction, phase/time alignment, EQ and optimisation remain separate.
 
+Completed phase/time foundation: two compatible phase-bearing measurements can now produce a robust multi-point relative-delay fit and complex crossover-region sum with current processing, one bounded delay/polarity suggestion, explicit review and ordinary draft acceptance. Timing-reference metadata is mandatory; absolute acoustic centre, automatic correction and physical deployment remain excluded.
+
 ### Goals
 
 Allow existing measurement workflows to feed directly into SpeakerLab.
@@ -430,6 +432,12 @@ Help users understand the electrical consequences of filters and protect loudspe
 ## M11A — Measurement-Assisted EQ Suggestions
 
 Completed v1 foundation: contextual measurement selection inside Parametric EQ, Flat and Gentle downward tilt targets, deterministic log-grid analysis with 1/6-octave default smoothing, crossover/role-aware range, one to five bounded peaking suggestions, strong cut preference, conservative boost and null restraint. Each result is human-reviewed, predicted explicitly and accepted only as an ordinary unsaved PEQ band. Existing EQ, headroom and Driver Protection contribute context and warnings. Source measurements remain unchanged; automatic room correction and physical deployment are excluded.
+
+---
+
+## M11B — Measurement Phase/Time Alignment Foundation
+
+Completed v1 foundation: contextual two-driver alignment around a configured crossover, explicit timing-reference compatibility, immutable shortest-step phase unwrap, robust multi-point delay fit, current crossover/EQ/gain/delay/polarity context, complex-sum and polarity comparison, one bounded human-reviewed suggestion and acceptance into ordinary unsaved delay/polarity fields. Low-quality, incompatible, magnitude-only, stale and out-of-capability cases are blocked. No automatic design change or physical DSP operation exists.
 
 ---
 

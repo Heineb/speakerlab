@@ -29,6 +29,9 @@
 			eqSuggestions: {},
 			selectedEQSuggestions: {},
 			eqSuggestionUndo: {},
+			alignmentEligibility: {},
+			alignmentAnalyses: {},
+			alignmentUndo: {},
 			selectedEQBands: {},
 			deployment: null,
 			runtime: {deploymentStatus: 'not-deployed', statusLabel: 'Saved design · Not deployed to DSP'}
@@ -218,6 +221,48 @@
 		return state;
 	}
 
+	function receiveAlignmentEligibility(state, payload) {
+		state.alignmentEligibility[payload.outputId] = clone(payload);
+		return state;
+	}
+
+	function receiveAlignmentAnalysis(state, payload) {
+		var outputID = payload.sources[0].outputId;
+		state.alignmentAnalyses[outputID] = clone(payload);
+		state.message = 'Driver alignment is ready for review. Delay and polarity are unchanged until you apply the suggestion.';
+		return state;
+	}
+
+	function receiveAlignmentDraft(state, payload) {
+		state.alignmentUndo[payload.outputId] = clone(state.draft);
+		state.draft = clone(payload.configuration);
+		state.validation = clone(payload.validation);
+		state.dirty = true;
+		state.alignmentAnalyses = {};
+		state.eqSuggestions = {};
+		state.selectedEQSuggestions = {};
+		state.eqResponses = {};
+		state.message = 'Alignment applied as ordinary delay and polarity on ' + payload.outputId + '. Save is still required; recalculate any open EQ suggestion preview.';
+		if (state.deployment && state.deployment.compilation) state.deployment.stale = true;
+		return state;
+	}
+
+	function rejectAlignment(state, outputID) {
+		delete state.alignmentAnalyses[outputID];
+		state.message = 'Alignment suggestion closed. Delay, polarity and measurements are unchanged.';
+		return state;
+	}
+
+	function undoAlignment(state, outputID) {
+		if (!state.alignmentUndo[outputID]) return state;
+		state.draft = clone(state.alignmentUndo[outputID]);
+		delete state.alignmentUndo[outputID];
+		state.dirty = JSON.stringify(state.draft) !== JSON.stringify(state.saved);
+		state.eqResponses = {};
+		state.message = 'Accepted alignment undone in this draft.';
+		return state;
+	}
+
 	function receiveMeasurementDraft(state, payload) {
 		state.draft = clone(payload.configuration);
 		state.validation = clone(payload.validation);
@@ -329,6 +374,9 @@
 		state.eqSuggestions = {};
 		state.selectedEQSuggestions = {};
 		state.eqSuggestionUndo = {};
+		state.alignmentEligibility = {};
+		state.alignmentAnalyses = {};
+		state.alignmentUndo = {};
 		return state;
 	}
 
@@ -374,6 +422,11 @@
 		receiveEQSuggestionDraft: receiveEQSuggestionDraft,
 		rejectEQSuggestions: rejectEQSuggestions,
 		undoEQSuggestionAcceptance: undoEQSuggestionAcceptance,
+		receiveAlignmentEligibility: receiveAlignmentEligibility,
+		receiveAlignmentAnalysis: receiveAlignmentAnalysis,
+		receiveAlignmentDraft: receiveAlignmentDraft,
+		rejectAlignment: rejectAlignment,
+		undoAlignment: undoAlignment,
 		receiveMeasurementDraft: receiveMeasurementDraft,
 		receiveEQResponse: receiveEQResponse,
 		editProtection: editProtection,

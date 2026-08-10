@@ -51,6 +51,10 @@ Configuration restore establishes a reusable destructive-workflow pattern: selec
 - Keep refactoring, dependency upgrades and user-visible behaviour changes in separate pull requests.
 - Verify at representative narrow and wide viewport sizes and in both colour schemes.
 
+## SpeakerLab identity
+
+Project-owned UI uses the SpeakerLab name and neutral SpeakerLab geometric artwork. The Beocreate logo, wordmark and Bang & Olufsen trademarks are not SpeakerLab branding. Keep Beocreate references that truthfully identify the supported hardware, inherited protocol/API, upstream code, original speaker products or required copyright/licence attribution. Identity cleanup must preserve the existing calm layout and must not become a navigation or visual redesign. See `docs/BRANDING.md`.
+
 ## Accessibility baseline to establish
 
 Focused browser accessibility smoke checks now protect labelled native channel-processing controls, keyboard editing order, focus preservation across reactive rendering, live validation and semantic disabled Save state. Full legacy-navigation traversal, automated screen-reader output, contrast, reduced-motion behavior and visual regression remain to be established. Accessibility fixes should preserve the established visual and navigation model.
@@ -70,3 +74,5 @@ Measurement merging keeps sources, level-adjusted preview and derived result exp
 Driver Protection uses progressive per-output disclosure. Driver metadata, amplifier assumptions, limiter settings, calculated limits, warnings, mapping status and simulator output remain separate named regions. Every unit and limiting factor is textual. Raw and post-margin thresholds are both visible; channel gain and EQ contribution are never applied automatically. Wording uses “configured limit”, “estimated electrical limit”, “potential headroom risk” and “simulator estimate”, and never claims guaranteed safety, thermal/excursion protection or physical deployment.
 
 Measurement-Assisted EQ stays inside the existing Parametric EQ context rather than adding navigation or a dashboard. The primary flow contains reference measurement, Flat or Gentle downward tilt target, visible active range, Suggest EQ and a short selectable result list. Smoothing, range, reference, tilt, boost/filter limits and algorithm diagnostics remain under `Advanced`. Measured, Target, Current estimated and Predicted with suggestions are named in text; prediction is never presented as measured or guaranteed improvement. Acceptance creates ordinary unsaved PEQ bands, while reject leaves the design and source unchanged.
+
+Driver phase/time alignment stays directly after Crossover in each output and adds no navigation or dashboard. The compact flow shows two named measurements, automatic crossover region, one delay/polarity recommendation, confidence, cautions and explicit Apply/Close actions. Timing-reference incompatibility and missing phase are textual blocking states. Phase-fit, samples and manual range controls start under `Advanced`. The graph must say **Predicted acoustic sum**, name both sources and distinguish current from suggested summation without relying on colour. Acceptance creates ordinary unsaved delay/polarity values; analysis and rejection change nothing.

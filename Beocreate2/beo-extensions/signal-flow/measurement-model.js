@@ -156,6 +156,11 @@ function validate(configuration, outputIDs) {
 		}
 		if (measurement.assignedOutputId && outputIDs.indexOf(measurement.assignedOutputId) === -1) errors.push(issue('error', 'UNKNOWN_MEASUREMENT_OUTPUT', 'Measurement is assigned to an unknown output.', base + '.assignedOutputId'));
 		if (TYPES.indexOf(measurement.type) === -1) errors.push(issue('error', 'INVALID_MEASUREMENT_TYPE', 'Measurement type is not supported.', base + '.type'));
+		var timingReference = measurement.conditions && measurement.conditions.timingReference;
+		if (timingReference) {
+			if (['shared', 'relative', 'independent', 'unknown'].indexOf(timingReference.kind) === -1) errors.push(issue('error', 'INVALID_TIMING_REFERENCE_KIND', 'Timing reference kind is not supported.', base + '.conditions.timingReference.kind'));
+			if (timingReference.group !== null && typeof timingReference.group !== 'string') errors.push(issue('error', 'INVALID_TIMING_REFERENCE_GROUP', 'Timing reference group must be text or null.', base + '.conditions.timingReference.group'));
+		}
 		if (measurement.type === 'unknown') warnings.push(issue('warning', 'UNKNOWN_MEASUREMENT_TYPE', 'Measurement type is unknown.', base + '.type'));
 		if (!measurement.assignedOutputId) warnings.push(issue('warning', 'UNASSIGNED_MEASUREMENT', 'Measurement is not assigned to an output.', base + '.assignedOutputId'));
 		if (measurement.sourceFormat === 'derived-merge') {

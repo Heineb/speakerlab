@@ -78,6 +78,13 @@ jobs:
           npm run test:eq-suggestion-ui
           npm run test:eq-suggestion-acceptance
 
+      - name: Test phase and time alignment foundation
+        run: |
+          npm run test:branding
+          npm run test:phase-alignment
+          npm run test:phase-alignment-ui
+          npm run test:phase-alignment-acceptance
+
       - name: Test DSP compilation and simulated readback
         run: |
           npm run test:sigmatcp-framing

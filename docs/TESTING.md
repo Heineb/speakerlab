@@ -23,6 +23,7 @@ npm run test:dsp-deployment-accessibility
 npm run test:backup-restore-acceptance
 npm run test:reconnect-acceptance
 npm run test:eq-suggestion-acceptance
+npm run test:phase-alignment-acceptance
 ```
 
 `npm run verify` includes the complete browser suite after the existing Node tests and syntax check. Each test starts the existing local server on an isolated loopback port with a fresh temporary runtime and simulated current-Beocreate DSP; no real configuration, external network, root privilege, HiFiBerryOS service or hardware is used.
@@ -203,6 +204,20 @@ The pure suite covers log interpolation boundaries/no extrapolation, sparse data
 UI-state and simplicity tests prove that analysis/reject do not dirty the design, acceptance can be undone before Save, disconnect retains review state, diagnostics and numerical controls start hidden, the feature remains contextual to Parametric EQ and no navigation/dashboard was added. Semantic labels, textual headroom/prediction and narrow stacking are protected.
 
 Eleven Chromium journeys cover two-filter accept/save/refresh, reject/source immutability, existing EQ, null avoidance, boost/headroom/protection warnings, crossover-aware range, stale/recomputed merge eligibility, Advanced disclosure, keyboard-only operation, semantic accessibility and desktop/tablet/mobile layouts. The shared fixture supplies traces, screenshots, video, console/request monitoring and isolated server logs on failure. Tests use project-owned synthetic fixtures, no network, hardware, audio, physical DSP write, arbitrary sleep or broad retry.
+
+## Measurement Phase/Time Alignment Foundation v1
+
+Run:
+
+```sh
+npm run test:phase-alignment
+npm run test:phase-alignment-ui
+npm run test:phase-alignment-acceptance
+```
+
+Pure tests cover phase unwrap across crossings and multiple wraps, noise/invalid input, robust positive/negative/zero delay fit, range and point limits, complex in-phase/inverted/delayed/cancelling sums, timing-reference compatibility, deterministic bounded analysis, ordinary acceptance and source immutability. Integration covers capabilities and eligibility, named analyse/accept envelopes, source hashes, unchanged draft, saved revision and non-persistent analysis state. UI-state tests protect preview-only/reject behavior, ordinary acceptance/undo, stale Assisted EQ clearing, disconnect, contextual placement, collapsed Advanced diagnostics, semantic labels and narrow stacking.
+
+Eleven Chromium journeys cover accept/save/refresh, polarity preview then apply, incompatible timing references, missing phase, existing-delay no-double-apply, current crossover/EQ context, stale magnitude-only merge blocking, Advanced disclosure, keyboard-only use, semantic graph/status and desktop/tablet/mobile layouts. Synthetic measurements are project-owned, deterministic and isolated. No journey uses external network, audio, hardware or a physical DSP write.
 
 ## Limiter and Driver Protection Foundation v1
 

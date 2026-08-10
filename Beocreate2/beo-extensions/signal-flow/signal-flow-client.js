@@ -39,6 +39,8 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 	var openProtectionOutputs = {};
 	var openEQSuggestionOutputs = {};
 	var eqSuggestionDraftOptions = {};
+	var openAlignmentOutputs = {};
+	var alignmentDraftOptions = {};
 	var pendingEQResetOutput = null;
 	var pendingDeploymentFocusId = null;
 	var pendingDeploymentFocusSourceId = null;
@@ -88,6 +90,12 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 		if (data.header === 'eqSuggestions') signalFlowUIState.receiveEQSuggestions(state, data.content);
 		if (data.header === 'eqSuggestionDraft') {
 			signalFlowUIState.receiveEQSuggestionDraft(state, data.content);
+			requestPreview(data.content.outputId);
+		}
+		if (data.header === 'eligibleAlignments') signalFlowUIState.receiveAlignmentEligibility(state, data.content);
+		if (data.header === 'alignmentAnalysis') signalFlowUIState.receiveAlignmentAnalysis(state, data.content);
+		if (data.header === 'alignmentDraft') {
+			signalFlowUIState.receiveAlignmentDraft(state, data.content);
 			requestPreview(data.content.outputId);
 		}
 		if (data.header === 'protectionPreview') signalFlowUIState.receiveProtectionPreview(state, data.content);
@@ -212,6 +220,58 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 			'<polyline points="' + line('targetDb') + '" class="target"></polyline><polyline points="' + line('currentEstimatedDb') +
 			'" class="current"></polyline><polyline points="' + line('predictedWithSuggestionsDb') + '" class="predicted"></polyline></svg>' +
 			'<p class="signal-flow-overlay-legend">Measured · Target · Current estimated response · Predicted with suggestions</p>';
+	}
+
+	function alignmentGraph(analysis) {
+		if (!analysis || !analysis.prediction || !analysis.prediction.length) return '';
+		var points = analysis.prediction, width = 560, height = 190, left = 42, top = 12;
+		var minimum = Math.log(points[0].frequencyHz), range = Math.log(points[points.length - 1].frequencyHz) - minimum || 1;
+		var values = [];
+		points.forEach(function(point) { values.push(point.sourceADb, point.sourceBDb, point.currentSumDb, point.suggestedSumDb); });
+		var low = Math.min.apply(null, values) - 1, high = Math.max.apply(null, values) + 1, dbRange = high - low || 1;
+		function line(field) { return points.map(function(point) {
+			return (left + (Math.log(point.frequencyHz) - minimum) / range * (width - left - 10)).toFixed(1) + ',' +
+				(top + (high - point[field]) / dbRange * (height - top - 28)).toFixed(1);
+		}).join(' '); }
+		return '<svg class="signal-flow-alignment-graph" viewBox="0 0 ' + width + ' ' + height + '" role="img" aria-label="Predicted acoustic sum from ' +
+			roundDisplay(analysis.activeRange.minimumFrequencyHz) + ' to ' + roundDisplay(analysis.activeRange.maximumFrequencyHz) + ' hertz. Source A, Source B, current sum and sum after suggested alignment. ' + escapeHTML(analysis.summary) + '">' +
+			'<polyline points="' + line('sourceADb') + '" class="source-a"></polyline><polyline points="' + line('sourceBDb') + '" class="source-b"></polyline>' +
+			'<polyline points="' + line('currentSumDb') + '" class="current-sum"></polyline><polyline points="' + line('suggestedSumDb') + '" class="suggested-sum"></polyline></svg>' +
+			'<p class="signal-flow-overlay-legend">Source A · Source B · Current predicted sum · Sum after suggested alignment</p>';
+	}
+
+	function alignmentControls(output) {
+		var open = !!openAlignmentOutputs[output.id];
+		var undo = state.alignmentUndo[output.id] ? '<button type="button" class="button pill outline" onclick="signalFlow.undoAlignment(\'' + output.id + '\');">Undo accepted alignment</button>' : '';
+		if (!open) return '<div class="signal-flow-alignment-entry"><button type="button" class="button pill outline" aria-expanded="false" onclick="signalFlow.openAlignment(\'' + output.id + '\');">Align drivers</button>' + undo + '<p>Review relative phase, delay and polarity around the configured crossover.</p></div>';
+		var eligibility = state.alignmentEligibility[output.id], pairs = eligibility ? eligibility.pairs : [];
+		var first = {}, second = {};
+		pairs.forEach(function(pair) {
+			first[pair.measurementAId] = pair.measurementAName;
+			second[pair.measurementBId] = pair.measurementBName + ' · ' + pair.outputBId + (pair.eligible ? '' : ' · unavailable');
+		});
+		var firstIDs = Object.keys(first), secondIDs = Object.keys(second);
+		var sourceA = firstIDs.map(function(id) { return option(id, first[id], ''); }).join('');
+		var sourceB = secondIDs.map(function(id) { return option(id, second[id], ''); }).join('');
+		var unavailable = pairs.filter(function(pair) { return !pair.eligible; }).map(function(pair) { return '<li>' + escapeHTML(pair.measurementAName + ' + ' + pair.measurementBName + ': ' + pair.errors.map(function(problem) { return problem.message; }).join(' ')) + '</li>'; }).join('');
+		var analysis = state.alignmentAnalyses[output.id], draft = alignmentDraftOptions[output.id] || {minimumFrequencyHz: null, maximumFrequencyHz: null};
+		var result = '';
+		if (analysis) {
+			var suggestionOutput = state.draft.outputs.find(function(item) { return item.id === analysis.suggestion.outputId; });
+			result = '<div class="signal-flow-alignment-results" role="region" aria-label="Driver alignment suggestion"><p role="status" aria-live="polite"><strong>Suggested alignment</strong> · Adjust ' + escapeHTML(suggestionOutput ? suggestionOutput.label : analysis.suggestion.outputId) + '</p>' +
+				'<p><strong>Delay:</strong> add ' + roundDisplay(analysis.suggestion.delayAdjustmentMs) + ' ms; resulting delay ' + roundDisplay(analysis.suggestion.resultingDelayMs) + ' ms. <strong>Polarity:</strong> ' + (analysis.suggestion.polarityInverted ? 'Inverted' : 'Normal') + '.</p>' +
+				'<p>' + escapeHTML(analysis.suggestion.reason) + ' Confidence ' + escapeHTML(analysis.suggestion.confidence) + '. Estimated mean sum change ' + analysis.suggestion.estimatedMeanSumImprovementDb + ' dB.</p>' +
+				analysis.warnings.map(function(item) { return '<p class="signal-flow-warning">' + escapeHTML(item.message) + '</p>'; }).join('') + alignmentGraph(analysis) +
+				'<p><strong>Predicted acoustic sum</strong> uses compatible complex measurement data and current processing. It is not a new measurement or a driver-safety conclusion.</p>' +
+				'<button type="button" class="button pill black" ' + (state.connected ? '' : 'disabled ') + 'onclick="signalFlow.acceptAlignment(\'' + output.id + '\');">Apply suggestion to ' + escapeHTML(suggestionOutput ? suggestionOutput.label : analysis.suggestion.outputId) + '</button> <button type="button" class="button pill outline" onclick="signalFlow.rejectAlignment(\'' + output.id + '\');">Close suggestion</button>' +
+				'<details class="signal-flow-alignment-advanced" ontoggle="this.querySelector(\'summary\').setAttribute(\'aria-expanded\', this.open ? \'true\' : \'false\');"><summary aria-expanded="false">Advanced analysis</summary><p>' + escapeHTML(analysis.reference.statement) + '</p><dl><dt>Fit range</dt><dd>' + roundDisplay(analysis.activeRange.minimumFrequencyHz) + '–' + roundDisplay(analysis.activeRange.maximumFrequencyHz) + ' Hz</dd><dt>Relative delay estimate</dt><dd>' + analysis.delayEstimate.relativeDelayMs + ' ms</dd><dt>Quality</dt><dd>' + analysis.delayEstimate.quality + ' · residual phase ' + analysis.delayEstimate.residualPhaseDegrees + '°</dd><dt>Adjustment at 48 kHz</dt><dd>' + analysis.delayEstimate.samplesAt48kHz + ' samples</dd><dt>Alternative polarity</dt><dd>Available in the prediction data; the primary recommendation uses the stronger mean crossover sum.</dd><dt>Included processing</dt><dd>' + escapeHTML(analysis.processingIncluded.join(', ')) + '</dd></dl></details></div>';
+		}
+		var context = pairs.find(function(pair) { return pair.eligible && pair.crossoverContext; });
+		return '<section class="signal-flow-alignment" aria-label="Driver phase and time alignment for ' + escapeHTML(output.label) + '"><div class="signal-flow-alignment-heading"><h4>Align drivers</h4><button type="button" class="button pill outline" aria-expanded="true" onclick="signalFlow.openAlignment(\'' + output.id + '\');">Close</button></div>' +
+			'<div class="signal-flow-alignment-primary"><label for="signal-flow-alignment-source-a-' + output.id + '">First driver measurement</label><select id="signal-flow-alignment-source-a-' + output.id + '">' + sourceA + '</select><label for="signal-flow-alignment-source-b-' + output.id + '">Second driver measurement</label><select id="signal-flow-alignment-source-b-' + output.id + '">' + sourceB + '</select><button type="button" class="button pill black" ' + (pairs.some(function(pair) { return pair.eligible; }) && state.connected ? '' : 'disabled ') + 'onclick="signalFlow.analyseAlignment(\'' + output.id + '\');">Analyse alignment</button></div>' +
+			'<p class="signal-flow-alignment-range" role="status">' + (analysis ? 'Crossover analysis region ' + roundDisplay(analysis.activeRange.minimumFrequencyHz) + '–' + roundDisplay(analysis.activeRange.maximumFrequencyHz) + ' Hz.' : context ? 'Proposed crossover region ' + roundDisplay(context.crossoverContext.minimumFrequencyHz) + '–' + roundDisplay(context.crossoverContext.maximumFrequencyHz) + ' Hz.' : 'Choose two compatible phase measurements around a configured crossover.') + '</p>' +
+			(!pairs.length ? '<p class="signal-flow-warning">No second driver measurement is available for this output.</p>' : '') + (unavailable ? '<ul class="signal-flow-alignment-source-issues">' + unavailable + '</ul>' : '') +
+			'<details class="signal-flow-alignment-options" ontoggle="this.querySelector(\'summary\').setAttribute(\'aria-expanded\', this.open ? \'true\' : \'false\');"><summary aria-expanded="false">Advanced</summary><div><label>Minimum analysis frequency (Hz)<input id="signal-flow-alignment-min-' + output.id + '" type="number" placeholder="Automatic crossover region" value="' + escapeHTML(draft.minimumFrequencyHz === null ? '' : draft.minimumFrequencyHz) + '"></label><label>Maximum analysis frequency (Hz)<input id="signal-flow-alignment-max-' + output.id + '" type="number" placeholder="Automatic crossover region" value="' + escapeHTML(draft.maximumFrequencyHz === null ? '' : draft.maximumFrequencyHz) + '"></label><p>Phase unwrap uses shortest continuous ±180° steps. Delay uses a robust multi-point phase-slope fit. Raw source phase remains unchanged.</p></div></details>' + result + '</section>';
 	}
 
 	function eqSuggestionControls(output) {
@@ -602,7 +662,7 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 				'<label for="signal-flow-copy-' + output.id + '">Copy to</label><select id="signal-flow-copy-' + output.id + '">' +
 				option('', 'Choose output', '') + copyOptions + '</select><button type="button" class="button pill outline" ' +
 				"onclick=\"signalFlow.copyCrossover('" + output.id + "', document.getElementById('signal-flow-copy-" + output.id + "').value);\">Copy</button></div>" +
-				'</section>' + parametricEQControls(output) + processingControls(output) + protectionControls(output) + '</article>';
+				'</section>' + alignmentControls(output) + parametricEQControls(output) + processingControls(output) + protectionControls(output) + '</article>';
 		}).join(''));
 
 		var issues = state.validation.errors.concat(state.validation.warnings);
@@ -649,8 +709,10 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 		var outputOptions = option('', 'Unassigned', selected.assignedOutputId || '') + state.draft.outputs.map(function(output) { return option(output.id, output.label + ' · ' + roleLabels[output.role], selected.assignedOutputId || ''); }).join('');
 		var typeOptions = state.capabilities.measurements.types.map(function(type) { return option(type, type.replace(/-/g, ' '), selected.type); }).join('');
 		var graph = measurementGraph(selected);
+		var timing = selected.conditions && selected.conditions.timingReference ? selected.conditions.timingReference : {kind: 'unknown', group: null};
+		var timingOptions = option('unknown', 'Unknown / unavailable', timing.kind) + option('shared', 'Shared absolute reference', timing.kind) + option('relative', 'Shared relative phase reference', timing.kind) + option('independent', 'Independent reference', timing.kind);
 		var staleSources = selected.mergeRecipe ? [{id: selected.mergeRecipe.lowSourceId, hash: selected.mergeRecipe.lowSourceHash, role: 'Nearfield'}, {id: selected.mergeRecipe.highSourceId, hash: selected.mergeRecipe.highSourceHash, role: 'Farfield'}].map(function(reference) { var source = measurements.find(function(item) { return item.id === reference.id; }); return !source || !source.integrity || source.integrity.hash !== reference.hash ? reference.role + ' source ' + (source ? '“' + source.name + '” changed' : 'is missing') : null; }).filter(Boolean) : [];
-		$('#signal-flow-measurement-detail').html('<h3>' + escapeHTML(selected.name) + '</h3>' + (selected.sourceFormat === 'derived-merge' ? '<p><strong>Derived merged response</strong> · Magnitude only · Source observations remain unchanged.</p>' : '') + '<div class="signal-flow-measurement-fields"><label>Name<input id="signal-flow-measurement-name" value="' + escapeHTML(selected.name) + '" ' + (selected.sourceFormat === 'derived-merge' ? 'disabled' : '') + '></label><label>Notes<textarea id="signal-flow-measurement-notes" ' + (selected.sourceFormat === 'derived-merge' ? 'disabled' : '') + '>' + escapeHTML(selected.description) + '</textarea></label><label>Measurement type<select id="signal-flow-measurement-type" ' + (selected.sourceFormat === 'derived-merge' ? 'disabled' : '') + '>' + typeOptions + '</select></label><label>Assigned output<select id="signal-flow-measurement-output">' + outputOptions + '</select></label></div>' + (selected.sourceFormat === 'derived-merge' ? '<button type="button" class="button pill black" onclick="signalFlow.editMeasurementMerge(\'' + selected.id + '\');">Edit merge recipe</button><button type="button" class="button pill outline" onclick="signalFlow.updateMeasurement();">Update assignment</button>' : '<button type="button" class="button pill black" onclick="signalFlow.updateMeasurement();">Update measurement</button>') + '<button type="button" class="button pill outline" onclick="signalFlow.confirmRemoveMeasurement();">Remove</button><p>Source: ' + escapeHTML(selected.sourceFilename || (selected.sourceFormat === 'derived-merge' ? 'derived from saved sources' : 'unnamed file')) + ' · ' + escapeHTML(selected.sourceFormat) + ' · Imported/generated ' + escapeHTML(selected.importedAt) + ' · Integrity ' + escapeHTML(selected.integrity.hash.slice(0, 12)) + '</p>' + graph + '<p><strong>' + (selected.sourceFormat === 'derived-merge' ? 'Derived response' : 'Measured response') + '</strong> is shown separately from crossover, EQ and combined electrical processing. This is not an acoustic prediction, calibration claim or automatic correction, and it is not an anechoic claim.</p>');
+		$('#signal-flow-measurement-detail').html('<h3>' + escapeHTML(selected.name) + '</h3>' + (selected.sourceFormat === 'derived-merge' ? '<p><strong>Derived merged response</strong> · Magnitude only · Source observations remain unchanged.</p>' : '') + '<div class="signal-flow-measurement-fields"><label>Name<input id="signal-flow-measurement-name" value="' + escapeHTML(selected.name) + '" ' + (selected.sourceFormat === 'derived-merge' ? 'disabled' : '') + '></label><label>Notes<textarea id="signal-flow-measurement-notes" ' + (selected.sourceFormat === 'derived-merge' ? 'disabled' : '') + '>' + escapeHTML(selected.description) + '</textarea></label><label>Measurement type<select id="signal-flow-measurement-type" ' + (selected.sourceFormat === 'derived-merge' ? 'disabled' : '') + '>' + typeOptions + '</select></label><label>Assigned output<select id="signal-flow-measurement-output">' + outputOptions + '</select></label><label>Timing reference<select id="signal-flow-measurement-timing-kind" ' + (selected.sourceFormat === 'derived-merge' ? 'disabled' : '') + '>' + timingOptions + '</select></label><label>Reference group<input id="signal-flow-measurement-timing-group" value="' + escapeHTML(timing.group || '') + '" placeholder="Same capture or clock ID" ' + (selected.sourceFormat === 'derived-merge' ? 'disabled' : '') + '></label></div><p>Use the same explicit reference group only when both phase measurements share that timing basis. Unknown or independent references cannot support predicted complex summation.</p>' + (selected.sourceFormat === 'derived-merge' ? '<button type="button" class="button pill black" onclick="signalFlow.editMeasurementMerge(\'' + selected.id + '\');">Edit merge recipe</button><button type="button" class="button pill outline" onclick="signalFlow.updateMeasurement();">Update assignment</button>' : '<button type="button" class="button pill black" onclick="signalFlow.updateMeasurement();">Update measurement</button>') + '<button type="button" class="button pill outline" onclick="signalFlow.confirmRemoveMeasurement();">Remove</button><p>Source: ' + escapeHTML(selected.sourceFilename || (selected.sourceFormat === 'derived-merge' ? 'derived from saved sources' : 'unnamed file')) + ' · ' + escapeHTML(selected.sourceFormat) + ' · Imported/generated ' + escapeHTML(selected.importedAt) + ' · Integrity ' + escapeHTML(selected.integrity.hash.slice(0, 12)) + '</p>' + graph + '<p><strong>' + (selected.sourceFormat === 'derived-merge' ? 'Derived response' : 'Measured response') + '</strong> is shown separately from crossover, EQ and combined electrical processing. This is not an acoustic prediction, calibration claim or automatic correction, and it is not an anechoic claim.</p>');
 		if (selected.sourceFormat === 'derived-merge') $('#signal-flow-measurement-detail h3').after(staleSources.length ? '<p class="signal-flow-error" role="alert">Stale derived response: ' + escapeHTML(staleSources.join('; ')) + '. Recompute the merge before treating it as current.</p>' : '<p class="signal-flow-status-matched" role="status">Derived response is current for its saved source hashes.</p>');
 	}
 
@@ -712,7 +774,7 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 	function selectMeasurement(id) { selectedMeasurementId = id; requestMeasurementOverlay(id); render(); }
 	function requestMeasurementOverlay(id) { beo.send({target: 'signal-flow', header: 'measurementOverlay', content: {configuration: state.draft, measurementId: id}}); }
 	function updateMeasurement() {
-		beo.send({target: 'signal-flow', header: 'measurementDraft', content: {configuration: state.draft, action: 'update', measurementId: selectedMeasurementId, name: $('#signal-flow-measurement-name').val(), description: $('#signal-flow-measurement-notes').val(), type: $('#signal-flow-measurement-type').val(), outputId: $('#signal-flow-measurement-output').val() || null, revision: state.revision}});
+		beo.send({target: 'signal-flow', header: 'measurementDraft', content: {configuration: state.draft, action: 'update', measurementId: selectedMeasurementId, name: $('#signal-flow-measurement-name').val(), description: $('#signal-flow-measurement-notes').val(), type: $('#signal-flow-measurement-type').val(), outputId: $('#signal-flow-measurement-output').val() || null, timingReferenceKind: $('#signal-flow-measurement-timing-kind').val(), timingReferenceGroup: $('#signal-flow-measurement-timing-group').val(), revision: state.revision}});
 	}
 	function confirmRemoveMeasurement() { pendingMeasurementRemove = selectedMeasurementId; beo.ask('signal-flow-measurement-remove'); }
 	function removeMeasurement() { beo.ask(); if (pendingMeasurementRemove) beo.send({target: 'signal-flow', header: 'measurementDraft', content: {configuration: state.draft, action: 'remove', measurementId: pendingMeasurementRemove, revision: state.revision}}); pendingMeasurementRemove = null; }
@@ -898,6 +960,43 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 		render();
 	}
 
+	function openAlignment(outputID) {
+		openAlignmentOutputs[outputID] = !openAlignmentOutputs[outputID];
+		if (openAlignmentOutputs[outputID]) beo.send({target: 'signal-flow', header: 'eligibleAlignments', content: {configuration: state.draft, outputId: outputID}});
+		render();
+	}
+
+	function analyseAlignment(outputID) {
+		var sourceA = document.getElementById('signal-flow-alignment-source-a-' + outputID);
+		var sourceB = document.getElementById('signal-flow-alignment-source-b-' + outputID);
+		if (!sourceA || !sourceB || !sourceA.value || !sourceB.value) return;
+		var minimum = optionalNumber('signal-flow-alignment-min-' + outputID);
+		var maximum = optionalNumber('signal-flow-alignment-max-' + outputID);
+		var options = {};
+		if (minimum !== null) options.minimumFrequencyHz = minimum;
+		if (maximum !== null) options.maximumFrequencyHz = maximum;
+		alignmentDraftOptions[outputID] = {minimumFrequencyHz: minimum, maximumFrequencyHz: maximum};
+		beo.send({target: 'signal-flow', header: 'analyseAlignment', content: {configuration: state.draft, measurementAId: sourceA.value, measurementBId: sourceB.value, options: options}});
+	}
+
+	function acceptAlignment(outputID) {
+		var analysis = state.alignmentAnalyses[outputID];
+		if (!analysis || !state.connected) return;
+		beo.send({target: 'signal-flow', header: 'acceptAlignment', content: {configuration: state.draft, analysisId: analysis.analysisId, revision: state.revision}});
+	}
+
+	function rejectAlignment(outputID) {
+		signalFlowUIState.rejectAlignment(state, outputID);
+		render();
+	}
+
+	function undoAlignment(outputID) {
+		signalFlowUIState.undoAlignment(state, outputID);
+		validateDraft();
+		requestPreview(outputID);
+		render();
+	}
+
 	function updateEQ(outputID, bandID, field, value) {
 		if (field === 'frequencyHz' || field === 'gainDb' || field === 'shape') {
 			var numeric = Number(value);
@@ -1023,6 +1122,11 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 		acceptEQSuggestions: acceptEQSuggestions,
 		rejectEQSuggestions: rejectEQSuggestions,
 		undoEQSuggestions: undoEQSuggestions,
+		openAlignment: openAlignment,
+		analyseAlignment: analyseAlignment,
+		acceptAlignment: acceptAlignment,
+		rejectAlignment: rejectAlignment,
+		undoAlignment: undoAlignment,
 		moveEQBand: moveEQBand,
 		eqDraft: eqDraft,
 		resetEQBand: resetEQBand,

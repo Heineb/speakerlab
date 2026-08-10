@@ -2,60 +2,52 @@
 
 ## Current milestone
 
-**M11A — Measurement-Assisted EQ Suggestions**
+**M11B — Measurement Phase/Time Alignment Foundation**
 
 Current working branch: `develop`.
 
 ## Latest completed slice
 
-Measurement-Assisted EQ Suggestions v1 adds a contextual `Suggest EQ` workflow inside each output's existing Parametric EQ region. It analyses one eligible assigned imported or derived magnitude response against an explicit Flat or Gentle downward tilt target and returns a deliberately small human-reviewed list of peaking-EQ corrections. It is assisted EQ, not automatic room correction, and never claims guaranteed audible improvement.
+Measurement Phase/Time Alignment Foundation v1 adds contextual **Align drivers** directly after each output's Crossover controls. Two phase-bearing measurements on different outputs require an explicit compatible shared or relative timing-reference group and usable overlap around an enabled crossover. Missing phase, unknown/independent/mismatched references, stale or magnitude-only derived sources, weak fits and excessive delay are blocked.
 
-Algorithm `speakerlab-assisted-eq-v1` interpolates without extrapolation onto a deterministic 121-point logarithmic grid. Analysis uses 1/6-octave raised-cosine smoothing by default; none, 1/12, 1/6 and 1/3 octave are available under `Advanced`, while raw measurement points remain unchanged. The target reference defaults to median current estimated level, and Gentle downward tilt defaults to −1 dB/octave referenced to 1 kHz.
+Algorithm `speakerlab-phase-alignment-v1` copies and shortest-step unwraps phase without changing source points, uses a robust multi-point phase-slope fit on an 81-point logarithmic crossover-region grid and includes current crossover, Parametric EQ, gain, delay and polarity. It compares normal and inverted complex summation and returns exactly one bounded delay/polarity suggestion with confidence, residual, cautions and an explicitly predicted—not newly measured—acoustic sum.
 
-The active optimisation range is always visible and is conservatively intersected with measurement coverage, output role and configured crossover. Candidate centres avoid a derived nearfield/farfield merge transition. The engine detects broad significant error, prefers cuts, proposes peaking filters only, defaults to at most five filters and +3 dB boost, bounds Q to 0.35–4.5 and cut to −6 dB, and retains candidates only for a meaningful objective improvement. The objective combines mean squared target error with filter-count, high-Q and squared positive-boost penalties. Deep narrow cancellations are identified and not filled aggressively.
+Analysis is transient and preview-only. Acceptance is explicit and writes only ordinary unsaved channel delay/polarity fields after source-hash, draft and saved-revision checks. Existing delay is included once; Assisted EQ previews are cleared when their processing context changes. Undo before Save, ordinary Discard, atomic persistence, refresh/restart and backup/restore retain their existing behavior. No physical DSP write or automatic design change was added.
 
-Existing enabled PEQ is considered by default and is never deleted or rewritten. `Advanced` can analyse without it and can narrow the range, set reference/tilt and choose bounded smoothing, filter-count and boost limits. Numerical objective and algorithm details stay out of the primary workflow.
-
-Every suggestion explains frequency, gain, reason, confidence, expected local improvement and headroom consequence. Positive boost, existing boost, high Q and configured Driver Protection produce textual voltage-demand/headroom warnings without changing channel gain, crossover, limiter or protection. The prediction distinctly labels Measured, Target, Current estimated response and Predicted with suggestions; prediction is simulated magnitude plus electrical PEQ, not a measurement.
-
-Suggestions are transient drafts. Reject changes nothing. Accepting selected items creates ordinary standard-ID Parametric EQ bands only after source-hash, unchanged-draft and saved-revision checks; normal validation and band capacity apply. The complete accepted set can be undone before Save, and ordinary Discard remains available. Normal Save is required for persistence, after which existing atomic readback, backup and restore apply. Measurements and rejected suggestions are never modified or persisted.
-
-The default UI adds no navigation, dashboard or permanent optimiser panel. The compact primary flow contains reference measurement, target, active range, Suggest EQ, prediction and a short selectable list. Eleven real-browser journeys cover basic accept/save/refresh, reject and measurement immutability, existing EQ, null restraint, protection/headroom, crossover awareness, stale/recomputed merge, Advanced disclosure, keyboard-only use, semantic status and desktop/tablet/mobile layouts. Labels, selected state, warning text, graph summary and explicit expanded state do not depend on colour.
+Project-owned shell, setup, manifest, loading and About presentation now use the SpeakerLab name and original neutral geometric artwork. Beocreate remains where it truthfully identifies current hardware, inherited protocols/paths, original products, history, licensing or attribution. Documentation now treats README and concise task-oriented user guidance as completion requirements.
 
 ## Verification
 
 ```sh
-npm run test:eq-suggestions
-npm run test:eq-suggestion-ui
-npm run test:eq-suggestion-acceptance
-npm run test:local-server
-npm run verify
+npm run test:branding
+npm run test:phase-alignment
+npm run test:phase-alignment-ui
+npm run test:phase-alignment-acceptance
 npm run check:syntax
+npm run verify
 git diff --check
 ```
 
-Focused numerical, smoothing, target, eligibility, candidate/objective, validation, noisy-response, acceptance, service/API, UI-state, simplicity, headroom/protection and local-server suites pass. All 11 new Assisted EQ Chromium journeys pass. The final complete `npm run verify` passes every Node suite, the 233-file JavaScript syntax sweep and all 61 hardware-free Chromium journeys in 10.8 minutes.
+Focused tests pass: 10 pure phase/alignment cases, 5 service/controller cases, 5 UI-state/simplicity cases, the branding regression and all 11 dedicated Chromium journeys. Coverage includes unwrap crossings/noise, positive/negative/zero delay, weak-fit and capacity blocking, timing references, polarity alternatives/ambiguity, complex sum, current processing, source immutability, stale revisions, acceptance/undo, disconnected state, keyboard semantics and responsive layouts.
 
-Chromium and loopback server checks require execution outside the restricted macOS sandbox on this machine. A separate manual in-app-browser pass was unavailable because the session exposed no browser backend; equivalent states are covered by the monitored real-browser journeys with trace, screenshot, video and logs on failure.
+The final complete `npm run verify` passes every Node suite, the 246-file JavaScript syntax sweep and all 72 hardware-free Chromium journeys; the browser suite completed in 12.9 minutes. Chromium and loopback checks required execution outside the restricted macOS sandbox. A separate manual in-app-browser pass was unavailable because this session exposed no browser backend; the monitored journeys provide screenshots, traces, video, accessibility state and server logs on failure.
 
-The latest remote `develop` GitHub Actions run before this local slice (`31424756380`) passes verification on Ubuntu and macOS. These new local commits have not been pushed or run in CI.
+The latest remote `develop` GitHub Actions run before this local slice (`31424756380`, head `ab58bbe`) passed on Ubuntu and macOS. This new local slice has not been pushed or run in CI.
 
 ## Active work
 
-No implementation work is active. The verified local slice is ready for review and push by the user.
+No implementation work is active. The verified local commits are ready for user review and push.
 
 ## Known blockers and risks
 
-Results depend on measurement calibration, conditions, gating, placement, source type and the assumption that measured magnitude can be combined with simulated electrical PEQ. V1 does not model phase/time, impulse response, directivity, room behavior, enclosure behavior, excursion, thermal state or audibility. A flat numerical target is not automatically the right acoustic target.
+Timing-reference groups are user-declared and cannot be independently verified. Results depend on capture timing, calibration, gating, placement, phase quality and sufficient crossover overlap. A robust fit and stronger predicted mean sum do not prove acoustic centre, audibility, directivity, excursion, thermal safety or improvement outside the analysed region. In-room data, narrow overlap, discontinuities and high-Q EQ remain cautionary contexts.
 
-Only peaking filters are suggested. Source eligibility and simple noise/null heuristics are conservative but cannot identify every invalid acoustic condition. Derived merge transitions are avoided as candidate centres, but a merged magnitude remains phase-free. Positive correction consumes estimated headroom despite its bounded penalty and warnings.
-
-Physical DSP apply remains blocked by fresh hardware identity, GPIO mute confirmation, per-operation physical readback/tolerances, connection-loss invalidation, verified last-known-good rollback and unknown limiter mapping/readback. Assisted EQ adds no physical Apply action and performs no DSP write.
+Physical DSP apply remains blocked by fresh hardware identity, GPIO mute confirmation, per-operation physical readback/tolerances, connection-loss invalidation, verified last-known-good rollback and unknown limiter mapping/readback. Saved and simulated delay/polarity are not evidence of physical deployment.
 
 ## Next recommended slice
 
-**Measurement Phase/Time Alignment Foundation.** Establish trustworthy relative timing and phase context before measurement-assisted acoustic crossover integration.
+**Assisted Crossover Design Foundation.** Reuse the now-tested measurement, complex-sum and alignment context to propose a small, human-reviewed crossover candidate without automatic processing or physical deployment.
 
 ## Deferred work
 
-Automatic room correction, arbitrary target editing, shelves, all-pass/FIR suggestions, crossover or limiter changes, multi-measurement optimisation and automatic gain compensation remain excluded. Assisted Crossover Design should wait for the recommended phase/time foundation. Hardware-backed limiter mapping and write-side safety remain deferred until dedicated current-Beocreate test hardware and safe evidence are available.
+Absolute acoustic-centre estimation, automatic room correction, all-pass/FIR phase correction, multi-way or multi-position optimisation, arbitrary target editing and physical DSP deployment remain excluded. UI workflow consolidation and measurement-workflow refinement remain separate future slices rather than being mixed into crossover assistance.
