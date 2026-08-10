@@ -72,6 +72,12 @@ jobs:
       - name: Test parametric EQ journeys in Chromium
         run: npm run test:eq-acceptance
 
+      - name: Test measurement-assisted EQ suggestions
+        run: |
+          npm run test:eq-suggestions
+          npm run test:eq-suggestion-ui
+          npm run test:eq-suggestion-acceptance
+
       - name: Test DSP compilation and simulated readback
         run: |
           npm run test:sigmatcp-framing

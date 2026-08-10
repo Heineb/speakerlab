@@ -37,6 +37,8 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 	var sideLabels = {unassigned: 'Unassigned', left: 'Left', right: 'Right', mono: 'Mono'};
 	var processingUnits = {};
 	var openProtectionOutputs = {};
+	var openEQSuggestionOutputs = {};
+	var eqSuggestionDraftOptions = {};
 	var pendingEQResetOutput = null;
 	var pendingDeploymentFocusId = null;
 	var pendingDeploymentFocusSourceId = null;
@@ -81,6 +83,12 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 		}
 		if (data.header === 'eqResponse') {
 			signalFlowUIState.receiveEQResponse(state, data.content);
+		}
+		if (data.header === 'eligibleEQMeasurements') signalFlowUIState.receiveEQSuggestionEligibility(state, data.content);
+		if (data.header === 'eqSuggestions') signalFlowUIState.receiveEQSuggestions(state, data.content);
+		if (data.header === 'eqSuggestionDraft') {
+			signalFlowUIState.receiveEQSuggestionDraft(state, data.content);
+			requestPreview(data.content.outputId);
 		}
 		if (data.header === 'protectionPreview') signalFlowUIState.receiveProtectionPreview(state, data.content);
 		if (data.header === 'protectionSimulation') signalFlowUIState.receiveProtectionSimulation(state, data.content);
@@ -187,6 +195,69 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 			'<p class="signal-flow-response-summary">Combined crossover + EQ is solid; EQ contribution is dashed. Does not include driver or enclosure response, room effects or acoustic summation.</p></div>';
 	}
 
+	function eqSuggestionGraph(analysis) {
+		if (!analysis || !analysis.prediction || !analysis.prediction.length) return '';
+		var points = analysis.prediction, width = 560, height = 190, left = 42, top = 12;
+		var minimum = Math.log(points[0].frequencyHz), range = Math.log(points[points.length - 1].frequencyHz) - minimum || 1;
+		var values = [];
+		points.forEach(function(point) { values.push(point.measuredDb, point.targetDb, point.currentEstimatedDb, point.predictedWithSuggestionsDb); });
+		var low = Math.min.apply(null, values) - 1, high = Math.max.apply(null, values) + 1, dbRange = high - low || 1;
+		function line(field) { return points.map(function(point) {
+			return (left + (Math.log(point.frequencyHz) - minimum) / range * (width - left - 10)).toFixed(1) + ',' +
+				(top + (high - point[field]) / dbRange * (height - top - 28)).toFixed(1);
+		}).join(' '); }
+		return '<svg class="signal-flow-eq-suggestion-graph" viewBox="0 0 ' + width + ' ' + height + '" role="img" aria-label="Assisted EQ prediction. Measured, Target, Current estimated response and Predicted with suggestions from ' +
+			roundDisplay(analysis.activeRange.minimumFrequencyHz) + ' to ' + roundDisplay(analysis.activeRange.maximumFrequencyHz) + ' hertz. ' +
+			escapeHTML(analysis.summary) + '"><polyline points="' + line('measuredDb') + '" class="measured"></polyline>' +
+			'<polyline points="' + line('targetDb') + '" class="target"></polyline><polyline points="' + line('currentEstimatedDb') +
+			'" class="current"></polyline><polyline points="' + line('predictedWithSuggestionsDb') + '" class="predicted"></polyline></svg>' +
+			'<p class="signal-flow-overlay-legend">Measured · Target · Current estimated response · Predicted with suggestions</p>';
+	}
+
+	function eqSuggestionControls(output) {
+		var open = !!openEQSuggestionOutputs[output.id];
+		var undo = state.eqSuggestionUndo[output.id] ? '<button type="button" class="button pill outline" onclick="signalFlow.undoEQSuggestions(\'' + output.id + '\');">Undo accepted suggestion set</button>' : '';
+		if (!open) return '<div class="signal-flow-eq-suggestion-entry"><button type="button" class="button pill outline" aria-expanded="false" onclick="signalFlow.openEQSuggestions(\'' + output.id + '\');">Suggest EQ from measurement</button>' + undo + '<p>Human-reviewed, bounded peaking EQ suggestions. No automatic design changes.</p></div>';
+		var eligibility = state.eqSuggestionEligibility[output.id];
+		var measurements = eligibility ? eligibility.measurements : [];
+		var eligibleMeasurements = measurements.filter(function(item) { return item.eligible; });
+		var measurementOptions = measurements.map(function(item) {
+			var label = item.name + ' · ' + item.type + (item.eligible ? '' : ' · unavailable');
+			return '<option value="' + escapeHTML(item.id) + '" ' + (item.eligible ? '' : 'disabled ') + '>' + escapeHTML(label) + '</option>';
+		}).join('');
+		var unavailable = measurements.filter(function(item) { return !item.eligible; }).map(function(item) { return '<li>' + escapeHTML(item.name + ': ' + item.errors.map(function(problem) { return problem.message; }).join(' ')) + '</li>'; }).join('');
+		var analysis = state.eqSuggestions[output.id];
+		var draftOptions = eqSuggestionDraftOptions[output.id] || {target: 'flat', smoothing: '1/6', minimumFrequencyHz: null, maximumFrequencyHz: null, referenceLevelDb: null, tiltDbPerOctave: -1, boostLimitDb: 3, filterLimit: 5, considerExistingEQ: true};
+		var selected = state.selectedEQSuggestions[output.id] || [];
+		var analysisMarkup = '';
+		if (analysis) {
+			var suggestionRows = analysis.suggestions.map(function(item) {
+				var checked = selected.indexOf(item.id) !== -1;
+				return '<li><label><input type="checkbox" ' + (checked ? 'checked ' : '') + 'aria-describedby="' + item.id + '-reason" onchange="signalFlow.toggleEQSuggestion(\'' + output.id + '\', \'' + item.id + '\', this.checked);"> <strong>' +
+					(item.gainDb > 0 ? '+' : '') + item.gainDb + ' dB at ' + item.frequencyHz + ' Hz</strong> · ' + escapeHTML(item.gainDb < 0 ? 'broad peak' : 'gentle correction') + '</label><p id="' + item.id + '-reason">' +
+					escapeHTML(item.reason) + ' Headroom consequence ' + item.headroomEffectDb + ' dB.</p><details><summary>Suggestion details</summary><p>Q ' + item.q + ' · Expected local improvement ' + item.expectedLocalImprovementDb + ' dB · Confidence ' + escapeHTML(item.confidence) + '</p></details></li>';
+			}).join('');
+			analysisMarkup = '<div class="signal-flow-eq-suggestion-results" role="region" aria-label="EQ suggestion results"><p role="status" aria-live="polite"><strong>' + analysis.suggestions.length + ' EQ suggestion' + (analysis.suggestions.length === 1 ? '' : 's') + '</strong> · Active range ' +
+				roundDisplay(analysis.activeRange.minimumFrequencyHz) + '–' + roundDisplay(analysis.activeRange.maximumFrequencyHz) + ' Hz · ' + escapeHTML(analysis.target.name) + ' target</p>' +
+				analysis.warnings.map(function(item) { return '<p class="signal-flow-warning">' + escapeHTML(item.message) + '</p>'; }).join('') +
+				eqSuggestionGraph(analysis) + '<p><strong>Predicted with suggestions</strong> is simulated electrical PEQ applied to preserved measurement magnitude. It is not measured and is not guaranteed to improve perceived sound.</p>' +
+				'<ul class="signal-flow-eq-suggestion-list">' + suggestionRows + '</ul><div class="signal-flow-eq-suggestion-actions"><button type="button" class="button pill black" ' +
+				(selected.length && state.connected ? '' : 'disabled ') + 'onclick="signalFlow.acceptEQSuggestions(\'' + output.id + '\');">Accept selected suggestions</button><button type="button" class="button pill outline" onclick="signalFlow.rejectEQSuggestions(\'' + output.id + '\');">Reject all suggestions</button></div></div>';
+		}
+		return '<section class="signal-flow-eq-suggestions" aria-label="Assisted EQ suggestions for ' + escapeHTML(output.label) + '"><div class="signal-flow-eq-suggestion-heading"><h4>Suggest EQ</h4><button type="button" class="button pill outline" aria-expanded="true" onclick="signalFlow.openEQSuggestions(\'' + output.id + '\');">Close</button></div>' +
+			'<p>Select an assigned reference measurement and a simple target. Suggestions remain drafts until you select and accept them.</p><div class="signal-flow-eq-suggestion-primary"><label for="signal-flow-eq-suggestion-measurement-' + output.id + '">Reference measurement</label><select id="signal-flow-eq-suggestion-measurement-' + output.id + '">' + measurementOptions + '</select>' +
+			'<label for="signal-flow-eq-suggestion-target-' + output.id + '">Target</label><select id="signal-flow-eq-suggestion-target-' + output.id + '">' + option('flat', 'Flat', draftOptions.target) + option('gentle-downward-tilt', 'Gentle downward tilt', draftOptions.target) + '</select>' +
+			'<button type="button" class="button pill black" ' + (eligibleMeasurements.length && state.connected ? '' : 'disabled ') + 'onclick="signalFlow.suggestEQ(\'' + output.id + '\');">Suggest EQ</button></div>' +
+			(!eligibleMeasurements.length ? '<p class="signal-flow-warning" role="status">No eligible measurement is assigned to this output.</p>' : '') + (unavailable ? '<ul class="signal-flow-eq-source-issues">' + unavailable + '</ul>' : '') +
+			'<p class="signal-flow-eq-range" role="status">' + (analysis ? 'Active optimisation range ' + roundDisplay(analysis.activeRange.minimumFrequencyHz) + '–' + roundDisplay(analysis.activeRange.maximumFrequencyHz) + ' Hz.' : 'The active optimisation range will be derived from measurement coverage, output role and crossover.') + '</p>' +
+			'<details class="signal-flow-eq-suggestion-advanced" ontoggle="this.querySelector(\'summary\').setAttribute(\'aria-expanded\', this.open ? \'true\' : \'false\');"><summary aria-expanded="false">Advanced</summary><div class="signal-flow-eq-suggestion-options"><label>Analysis smoothing<select id="signal-flow-eq-suggestion-smoothing-' + output.id + '">' + option('1/6', 'Normal (1/6 octave)', draftOptions.smoothing) + option('none', 'None', draftOptions.smoothing) + option('1/12', '1/12 octave', draftOptions.smoothing) + option('1/3', '1/3 octave', draftOptions.smoothing) + '</select></label>' +
+			'<label>Minimum frequency (Hz)<input id="signal-flow-eq-suggestion-min-' + output.id + '" type="number" min="10" placeholder="Automatic" value="' + escapeHTML(draftOptions.minimumFrequencyHz === null ? '' : draftOptions.minimumFrequencyHz) + '"></label><label>Maximum frequency (Hz)<input id="signal-flow-eq-suggestion-max-' + output.id + '" type="number" max="20000" placeholder="Automatic" value="' + escapeHTML(draftOptions.maximumFrequencyHz === null ? '' : draftOptions.maximumFrequencyHz) + '"></label>' +
+			'<label>Target reference level (dB)<input id="signal-flow-eq-suggestion-reference-' + output.id + '" type="number" step="0.1" placeholder="Automatic median" value="' + escapeHTML(draftOptions.referenceLevelDb === null ? '' : draftOptions.referenceLevelDb) + '"></label><label>Target tilt (dB/octave)<input id="signal-flow-eq-suggestion-tilt-' + output.id + '" type="number" step="0.1" min="-3" max="1" value="' + draftOptions.tiltDbPerOctave + '"></label>' +
+			'<label>Positive boost limit (dB)<input id="signal-flow-eq-suggestion-boost-' + output.id + '" type="number" min="0" max="6" step="0.5" value="' + draftOptions.boostLimitDb + '"></label><label>Suggestion limit<input id="signal-flow-eq-suggestion-limit-' + output.id + '" type="number" min="1" max="7" value="' + draftOptions.filterLimit + '"></label>' +
+			'<label><input id="signal-flow-eq-suggestion-existing-' + output.id + '" type="checkbox" ' + (draftOptions.considerExistingEQ ? 'checked ' : '') + '> Improve current EQ</label></div><p>Algorithm ' + escapeHTML(state.capabilities.assistedEQ.algorithmVersion) + ' · deterministic log grid · bounded peaking filters · mean-square error with filter-count, Q and boost penalties.</p></details>' +
+			analysisMarkup + undo + '</section>';
+	}
+
 	function parametricEQControls(output) {
 		var eqOutput = state.draft.parametricEQ.outputs.find(function(item) { return item.outputId === output.id; });
 		var bands = eqOutput.bands;
@@ -246,6 +317,7 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 			output.id + '">Band list</h4><ul class="signal-flow-eq-list" aria-labelledby="signal-flow-eq-list-' + output.id + '">' + rows +
 			'</ul><button type="button" class="button pill black" onclick="signalFlow.eqDraft(\'add\', \'' + output.id +
 			'\');">Add EQ band</button></div><div aria-label="Band editor">' + editor + '</div></div>' + responsePreview(output.id) +
+			eqSuggestionControls(output) +
 			'<div class="signal-flow-eq-actions"><label for="signal-flow-eq-copy-' + output.id + '">Copy EQ to</label><select id="signal-flow-eq-copy-' +
 			output.id + '">' + option('', 'Choose output', '') + state.draft.outputs.filter(function(item) { return item.id !== output.id; }).map(function(item) {
 				return option(item.id, item.label, '');
@@ -765,6 +837,67 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 		render();
 	}
 
+	function openEQSuggestions(outputID) {
+		openEQSuggestionOutputs[outputID] = !openEQSuggestionOutputs[outputID];
+		if (openEQSuggestionOutputs[outputID]) beo.send({target: 'signal-flow', header: 'eligibleEQMeasurements', content: {configuration: state.draft, outputId: outputID}});
+		render();
+	}
+
+	function optionalNumber(id) {
+		var element = document.getElementById(id);
+		if (!element || String(element.value).trim() === '') return null;
+		return Number(element.value);
+	}
+
+	function suggestEQ(outputID) {
+		var measurement = document.getElementById('signal-flow-eq-suggestion-measurement-' + outputID);
+		var target = document.getElementById('signal-flow-eq-suggestion-target-' + outputID);
+		if (!measurement || !measurement.value) return;
+		var minimum = optionalNumber('signal-flow-eq-suggestion-min-' + outputID);
+		var maximum = optionalNumber('signal-flow-eq-suggestion-max-' + outputID);
+		var options = {
+			target: target.value,
+			tiltDbPerOctave: target.value === 'flat' ? 0 : optionalNumber('signal-flow-eq-suggestion-tilt-' + outputID),
+			referenceLevelDb: optionalNumber('signal-flow-eq-suggestion-reference-' + outputID),
+			minimumFrequencyHz: minimum,
+			maximumFrequencyHz: maximum,
+			smoothing: document.getElementById('signal-flow-eq-suggestion-smoothing-' + outputID).value,
+			filterLimit: Number(document.getElementById('signal-flow-eq-suggestion-limit-' + outputID).value),
+			boostLimitDb: Number(document.getElementById('signal-flow-eq-suggestion-boost-' + outputID).value),
+			considerExistingEQ: document.getElementById('signal-flow-eq-suggestion-existing-' + outputID).checked
+		};
+		eqSuggestionDraftOptions[outputID] = JSON.parse(JSON.stringify(options));
+		beo.send({target: 'signal-flow', header: 'suggestEQ', content: {
+			configuration: state.draft, outputId: outputID, measurementId: measurement.value,
+			options: options
+		}});
+	}
+
+	function toggleEQSuggestion(outputID, suggestionID, selected) {
+		signalFlowUIState.toggleEQSuggestion(state, outputID, suggestionID, selected);
+		render();
+	}
+
+	function acceptEQSuggestions(outputID) {
+		var analysis = state.eqSuggestions[outputID];
+		var selected = state.selectedEQSuggestions[outputID] || [];
+		if (!analysis || !selected.length || !state.connected) return;
+		beo.send({target: 'signal-flow', header: 'acceptEQSuggestions', content: {configuration: state.draft, outputId: outputID,
+			analysisId: analysis.analysisId, selectedSuggestionIds: selected, revision: state.revision}});
+	}
+
+	function rejectEQSuggestions(outputID) {
+		signalFlowUIState.rejectEQSuggestions(state, outputID);
+		render();
+	}
+
+	function undoEQSuggestions(outputID) {
+		signalFlowUIState.undoEQSuggestionAcceptance(state, outputID);
+		validateDraft();
+		requestPreview(outputID);
+		render();
+	}
+
 	function updateEQ(outputID, bandID, field, value) {
 		if (field === 'frequencyHz' || field === 'gainDb' || field === 'shape') {
 			var numeric = Number(value);
@@ -884,6 +1017,12 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 		simulateProtection: simulateProtection,
 		setProtectionOpen: setProtectionOpen,
 		selectEQBand: selectEQBand,
+		openEQSuggestions: openEQSuggestions,
+		suggestEQ: suggestEQ,
+		toggleEQSuggestion: toggleEQSuggestion,
+		acceptEQSuggestions: acceptEQSuggestions,
+		rejectEQSuggestions: rejectEQSuggestions,
+		undoEQSuggestions: undoEQSuggestions,
 		moveEQBand: moveEQBand,
 		eqDraft: eqDraft,
 		resetEQBand: resetEQBand,

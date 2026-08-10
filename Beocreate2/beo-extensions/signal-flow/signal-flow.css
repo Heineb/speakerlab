@@ -218,6 +218,48 @@
 	gap: 8px;
 	margin-top: 10px;
 }
+.signal-flow-eq-suggestion-entry,
+.signal-flow-eq-suggestions {
+	border-top: 1px solid rgba(0, 0, 0, 0.1);
+	margin-top: 14px;
+	padding-top: 12px;
+}
+.signal-flow-eq-suggestion-heading,
+.signal-flow-eq-suggestion-primary,
+.signal-flow-eq-suggestion-actions {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 8px;
+}
+.signal-flow-eq-suggestion-heading { justify-content: space-between; }
+.signal-flow-eq-suggestion-heading h4 { margin: 0; }
+.signal-flow-eq-suggestion-primary select { min-width: 170px; }
+.signal-flow-eq-suggestion-advanced {
+	margin: 12px 0;
+	padding: 8px 0;
+}
+.signal-flow-eq-suggestion-options {
+	display: grid;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: 8px;
+	margin-top: 10px;
+}
+.signal-flow-eq-suggestion-options label { display: flex; flex-direction: column; }
+.signal-flow-eq-suggestion-list { list-style: none; margin: 10px 0; padding: 0; }
+.signal-flow-eq-suggestion-list li {
+	border: 1px solid rgba(0, 0, 0, 0.12);
+	border-radius: 8px;
+	margin: 7px 0;
+	padding: 9px;
+}
+.signal-flow-eq-suggestion-list p { margin: 5px 0; }
+.signal-flow-eq-suggestion-graph { width: 100%; max-height: 260px; border: 1px solid rgba(0,0,0,.15); }
+.signal-flow-eq-suggestion-graph polyline { fill: none; stroke-width: 1.5; }
+.signal-flow-eq-suggestion-graph .measured { stroke: #777; }
+.signal-flow-eq-suggestion-graph .target { stroke: #111; stroke-dasharray: 5 4; }
+.signal-flow-eq-suggestion-graph .current { stroke: #2470a0; stroke-dasharray: 2 3; }
+.signal-flow-eq-suggestion-graph .predicted { stroke: #2b7a46; stroke-width: 2.5; }
 .signal-flow-processing-grid {
 	display: grid;
 	grid-template-columns: 1fr 1.5fr 1fr;
@@ -358,6 +400,10 @@
 	.signal-flow-eq-fields {
 		grid-template-columns: 1fr;
 	}
+	.signal-flow-eq-suggestion-options { grid-template-columns: 1fr; }
+	.signal-flow-eq-suggestion-primary { align-items: stretch; flex-direction: column; }
+	.signal-flow-eq-suggestion-primary select,
+	.signal-flow-eq-suggestion-primary .button { width: 100%; box-sizing: border-box; }
 	.signal-flow-protection-grid,
 	.signal-flow-protection dl {
 		display: grid;

@@ -25,6 +25,10 @@
 			eqResponses: {},
 			protectionPreviews: {},
 			protectionSimulations: {},
+			eqSuggestionEligibility: {},
+			eqSuggestions: {},
+			selectedEQSuggestions: {},
+			eqSuggestionUndo: {},
 			selectedEQBands: {},
 			deployment: null,
 			runtime: {deploymentStatus: 'not-deployed', statusLabel: 'Saved design · Not deployed to DSP'}
@@ -164,6 +168,56 @@
 		return state;
 	}
 
+	function receiveEQSuggestionEligibility(state, payload) {
+		state.eqSuggestionEligibility[payload.outputId] = clone(payload);
+		return state;
+	}
+
+	function receiveEQSuggestions(state, payload) {
+		state.eqSuggestions[payload.outputId] = clone(payload);
+		state.selectedEQSuggestions[payload.outputId] = [];
+		state.message = payload.suggestions.length ? 'EQ suggestions are ready for review. No design setting has changed.' : 'The response is already close to this target; no useful bounded suggestions were found.';
+		return state;
+	}
+
+	function toggleEQSuggestion(state, outputID, suggestionID, selected) {
+		var values = state.selectedEQSuggestions[outputID] || [];
+		values = values.filter(function(id) { return id !== suggestionID; });
+		if (selected) values.push(suggestionID);
+		state.selectedEQSuggestions[outputID] = values;
+		return state;
+	}
+
+	function receiveEQSuggestionDraft(state, payload) {
+		state.eqSuggestionUndo[payload.outputId] = clone(state.draft);
+		state.draft = clone(payload.configuration);
+		state.validation = clone(payload.validation);
+		state.dirty = true;
+		delete state.eqSuggestions[payload.outputId];
+		state.selectedEQSuggestions[payload.outputId] = [];
+		state.eqResponses = {};
+		state.message = payload.acceptedSuggestionIds.length + ' suggestion' + (payload.acceptedSuggestionIds.length === 1 ? '' : 's') + ' added as ordinary EQ bands. Save is still required.';
+		if (state.deployment && state.deployment.compilation) state.deployment.stale = true;
+		return state;
+	}
+
+	function rejectEQSuggestions(state, outputID) {
+		delete state.eqSuggestions[outputID];
+		state.selectedEQSuggestions[outputID] = [];
+		state.message = 'EQ suggestions rejected. The design and measurement are unchanged.';
+		return state;
+	}
+
+	function undoEQSuggestionAcceptance(state, outputID) {
+		if (!state.eqSuggestionUndo[outputID]) return state;
+		state.draft = clone(state.eqSuggestionUndo[outputID]);
+		delete state.eqSuggestionUndo[outputID];
+		state.dirty = JSON.stringify(state.draft) !== JSON.stringify(state.saved);
+		state.eqResponses = {};
+		state.message = 'Accepted EQ suggestion set undone in this draft.';
+		return state;
+	}
+
 	function receiveMeasurementDraft(state, payload) {
 		state.draft = clone(payload.configuration);
 		state.validation = clone(payload.validation);
@@ -271,6 +325,10 @@
 		state.eqResponses = {};
 		state.protectionPreviews = {};
 		state.protectionSimulations = {};
+		state.eqSuggestionEligibility = {};
+		state.eqSuggestions = {};
+		state.selectedEQSuggestions = {};
+		state.eqSuggestionUndo = {};
 		return state;
 	}
 
@@ -310,6 +368,12 @@
 		receiveCrossoverDraft: receiveCrossoverDraft,
 		receiveProcessingDraft: receiveProcessingDraft,
 		receiveEQDraft: receiveEQDraft,
+		receiveEQSuggestionEligibility: receiveEQSuggestionEligibility,
+		receiveEQSuggestions: receiveEQSuggestions,
+		toggleEQSuggestion: toggleEQSuggestion,
+		receiveEQSuggestionDraft: receiveEQSuggestionDraft,
+		rejectEQSuggestions: rejectEQSuggestions,
+		undoEQSuggestionAcceptance: undoEQSuggestionAcceptance,
 		receiveMeasurementDraft: receiveMeasurementDraft,
 		receiveEQResponse: receiveEQResponse,
 		editProtection: editProtection,
