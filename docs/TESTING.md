@@ -187,6 +187,23 @@ The live local-server test additionally verifies:
 
 Backup export, preview, confirmed restore, validation failure, rollback success and critical rollback-failure results remain covered by the configuration API and UI-state suites because those payloads use HTTP, not WebSocket. The live WebSocket test protects the connection/activation/capabilities coordination that enables that UI workflow.
 
+## Limiter and Driver Protection Foundation v1
+
+Run:
+
+```sh
+npm run test:driver-protection
+npm run test:limiter-model
+npm run test:protection-ui
+npm run test:protection-acceptance
+```
+
+Pure tests cover 4/8-ohm power/RMS/peak conversions, voltage dB relationships, visible safety margin, invalid/non-finite fields, version/default migration, crossover/EQ/gain headroom, limiting-factor selection and deterministic first-order attack/release behavior. Service/contract tests cover complete-design validation, atomic persistence/readback, rollback preservation, named preview/simulator messages and prior-design migration. Compiler/simulator tests prove an explicit simulator-only operation, unknown physical mapping, unavailable readback, missing amplifier-reference diagnostics, exact simulated readback and injected mismatch.
+
+The 12 Chromium journeys cover save/refresh/restart, EQ and channel-gain headroom, amplifier conflict, invalid fields/no partial save, tweeter crossover risk, synthetic limiter behavior, backup/restore and stale draft conflict, Deployment Preview/mismatch, disconnect/reconnect conflict, keyboard-only editing, semantic units/status and desktop/tablet/mobile layout. The monitored fixture fails unexpected page exceptions, console errors, request failures and relevant HTTP errors and retains traces, screenshots, video and server logs on failure.
+
+The simulator accepts normalized level/duration steps and generates no audio. It is not evidence for a real SigmaDSP limiter. The existing source `volume-limit` extension is characterized as distinct. No automated path opens SigmaTCP, writes a physical limiter, predicts temperature/excursion/SPL or claims guaranteed protection. See `DRIVER_PROTECTION.md`.
+
 ## Signal-flow and channel-routing editor
 
 Run the focused suites:

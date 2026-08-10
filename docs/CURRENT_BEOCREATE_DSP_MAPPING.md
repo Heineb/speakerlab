@@ -17,6 +17,8 @@ The XML filename is `beocreate-universal-10.xml`; filename alone is not identity
 
 The existing DSP Programs extension requests checksum and XML, parses `<beometa>`, and falls back to stored metadata only after an exact checksum match. Unknown programs can remain GPIO-muted. SpeakerLab compilation uses the same fail-closed principle and never guesses from register names alone.
 
+The legacy `volume-limit` extension writes linear source-level controls for Raspberry Pi, SPDIF and I2S2 through metadata registers 74/77. It is not a per-output driver limiter. The shipped XML metadata exposes no per-output limiter threshold, attack, release, RMS detector or limiter readback. Driver Protection therefore has unknown mapping confidence, unavailable physical readback and simulator-only compilation; no register is inferred.
+
 ## Strongly evidenced parameter map
 
 The addresses below agree between shipped XML metadata and current legacy application code. They are **strongly evidenced**, not physically verified: no committed capture or readback proves that a write changed the intended DSP block.
@@ -57,6 +59,7 @@ The generic legacy read API can request each mapped address, but physical readab
 | Gain A–D, 0..1 linear | Strongly evidenced | XML plus `channels` writes | Generic API only | No | Physical readback absent |
 | Delay A–D, 0..2,000 samples | Strongly evidenced | XML plus `channels` writes | Generic API only | No | Physical quantization/readback absent |
 | Polarity A–D | Strongly evidenced | XML plus `channels` writes | Generic API only | No | Physical readback absent |
+| Driver protection A–D | Unknown | No per-output mapping | Unavailable | No | Threshold conversion, attack/release and readback unsupported |
 | GPIO 27 all-output safe state | Strong command evidence | `dsp-programs` `pigs` commands | Unavailable | No | Physical mute cannot be confirmed |
 
 All compiled parameter operations can be represented and current code can generate writes. None is ready for physical deployment.

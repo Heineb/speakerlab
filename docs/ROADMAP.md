@@ -406,6 +406,8 @@ This functionality may share components with the crossover editor but must have 
 
 ## M11 — Headroom and limiter panel
 
+Completed foundation: per-output driver/amplifier metadata, explicit voltage/power units, deterministic electrical conversions, visible safety margin, crossover/EQ/gain headroom analysis, peak-voltage limiter design, normalized level-envelope simulation, atomic persistence, backup/restore, unknown physical-mapping diagnostics and responsive accessible browser journeys. Physical limiter mapping/readback, thermal and excursion models and physical deployment remain separate.
+
 ### Goals
 
 Help users understand the electrical consequences of filters and protect loudspeaker drivers.

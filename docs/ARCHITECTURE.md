@@ -82,6 +82,8 @@ The same atomic design contains a nested `org.speakerlab.crossover`, version 1. 
 
 It also contains `org.speakerlab.channel-processing`, version 1, with gain in dB, delay in milliseconds and an explicit polarity-inverted boolean for every current output. The server capability is −60 to +6 dB and 0–2,000 samples at 48 kHz, derived from the shipped current Beocreate universal DSP metadata. Milliseconds are authoritative; sample counts and distance at 343 m/s are derived display values. Existing routing-v1 files without this section receive neutral in-memory defaults and are changed only by a deliberate save.
 
+The same design now contains `org.speakerlab.driver-protection`, version 1. Per output it keeps user-entered driver, amplifier and electrical-limit metadata plus a peak-voltage limiter design, visible safety margin, attack and release. Pure calculations derive sine-wave RMS/peak/power relationships and combine channel gain with the existing crossover/EQ grid. Existing files without this section receive disabled defaults in memory. The current-Beocreate target has no verified per-output limiter mapping, so compiler operations are simulator-only diagnostics and can never become physical writes. See `DRIVER_PROTECTION.md` and ADR 0014.
+
 `crossover-model.js` is a pure design boundary. It derives finite first/second-order digital sections, cascades their complex responses and produces deterministic logarithmic electrical-response points. The 48 kHz capability comes from the shipped current Beocreate universal DSP XML; accepted frequencies are 10–20,000 Hz and always below Nyquist. Butterworth supports orders 1–4. Linkwitz–Riley supports only defined order 2 and 4 constructions, at −6.0206 dB at cutoff.
 
 Pure model validation separates blocking structural/capability errors from advisory design warnings. Canonical serialization fixes property order and excludes transient UI state. A SHA-256 content revision provides optimistic concurrency. Save validates the complete draft, checks the edited revision, writes with the existing atomic JSON writer, reads back, revalidates and verifies the revision. A failed save attempts to preserve the previous valid file.
@@ -97,6 +99,8 @@ Saved routing is never described as active DSP state. Local connected/disconnect
 ## Safe DSP design compilation
 
 `dsp-target-capability.js` records only the repository-shipped Beocreate Universal v10 identity and metadata mappings. `dsp-design-compiler.js` derives versioned, deterministic operations from the canonical saved design; the design remains authoritative and the plan is process-local diagnostic state. Compilation fails closed on stale revision or untrusted program identity.
+
+Protection compilation preserves configured/derived values, unknown mapping confidence, unavailable physical readback and exact blockers. A normalized simulator operation is available only with an entered amplifier peak-voltage reference; it has a string diagnostic target and `physicalWriteAllowed: false`.
 
 The operation sequence is safe-state entry, routing, complete IIR banks, gain, delay, polarity, verification and deferred safe-state exit. `dsp-plan-simulator.js` applies this sequence only in local development, provides normalized readback and permits simulated unmute only after a complete match. Production-like runtime exposes preview-only unavailable identity and no application path. Details and unresolved mappings are in `CURRENT_BEOCREATE_DSP_MAPPING.md` and ADR 0010.
 
