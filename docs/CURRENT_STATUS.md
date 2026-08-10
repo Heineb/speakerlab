@@ -37,7 +37,7 @@ npm run check:syntax
 git diff --check
 ```
 
-Local verification on 2026-08-10 passed the complete `npm run verify` suite, including the 223-file JavaScript syntax sweep and 38/38 hardware-free Chromium journeys. The latest remote `develop` Verify run for `47250e3` is not green: macOS passed, while Ubuntu failed the existing repeated WebSocket binary/oversized-message assertion (`2 !== 1`). This merge slice remains local and unpushed as required, so no GitHub Actions run exists for commits `fd8eb08`–`4c855a5`.
+The Ubuntu WebSocket failure on remote `develop` commit `47250e3` was traced to a stale test synchronization assumption: receiving the client-side close did not guarantee that the server-side communication `close` event had removed the rejected connection. Production transport behaviour was unchanged. The contract test now synchronizes on both boundaries and verifies close codes, exact connection removal, absence of application dispatch and availability to existing and replacement clients. The focused suite passed 10/10 repeated runs on Node 24.19.0. The final complete `npm run verify` rerun passed the 223-file syntax sweep and all 38 hardware-free Chromium journeys. An earlier complete run reached 37/38 when an existing setup preview popup did not appear; that exact journey passed immediately in isolation and again in the complete rerun, so this remains a test-timing observation rather than a WebSocket regression.
 
 ## Next recommended slice
 

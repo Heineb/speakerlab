@@ -8,6 +8,48 @@ const testClient = require('./websocket-test-client');
 const tests = [];
 function test(name, fn) { tests.push({name, fn}); }
 
+function waitForCommunicationEvent(communication, eventName, predicate, description) {
+  return new Promise(function (resolve, reject) {
+    const timeout = setTimeout(function () {
+      communication.removeListener(eventName, onEvent);
+      reject(new Error('Timed out waiting for ' + description + '.'));
+    }, 2000);
+    function onEvent() {
+      const values = Array.from(arguments);
+      if (!predicate.apply(null, values)) return;
+      clearTimeout(timeout);
+      communication.removeListener(eventName, onEvent);
+      resolve(values);
+    }
+    communication.on(eventName, onEvent);
+  });
+}
+
+function waitForConnectionClose(communication, connectionID) {
+  return waitForCommunicationEvent(
+    communication,
+    'close',
+    function (closedID) { return closedID === connectionID; },
+    'server-side close of connection ' + connectionID
+  );
+}
+
+function waitForHeader(communication, header) {
+  return waitForCommunicationEvent(
+    communication,
+    'data',
+    function (data) { return data.header === header; },
+    'application envelope ' + header
+  );
+}
+
+function assertCloseFrame(frame, code, reason) {
+  assert.strictEqual(frame.opcode, 0x8);
+  assert.ok(frame.payload.length >= 2, 'Close frame must include a status code.');
+  assert.strictEqual(frame.payload.readUInt16BE(0), code);
+  assert.strictEqual(frame.payload.subarray(2).toString('utf8'), reason);
+}
+
 async function fixture() {
   const server = http.createServer(function (request, response) {
     response.statusCode = 404;
@@ -119,11 +161,13 @@ test('survives malformed JSON, repeated invalid input and handler failure', asyn
   const errors = [];
   console.error = function () { errors.push(Array.from(arguments).join(' ')); };
   try {
+    const receivedHeaders = [];
     const stillAvailable = new Promise(function (resolve, reject) {
       const timeout = setTimeout(function () {
         reject(new Error('Timed out waiting for the post-failure envelope.'));
       }, 2000);
       app.communication.on('data', function (data) {
+        receivedHeaders.push(data.header);
         if (data.header === 'stillAvailable') {
           clearTimeout(timeout);
           resolve();
@@ -142,6 +186,7 @@ test('survives malformed JSON, repeated invalid input and handler failure', asyn
     client.sendJSON({target: 'fixture', header: 'stillAvailable'});
     await stillAvailable;
     assert.strictEqual(app.communication.connections.length, 1);
+    assert.deepStrictEqual(receivedHeaders, ['throw', 'stillAvailable']);
     assert.ok(errors.some(function (line) { return line.includes('Further invalid'); }));
     client.close();
     await client.waitForClose();
@@ -156,21 +201,66 @@ test('rejects unsupported binary input and oversized messages without stopping s
   const originalError = console.error;
   console.error = function () {};
   try {
+    const applicationMessages = [];
+    const closedConnections = [];
+    app.communication.on('data', function (data, connectionID) {
+      applicationMessages.push({data: data, connectionID: connectionID});
+    });
+    app.communication.on('close', function (connectionID) {
+      closedConnections.push(connectionID);
+    });
+
+    const observer = await testClient.connect({port: app.port});
+    const observerID = app.communication.connections[0].ID;
+
     const binaryClient = await testClient.connect({port: app.port});
+    const binaryID = app.communication.connections[1].ID;
+    const binaryServerClose = waitForConnectionClose(app.communication, binaryID);
     binaryClient.sendBinary(Buffer.from([1, 2, 3]));
     const binaryClose = await binaryClient.nextFrame();
-    assert.strictEqual(binaryClose.opcode, 0x8);
-    await binaryClient.waitForClose();
+    assertCloseFrame(binaryClose, 1003, 'Binary messages are unsupported');
+    await Promise.all([binaryClient.waitForClose(), binaryServerClose]);
+    assert.deepStrictEqual(
+      app.communication.connections.map(function (connection) { return connection.ID; }),
+      [observerID]
+    );
+
+    const observerAfterBinary = waitForHeader(app.communication, 'observerAfterBinary');
+    observer.sendJSON({target: 'fixture', header: 'observerAfterBinary'});
+    await observerAfterBinary;
 
     const oversized = await testClient.connect({port: app.port});
+    const oversizedID = app.communication.connections[1].ID;
+    const oversizedServerClose = waitForConnectionClose(app.communication, oversizedID);
     oversized.sendText('x'.repeat(1024 * 1024 + 1));
     const sizeClose = await oversized.nextFrame();
-    assert.strictEqual(sizeClose.opcode, 0x8);
-    await oversized.waitForClose();
+    assertCloseFrame(sizeClose, 1009, 'Message too large');
+    await Promise.all([oversized.waitForClose(), oversizedServerClose]);
+    assert.deepStrictEqual(
+      app.communication.connections.map(function (connection) { return connection.ID; }),
+      [observerID]
+    );
+
+    const observerAfterOversized = waitForHeader(app.communication, 'observerAfterOversized');
+    observer.sendJSON({target: 'fixture', header: 'observerAfterOversized'});
+    await observerAfterOversized;
+
+    const observerServerClose = waitForConnectionClose(app.communication, observerID);
+    observer.close();
+    await Promise.all([observer.waitForClose(), observerServerClose]);
 
     const healthy = await testClient.connect({port: app.port});
+    const healthyID = app.communication.connections[0].ID;
+    const healthyDispatch = waitForHeader(app.communication, 'healthy');
     healthy.sendJSON({target: 'fixture', header: 'healthy'});
+    await healthyDispatch;
     assert.strictEqual(app.communication.connections.length, 1);
+    assert.deepStrictEqual(closedConnections, [binaryID, oversizedID, observerID]);
+    assert.deepStrictEqual(applicationMessages, [
+      {data: {target: 'fixture', header: 'observerAfterBinary'}, connectionID: observerID},
+      {data: {target: 'fixture', header: 'observerAfterOversized'}, connectionID: observerID},
+      {data: {target: 'fixture', header: 'healthy'}, connectionID: healthyID}
+    ]);
     healthy.close();
     await healthy.waitForClose();
   } finally {
