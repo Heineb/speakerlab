@@ -600,6 +600,12 @@ Live WebSocket UI interaction, disabled hardware-dependent extensions and Beocre
 - ALSA playback/mixer paths and source services.
 - Wi-Fi/Ethernet mutation, Raspberry Pi identity/power/storage operations and systemd service control.
 - Serial, Bluetooth, room-measurement and HiFiBerry helper workflows.
+
+## Measurement Import Foundation
+
+`npm run test:measurement-import` covers deterministic REW/FRD detection, parsing, normalization, malformed/binary rejection, path safety and integrity validation. `npm run test:measurement-storage` covers preview confirmation, atomic Signal Flow persistence, reload, assignment, overlay labelling and removal. `npm run test:measurement-ui` protects semantic controls and safety wording.
+
+`npm run test:measurement-acceptance` runs isolated real-browser REW, no-phase FRD, malformed-input and narrow-responsive workflows with the shared console/page-error monitor. Fixtures are small synthetic project-owned text files; oversized inputs are generated in tests rather than committed.
 - End-to-end verification of startup mute, audible gain/routing/filter behaviour, EEPROM persistence and restart recovery.
 
 Many of these require the HiFiBerryOS image rather than physical DSP hardware specifically. Tests must distinguish simulated, image integration and hardware-in-the-loop suites.

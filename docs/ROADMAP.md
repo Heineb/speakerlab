@@ -350,6 +350,8 @@ Each output now supports up to 12 peaking, low-shelf and high-shelf bands inside
 
 ## M9 — Measurement import
 
+Completed foundation: deterministic REW text and generic FRD magnitude/optional-phase import, bounded versioned storage, integrity, output association, portable backup/restore, measured/electrical overlay and accessible real-browser journeys. Automatic correction, alignment, merge and DSP deployment remain separate.
+
 ### Goals
 
 Allow existing measurement workflows to feed directly into SpeakerLab.

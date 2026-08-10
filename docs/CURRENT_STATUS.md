@@ -2,35 +2,31 @@
 
 ## Current milestone
 
-**M8 — Crossover and Parametric Equalisation Editors**
+**M9 — Measurement Import Foundation**
 
 Current working branch: `develop`.
 
 ## Latest completed slice
 
-Parametric EQ Editor v1 extends every Signal Flow output with peaking EQ, low-shelf and high-shelf bands. The versioned design stores stable band IDs, enabled/bypassed state, type, frequency, gain, Q or explicitly labelled RBJ shelf slope S, and an optional label. It does not migrate or overwrite legacy `equaliser.json` or speaker-preset EQ.
+Measurement Import Foundation v1 adds preview-first, server-authoritative REW text and generic FRD import with frequency in hertz, magnitude in decibels and optional phase in degrees. Parsing handles comments and headings, BOM, LF/CRLF, whitespace, tab or unambiguous comma delimiters, scientific notation, descending rows and exact duplicate frequencies. Normalization only sorts ascending and normalizes negative zero; it never smooths, interpolates, unwraps, resamples, calibrates or removes source points.
 
-Capabilities are 48 kHz, 10–20,000 Hz, −12 to +12 dB, peaking Q 0.1–10, shelf S 0.1–1 and at most 12 bands per output. The conservative limit reserves four sections of the repository-evidenced 16-section current-Beocreate bank for crossover filters. Pure RBJ calculations produce normalized finite/stable biquads; the compiler converts enabled bands to the legacy `[b2,b1,b0,-a2,-a1]` ordering and signed 5.23 target words.
+The versioned model stores bounded normalized points, stable content-derived IDs, names, notes, explicit measurement type, safe source basename, import date, units, output/driver-role association, provenance, warnings and SHA-256 integrity. Limits are 2 MiB per upload, 20,000 rows, 24 measurements and 50,000 total points. Measurements remain in the complete atomic and revisioned `signal-flow.json`, so backup/restore includes metadata and points with measurement and backup integrity verification, preview, rollback and stale-draft conflict protection.
 
-The UI supports add, select, edit, bypass, duplicate, remove, reorder, reset, copy and responsive keyboard-accessible editing. Its logarithmic graph shows EQ contribution and combined crossover + EQ electrical response. Text reports an estimated maximum EQ boost plus channel gain and explicitly excludes driver, enclosure, room, acoustic summation and clipping/driver-protection guarantees.
-
-EQ is part of complete atomic `signal-flow.json` persistence, optimistic revision conflicts, backup/restore, rollback and readback verification. Deployment Preview compiles tagged EQ operations, applies only to the simulator and compares quantized readback by stable band ID. No physical Apply control or SigmaTCP write path was added.
-
-Automated coverage includes filter mathematics, ranges, model operations, validation/warnings, UI state and semantics, compiler quantization, persistence through the existing complete-design boundary, and real-browser desktop/tablet/mobile journeys with console/page-error monitoring.
+The accessible Measurements section imports without drag-and-drop, exposes textual detection, errors, warnings and phase availability, supports multiple assigned or unassigned measurements, metadata editing and confirmed removal, and provides responsive measured/electrical overlays. Electrical crossover, EQ and combined-processing curves use a separate relative scale and are not added to measured magnitude or presented as an acoustic prediction. Focused model, storage, client-contract and real-browser REW, no-phase FRD, malformed-file and narrow-layout journeys monitor browser errors.
 
 ## Remaining risks and limitations
 
-Current-Beocreate EQ addresses, coefficient order and capacity remain **strongly evidenced, not physically verified**. Physical Apply is blocked by fresh hardware identity, GPIO mute confirmation, per-operation physical readback/tolerances, safe connection-loss invalidation and verified last-known-good rollback. No automated test predicts acoustics, clipping, excursion or driver safety.
+CSV column mapping, impedance, microphone calibration, impulses, display smoothing, gating edits, nearfield/farfield merge, directivity, automatic EQ or optimisation and room correction are absent. Absolute acoustic and electrical reference alignment is undefined, so overlays are visual evidence only.
 
-The v1 editor has no FIR, all-pass, graphic/dynamic EQ, limiter, measurement import or automatic optimization. Legacy preset EQ remains a separate live-hardware subsystem. Physical hardware, audible behavior, EEPROM persistence and restart recovery were not tested.
+Physical DSP apply remains blocked by fresh hardware identity, GPIO mute confirmation, per-operation physical readback and tolerances, connection-loss invalidation and verified last-known-good rollback. Physical hardware and audible behaviour were not tested.
 
 ## Verification
 
 ```sh
-npm run test:parametric-eq
-npm run test:eq-response
-npm run test:eq-ui
-npm run test:eq-acceptance
+npm run test:measurement-import
+npm run test:measurement-storage
+npm run test:measurement-ui
+npm run test:measurement-acceptance
 npm test
 npm run verify
 npm run check:syntax
@@ -39,4 +35,4 @@ git diff --check
 
 ## Next recommended slice
 
-**Measurement Import Foundation.** Continue simulator-first product development; do not recommend Safe Physical DSP Apply until every write-side blocker is verified on suitable non-critical current-Beocreate hardware.
+**Measurement Alignment and Nearfield/Farfield Merge Foundation.** Define explicit reference, phase/time alignment and controlled merge rules before any measurement-assisted optimisation.

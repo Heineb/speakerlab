@@ -232,6 +232,12 @@ During local shutdown active sockets receive close code 1001 before the isolated
 
 Configuration backup/restore intentionally remains split across transports. WebSocket connection state controls UI availability and activation delivers capabilities; JSON download, upload/preview and confirmed restore use the existing constrained HTTP routes. No backup payload is moved into WebSocket messages.
 
+## Measurement import boundary
+
+Signal Flow owns the versioned `org.speakerlab.measurements` model inside `signal-flow.json`. Pure parsing and validation live in `measurement-model.js`; the service owns bounded preview tokens, draft operations, assignment and electrical-overlay data. Normalized source points are authoritative. Graph state and derived electrical curves are not persisted, and the DSP compiler ignores measurements.
+
+Keeping bounded measurement data in the complete design reuses optimistic revision checking, atomic write/readback, rollback and portable configuration backup. See ADR 0012 and `docs/MEASUREMENT_IMPORT.md` for formats, normalization and limits.
+
 ## Hardware- and OS-dependent modules
 
 Beyond DSP, direct dependencies include Raspberry Pi `/proc/cpuinfo`, `raspi-config`, hostname/hosts files, wireless-tools and `wpa_cli`, fixed `wlan0`/`eth0`, systemd services, ALSA tools, AudioControl, Bluetooth, serial ports, GPIO, MPD, Shairport, room-measurement helpers and various `/opt/hifiberry/bin` programs. These prevent whole-server execution on a development Mac unless extensions and filesystem/process dependencies are controlled.
