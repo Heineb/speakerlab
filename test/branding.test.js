@@ -1,0 +1,23 @@
+'use strict';
+
+const assert = require('assert');
+const fs = require('fs');
+const path = require('path');
+const root = path.join(__dirname, '..');
+const shell = fs.readFileSync(path.join(root, 'Beocreate2/beo-views/default/index.html'), 'utf8');
+const manifest = JSON.parse(fs.readFileSync(path.join(root, 'Beocreate2/beo-views/default/manifest.json'), 'utf8'));
+const setup = fs.readFileSync(path.join(root, 'Beocreate2/beo-extensions/setup/menu.html'), 'utf8');
+const home = fs.readFileSync(path.join(root, 'Beocreate2/beo-extensions/product-information/menu.html'), 'utf8');
+assert.ok(shell.includes('<title>SpeakerLab</title>'));
+assert.ok(shell.includes('speakerlab-mark.svg'));
+assert.ok(shell.includes('speakerlab-wait-animate.svg'));
+assert.strictEqual(manifest.name, 'SpeakerLab');
+assert.strictEqual(manifest.short_name, 'SpeakerLab');
+assert.ok(manifest.icons.every(icon => icon.src.includes('speakerlab-mark.svg')));
+assert.ok(setup.includes('Welcome to SpeakerLab'));
+assert.ok(setup.includes('speakerlab-mark.svg'));
+assert.ok(home.includes('SpeakerLab is independent'));
+assert.ok(!shell.includes('<title>Beocreate</title>'));
+assert.ok(!setup.includes('create-round.svg'));
+assert.ok(!home.includes('mask-image: url(€/create.svg)'));
+console.log('ok - active product shell, manifest, setup and About use SpeakerLab identity');

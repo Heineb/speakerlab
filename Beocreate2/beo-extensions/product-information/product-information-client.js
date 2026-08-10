@@ -6,7 +6,7 @@ var staticName = localState ? "speakerlab-local" : "";
 var modelName = localState ? "SpeakerLab Local Simulator" : "";
 var modelID = localState ? "speakerlab-local-simulator" : "";
 var systemID = localState ? "speakerlab-local" : "";
-var productImage = localState ? "/common/beocreate-generic.png" : "";
+var productImage = localState ? "/common/speakerlab-mark.svg" : "";
 var cardType = "";
 var showFullSystemID = false;
 var systemVersion = null;
@@ -215,8 +215,8 @@ function cycleSystemInformation(updateOnly) {
 		case 0: // HiFiBerryOS version ("release")
 			infoText = "System software "+hifiberryVersion;
 			break;
-		case 1: // Beocreate version
-			infoText = "Beocreate "+systemVersion;
+		case 1: // SpeakerLab software version
+			infoText = "SpeakerLab "+systemVersion;
 			break;
 		case 2:
 			infoText = "Raspberry Pi ID "+systemID.replace(/^0+/, '');

@@ -174,7 +174,7 @@ const test = base.test.extend({
     page.on('requestfailed', function (request) {
       if (speakerlab.expectsConnectionInterruption() && /^ws:/.test(request.url())) return;
       if (speakerlab.expectsConnectionInterruption() &&
-        /\/common\/create-wait-animate\.svg$/.test(request.url()) &&
+        /\/common\/speakerlab-wait-animate\.svg$/.test(request.url()) &&
         request.failure() && request.failure().errorText === 'net::ERR_CONNECTION_REFUSED') return;
       if (/\/hifiberry-system-tools\/configuration-backup\/export$/.test(request.url()) &&
         request.failure() && request.failure().errorText === 'net::ERR_ABORTED') return;

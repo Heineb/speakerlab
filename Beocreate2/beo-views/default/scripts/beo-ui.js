@@ -66,7 +66,7 @@ $( document ).ready(function() {
 	
 	// Preload animated wait icons:
 	if (!hifiberryOS) {
-		attentionIcon.src = "common/create-wait-animate.svg";
+		attentionIcon.src = "common/speakerlab-wait-animate.svg";
 	} else {
 		attentionIcon.src = "common/hifiberry-wait-animate.svg";
 	}
@@ -1463,7 +1463,7 @@ function notify(options, dismissWithID = currentNotificationID) { // Display a s
 			if (notificationIcon != "attention") {
 				//icon = "common/symbols-black/wait-star.svg"
 				/*if (!hifiberryOS) {
-					icon = "common/create-wait-animate.svg";
+					icon = "common/speakerlab-wait-animate.svg";
 				} else {
 					icon = "common/hifiberry-wait-animate.svg";
 				}*/

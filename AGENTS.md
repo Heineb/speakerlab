@@ -373,6 +373,8 @@ For exploratory tasks, document findings and recommendations before implementing
 
 Update `docs/CURRENT_STATUS.md` after meaningful work.
 
+Any meaningful user-visible feature is incomplete until its applicable documentation is current. Always consider the root `README.md` and task-oriented user guides explicitly, then update only the architecture, testing, UI descriptions or screenshots actually affected. Keep guides short, task-oriented and focused on the common workflow; put specialist diagnostics and implementation detail behind separate advanced material.
+
 Keep it concise and forward-looking.
 
 It should contain:
@@ -409,6 +411,12 @@ Create an architecture decision record before difficult-to-reverse decisions inv
 * branch or release policy
 
 Do not create an architecture decision record for ordinary implementation details.
+
+## Product branding
+
+SpeakerLab owns the user-facing application identity. New and changed product UI must use the SpeakerLab name and neutral SpeakerLab artwork, while preserving the restrained, calm and geometric Beocreate-inspired interface language.
+
+Do not use the Beocreate logo, wordmark or Bang & Olufsen trademarks as SpeakerLab branding. Preserve Beocreate and Bang & Olufsen names where they are technically, historically or legally required, including current hardware names, protocol identifiers, inherited package/API names, speaker provenance, copyright and licence notices, and upstream documentation. Treat branding cleanup as identity maintenance, not a visual redesign, and add a focused stale-branding regression check where practical.
 
 ## README policy
 
