@@ -241,15 +241,22 @@ A pull request may contain multiple focused commits.
 
 * Keep the default interface simple.
 * Preserve familiar Beocreate navigation and interaction patterns.
-* Use progressive disclosure for advanced functionality.
+* Optimise the default interface for the common workflow: define outputs, route signals, set crossover, adjust level/delay/polarity, EQ, inspect measurements, protect drivers and verify the design.
+* Use progressive disclosure. Frequently used controls belong in context; specialised controls, implementation details, diagnostics and rarely used parameters belong under `Advanced`.
 * Express controls using loudspeaker concepts rather than DSP jargon.
 * Avoid adding controls merely because they are technically available.
-* Prefer guided workflows over dense technical control panels.
-* Provide safe and useful defaults.
+* Prefer fewer strong, guided workflows over many narrow features or dense technical panels.
+* A new navigation item, major panel, dashboard, toolbar section, persistent graph or workflow step must earn its space by supporting frequent work. Otherwise integrate it contextually, disclose it only when relevant or omit it from v1.
+* Preserve the calm, clean, restrained B&O-inspired interaction mindset: generous spacing, clear hierarchy, few simultaneous decisions and low cognitive load. The default UI should feel like a product, not an engineering console.
+* Hide raw DSP addresses, coefficients, transport internals, mapping hashes, protocol states, compiler operations and advanced numerical diagnostics unless they are needed for the current decision; place them under `Advanced` or Diagnostics.
+* Prefer sensible safe presentation defaults over mandatory configuration, while keeping material safety decisions visible and advanced control available.
+* Aim for roughly 80–90% of normal loudspeaker-design work to fit a small coherent interface. FIR, cardioid design, detailed phase diagnostics, directivity analysis and unusual target architectures must not dominate the default experience.
 * Make destructive or potentially dangerous actions reversible.
 * Advanced mode must not make basic mode harder to understand.
 * Include loading, empty, error and disconnected states.
 * Add or update end-to-end tests when important user workflows change.
+
+For every user-visible slice ask whether it is frequent, reduces work or improves an important decision, belongs in an existing workflow, can use sensible defaults, which controls belong under `Advanced`, and which proposed UI can be removed without reducing the user outcome.
 
 ## Testing requirements
 

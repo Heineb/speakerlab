@@ -22,6 +22,18 @@ Local development must remain visually unmistakable without changing normal prod
 - Design loading, empty, disconnected, partial-failure and recovery states as first-class states.
 - Keep setup guided. A user should not need to understand the underlying DSP to commission an existing Beocreate system.
 
+## Product simplicity and progressive complexity
+
+Optimise for the repeated loudspeaker workflow: define outputs, route signals, set crossover, adjust level/delay/polarity, EQ, inspect measurements, protect drivers and verify the design. Frequently used controls belong in that context. Specialised controls, implementation details, diagnostics and rarely used parameters belong under contextual `Advanced` disclosure. A model capability alone does not justify a control.
+
+A primary navigation item, permanent major panel, dashboard, toolbar section, persistent graph or additional workflow step must earn its space by supporting frequent work. Otherwise integrate it into an existing workflow, show it only when relevant, place it under `Advanced` or omit it from v1. Prefer fewer strong workflows to many narrow features.
+
+Preserve the B&O-inspired qualities of the baseline: calm, visually clean, restrained and understandable; generous spacing, clear hierarchy, meaningful defaults, few simultaneous decisions and low cognitive load. The default UI should feel like a product rather than an engineering console. Raw DSP addresses, coefficients, transport details, mapping hashes, protocol state, compiler operations and advanced numerical diagnostics stay in `Advanced` or Diagnostics unless required for the current decision.
+
+Sensible safe presentation defaults should remove mandatory configuration without hiding material safety decisions. Advanced users retain control through progressive disclosure. Aim for roughly 80–90% of ordinary loudspeaker-design work to fit the small coherent primary interface; specialist FIR, cardioid, detailed phase, directivity and unusual target workflows must not dominate it.
+
+Every user-visible slice is reviewed by asking: Is it frequent? Does it reduce work or improve an important decision? Does it belong in an existing workflow? Can defaults hide complexity? Which controls belong under `Advanced`? Can any proposed UI be removed without reducing the outcome?
+
 ## Safety feedback
 
 UI acknowledgement is not proof that a DSP write succeeded. Safety-sensitive workflows must distinguish request sent, transport accepted, state verified and rollback/recovery outcomes once those backend capabilities exist. Until then, the UI must not overstate success.
