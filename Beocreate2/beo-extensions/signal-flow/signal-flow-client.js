@@ -43,6 +43,10 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 	var selectedMeasurementId = null;
 	var pendingMeasurementRemove = null;
 	var measurementOverlay = null;
+	var mergePreview = null;
+	var mergeEditingRecipe = null;
+	var mergeDraftValues = null;
+	var mergeOpen = false;
 
 	$(document).on('general', function(event, data) {
 		if (data.header === 'activatedExtension' && data.content.extension === 'signal-flow') {
@@ -85,6 +89,10 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 			if (selectedMeasurementId) requestMeasurementOverlay(selectedMeasurementId);
 		}
 		if (data.header === 'measurementOverlay') measurementOverlay = data.content;
+		if (data.header === 'measurementMergePreview') {
+			mergePreview = data.content;
+			mergeDraftValues = JSON.parse(JSON.stringify(data.content.recipe));
+		}
 		if (data.header === 'crossoverResponse') {
 			signalFlowUIState.receiveCrossoverResponse(state, data.content);
 		}
@@ -459,6 +467,7 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 			return '<li class="signal-flow-' + issue.level + '">' + escapeHTML(issue.message) + '</li>';
 		}).join('') + '</ul>' : '<p>No routing-model issues found.</p>');
 		renderMeasurements();
+		renderMeasurementMerge();
 
 		var summary = signalFlowUIState.summary(state);
 		$('#signal-flow-summary').text(
@@ -491,13 +500,46 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 		if (selected) selectedMeasurementId = selected.id;
 		$('#signal-flow-measurement-preview').html(measurementPreview ? '<p><strong>Detected ' + escapeHTML(measurementPreview.detectedFormat) + '</strong> · ' + escapeHTML(measurementPreview.confidence) + ' confidence</p><p>' + measurementPreview.recognizedColumns.map(escapeHTML).join(', ') + ' · ' + measurementPreview.summary.pointCount + ' points · ' + measurementPreview.summary.minimumFrequencyHz + '–' + measurementPreview.summary.maximumFrequencyHz + ' Hz · Phase ' + (measurementPreview.summary.phaseAvailable ? 'available' : 'not available') + '</p>' + measurementPreview.warnings.map(function(item) { return '<p class="signal-flow-warning">' + escapeHTML(item.message) + '</p>'; }).join('') + '<button type="button" class="button pill black" onclick="signalFlow.confirmMeasurementImport();">Confirm import</button>' : '');
 		$('#signal-flow-measurement-list').html(measurements.length ? measurements.map(function(item) {
-			return '<button type="button" role="option" aria-selected="' + (selected && item.id === selected.id) + '" class="signal-flow-measurement-item' + (selected && item.id === selected.id ? ' selected' : '') + '" onclick="signalFlow.selectMeasurement(\'' + item.id + '\');"><strong>' + escapeHTML(item.name) + '</strong><span>' + escapeHTML(item.type) + ' · ' + item.points.length + ' points · ' + item.points[0].frequencyHz + '–' + item.points[item.points.length - 1].frequencyHz + ' Hz · Phase ' + (item.units.phase ? 'available' : 'not available') + '</span></button>';
+			return '<button type="button" role="option" aria-selected="' + (selected && item.id === selected.id) + '" class="signal-flow-measurement-item' + (selected && item.id === selected.id ? ' selected' : '') + '" onclick="signalFlow.selectMeasurement(\'' + item.id + '\');"><strong>' + escapeHTML(item.name) + '</strong><span>' + (item.sourceFormat === 'derived-merge' ? 'Derived merged response' : escapeHTML(item.type)) + ' · ' + item.points.length + ' points · ' + item.points[0].frequencyHz + '–' + item.points[item.points.length - 1].frequencyHz + ' Hz · Phase ' + (item.units.phase ? 'available' : 'not available') + '</span></button>';
 		}).join('') : '<p>No imported measurements.</p>');
 		if (!selected) { $('#signal-flow-measurement-detail').empty(); return; }
 		var outputOptions = option('', 'Unassigned', selected.assignedOutputId || '') + state.draft.outputs.map(function(output) { return option(output.id, output.label + ' · ' + roleLabels[output.role], selected.assignedOutputId || ''); }).join('');
 		var typeOptions = state.capabilities.measurements.types.map(function(type) { return option(type, type.replace(/-/g, ' '), selected.type); }).join('');
 		var graph = measurementGraph(selected);
-		$('#signal-flow-measurement-detail').html('<h3>' + escapeHTML(selected.name) + '</h3><div class="signal-flow-measurement-fields"><label>Name<input id="signal-flow-measurement-name" value="' + escapeHTML(selected.name) + '"></label><label>Notes<textarea id="signal-flow-measurement-notes">' + escapeHTML(selected.description) + '</textarea></label><label>Measurement type<select id="signal-flow-measurement-type">' + typeOptions + '</select></label><label>Assigned output<select id="signal-flow-measurement-output">' + outputOptions + '</select></label></div><button type="button" class="button pill black" onclick="signalFlow.updateMeasurement();">Update measurement</button><button type="button" class="button pill outline" onclick="signalFlow.confirmRemoveMeasurement();">Remove</button><p>Source: ' + escapeHTML(selected.sourceFilename || 'unnamed file') + ' · ' + escapeHTML(selected.sourceFormat) + ' · Imported ' + escapeHTML(selected.importedAt) + ' · Integrity ' + escapeHTML(selected.integrity.hash.slice(0, 12)) + '</p>' + graph + '<p><strong>Measured response</strong> is shown separately from crossover, EQ and combined electrical processing. This is not an acoustic prediction, calibration claim or automatic correction.</p>');
+		var staleSources = selected.mergeRecipe ? [{id: selected.mergeRecipe.lowSourceId, hash: selected.mergeRecipe.lowSourceHash, role: 'Nearfield'}, {id: selected.mergeRecipe.highSourceId, hash: selected.mergeRecipe.highSourceHash, role: 'Farfield'}].map(function(reference) { var source = measurements.find(function(item) { return item.id === reference.id; }); return !source || !source.integrity || source.integrity.hash !== reference.hash ? reference.role + ' source ' + (source ? '“' + source.name + '” changed' : 'is missing') : null; }).filter(Boolean) : [];
+		$('#signal-flow-measurement-detail').html('<h3>' + escapeHTML(selected.name) + '</h3>' + (selected.sourceFormat === 'derived-merge' ? '<p><strong>Derived merged response</strong> · Magnitude only · Source observations remain unchanged.</p>' : '') + '<div class="signal-flow-measurement-fields"><label>Name<input id="signal-flow-measurement-name" value="' + escapeHTML(selected.name) + '" ' + (selected.sourceFormat === 'derived-merge' ? 'disabled' : '') + '></label><label>Notes<textarea id="signal-flow-measurement-notes" ' + (selected.sourceFormat === 'derived-merge' ? 'disabled' : '') + '>' + escapeHTML(selected.description) + '</textarea></label><label>Measurement type<select id="signal-flow-measurement-type" ' + (selected.sourceFormat === 'derived-merge' ? 'disabled' : '') + '>' + typeOptions + '</select></label><label>Assigned output<select id="signal-flow-measurement-output">' + outputOptions + '</select></label></div>' + (selected.sourceFormat === 'derived-merge' ? '<button type="button" class="button pill black" onclick="signalFlow.editMeasurementMerge(\'' + selected.id + '\');">Edit merge recipe</button><button type="button" class="button pill outline" onclick="signalFlow.updateMeasurement();">Update assignment</button>' : '<button type="button" class="button pill black" onclick="signalFlow.updateMeasurement();">Update measurement</button>') + '<button type="button" class="button pill outline" onclick="signalFlow.confirmRemoveMeasurement();">Remove</button><p>Source: ' + escapeHTML(selected.sourceFilename || (selected.sourceFormat === 'derived-merge' ? 'derived from saved sources' : 'unnamed file')) + ' · ' + escapeHTML(selected.sourceFormat) + ' · Imported/generated ' + escapeHTML(selected.importedAt) + ' · Integrity ' + escapeHTML(selected.integrity.hash.slice(0, 12)) + '</p>' + graph + '<p><strong>' + (selected.sourceFormat === 'derived-merge' ? 'Derived response' : 'Measured response') + '</strong> is shown separately from crossover, EQ and combined electrical processing. This is not an acoustic prediction, calibration claim or automatic correction, and it is not an anechoic claim.</p>');
+		if (selected.sourceFormat === 'derived-merge') $('#signal-flow-measurement-detail h3').after(staleSources.length ? '<p class="signal-flow-error" role="alert">Stale derived response: ' + escapeHTML(staleSources.join('; ')) + '. Recompute the merge before treating it as current.</p>' : '<p class="signal-flow-status-matched" role="status">Derived response is current for its saved source hashes.</p>');
+	}
+
+	function renderMeasurementMerge() {
+		var region = $('#signal-flow-measurement-merge');
+		region.toggleClass('hidden', !mergeOpen);
+		if (!mergeOpen || !state.draft) return;
+		var sources = state.draft.measurements.measurements.filter(function(item) { return item.sourceFormat !== 'derived-merge'; });
+		var recipe = mergeDraftValues || mergeEditingRecipe || (mergePreview ? mergePreview.recipe : {});
+		function sourceOptionLabel(item) { var output = state.draft.outputs.find(function(candidate) { return candidate.id === item.assignedOutputId; }); return item.name + ' · ' + item.type + ' · ' + (output ? 'assigned to ' + output.label : 'unassigned') + ' · ' + item.points[0].frequencyHz + '–' + item.points[item.points.length - 1].frequencyHz + ' Hz · phase ' + (item.units.phase ? 'available' : 'unavailable'); }
+		var lowOptions = option('', 'Choose nearfield source', recipe.lowSourceId || '') + sources.map(function(item) { return option(item.id, sourceOptionLabel(item), recipe.lowSourceId || ''); }).join('');
+		var highOptions = option('', 'Choose farfield or gated source', recipe.highSourceId || '') + sources.map(function(item) { return option(item.id, sourceOptionLabel(item), recipe.highSourceId || ''); }).join('');
+		$('#signal-flow-measurement-merge-form').html('<div class="signal-flow-measurement-fields"><label for="signal-flow-merge-low">Nearfield source</label><select id="signal-flow-merge-low" aria-describedby="signal-flow-measurement-merge-preview" onchange="signalFlow.captureMeasurementMergeDraft();">' + lowOptions + '</select><label for="signal-flow-merge-high">Farfield source</label><select id="signal-flow-merge-high" aria-describedby="signal-flow-measurement-merge-preview" onchange="signalFlow.captureMeasurementMergeDraft();">' + highOptions + '</select><label for="signal-flow-merge-offset">Level alignment</label><div><input id="signal-flow-merge-offset" type="number" min="-30" max="30" step="0.1" aria-describedby="signal-flow-merge-offset-unit signal-flow-measurement-merge-preview" value="' + escapeHTML(recipe.magnitudeOffsetDb === undefined ? 0 : recipe.magnitudeOffsetDb) + '" oninput="signalFlow.captureMeasurementMergeDraft();"> <span id="signal-flow-merge-offset-unit">dB</span> <button type="button" id="signal-flow-merge-use-suggestion" class="button pill outline" onclick="signalFlow.useSuggestedMergeOffset();" ' + (!(mergePreview && mergePreview.suggestedAlignment.available) ? 'disabled' : '') + '>Use suggested offset</button> <button type="button" class="button pill outline" onclick="signalFlow.resetMeasurementMergeOffset();">Reset alignment</button></div><label for="signal-flow-merge-frequency">Merge frequency</label><div><input id="signal-flow-merge-frequency" type="number" min="1" step="1" aria-describedby="signal-flow-merge-frequency-unit signal-flow-measurement-merge-preview" value="' + escapeHTML(recipe.mergeFrequencyHz || '') + '" oninput="signalFlow.captureMeasurementMergeDraft();"> <span id="signal-flow-merge-frequency-unit">Hz</span></div><label for="signal-flow-merge-width">Transition width</label><div><input id="signal-flow-merge-width" type="number" min="0.1" max="2" step="0.1" aria-describedby="signal-flow-merge-width-unit signal-flow-measurement-merge-preview" value="' + escapeHTML(recipe.transitionWidthOctaves === undefined ? 0.5 : recipe.transitionWidthOctaves) + '" oninput="signalFlow.captureMeasurementMergeDraft();"> <span id="signal-flow-merge-width-unit">octaves</span></div><label for="signal-flow-merge-name">Merged response name</label><input id="signal-flow-merge-name" value="' + escapeHTML(recipe.name || 'Merged response') + '" oninput="signalFlow.captureMeasurementMergeDraft();"><label for="signal-flow-merge-notes">Notes</label><textarea id="signal-flow-merge-notes" oninput="signalFlow.captureMeasurementMergeDraft();">' + escapeHTML(recipe.notes || '') + '</textarea></div><div class="signal-flow-merge-actions"><button type="button" class="button pill outline" onclick="signalFlow.previewMeasurementMerge();">Preview merge</button><button type="button" class="button pill black" onclick="signalFlow.saveMeasurementMerge();" ' + (!(mergePreview && mergePreview.validation.valid) ? 'disabled' : '') + '>Save merged response to draft</button><button type="button" class="button pill outline" onclick="signalFlow.closeMeasurementMerge();">Cancel</button></div>');
+		var previewElement = $('#signal-flow-measurement-merge-preview');
+		if (!mergePreview) { previewElement.html('<p>Select two sources, then preview the merge.</p>'); return; }
+		var validation = mergePreview.validation;
+		var issues = validation.errors.concat(validation.warnings).map(function(item) { return '<li class="signal-flow-' + item.level + '">' + escapeHTML(item.message) + '</li>'; }).join('');
+		var stats = mergePreview.suggestedAlignment;
+		var result = mergePreview.result;
+		var phase = validation.phaseCompatibility;
+		previewElement.html('<h4>Merge review</h4><p><strong>Selected sources</strong>: ' + mergePreview.sources.map(function(source) { return escapeHTML(source.name + ' · ' + source.type + ' · ' + source.minimumFrequencyHz + '–' + source.maximumFrequencyHz + ' Hz · phase ' + (source.phaseAvailable ? 'available' : 'unavailable')); }).join('; ') + '</p><p>Overlap ' + (stats.overlap.available ? roundDisplay(stats.overlap.startHz) + '–' + roundDisplay(stats.overlap.endHz) + ' Hz · ' + roundDisplay(stats.overlap.octaves) + ' octaves' : 'not available') + '</p><p><strong>Chosen level offset</strong>: ' + recipe.magnitudeOffsetDb + ' dB · <strong>Suggested level offset</strong>: ' + (stats.available ? stats.suggestedOffsetDb + ' dB' : 'unavailable') + ' · Median variation ' + (stats.variationDb === null ? 'unavailable' : stats.variationDb + ' dB') + ' · ' + stats.sampleCount + ' usable comparison points</p><p>Merge frequency ' + recipe.mergeFrequencyHz + ' Hz · Transition ' + (validation.transition ? roundDisplay(validation.transition.startHz) + '–' + roundDisplay(validation.transition.endHz) + ' Hz' : 'unavailable') + ' · Derived phase unavailable; wrapped phase is never averaged.</p><p>Phase compatibility: ' + (phase && phase.available ? 'median absolute difference ' + phase.medianAbsoluteDifferenceDegrees + '°, maximum ' + phase.maximumAbsoluteDifferenceDegrees + '° across ' + phase.sampleCount + ' common points' : 'insufficient compatible common phase points') + '.</p>' + (issues ? '<ul class="signal-flow-issues">' + issues + '</ul>' : '') + (result ? mergeResultGraph(result.points, recipe, validation) : '<p>No merged preview is available until errors are resolved.</p>') + '<p>Preview distinguishes source observations, level-adjusted low-frequency source and derived merged magnitude. It does not correct baffle step, geometry, phase/time or room response.</p>');
+	}
+
+	function roundDisplay(value) { return Math.round(value * 100) / 100; }
+	function mergeResultGraph(points, recipe, validation) {
+		var width = 560, height = 180, left = 42, top = 12, minimum = Math.log(points[0].frequencyHz), range = Math.log(points[points.length - 1].frequencyHz) - minimum || 1;
+		var lowSource = state.draft.measurements.measurements.find(function(item) { return item.id === recipe.lowSourceId; });
+		var highSource = state.draft.measurements.measurements.find(function(item) { return item.id === recipe.highSourceId; });
+		var values = points.map(function(point) { return point.magnitudeDb; }).concat(lowSource ? lowSource.points.map(function(point) { return point.magnitudeDb + recipe.magnitudeOffsetDb; }) : [], highSource ? highSource.points.map(function(point) { return point.magnitudeDb; }) : []), low = Math.min.apply(null, values), high = Math.max.apply(null, values), dbRange = high - low || 1;
+		function polyline(sourcePoints, adjustment) { return (sourcePoints || []).filter(function(point) { return point.frequencyHz >= points[0].frequencyHz && point.frequencyHz <= points[points.length - 1].frequencyHz; }).map(function(point) { var magnitude = point.magnitudeDb + (adjustment || 0); return (left + (Math.log(point.frequencyHz) - minimum) / range * (width - left - 10)).toFixed(1) + ',' + (top + (high - magnitude) / dbRange * (height - top - 28)).toFixed(1); }).join(' '); }
+		function marker(frequency) { return left + (Math.log(frequency) - minimum) / range * (width - left - 10); }
+		return '<svg class="signal-flow-measurement-graph" viewBox="0 0 ' + width + ' ' + height + '" role="img" aria-label="Nearfield source, level-adjusted nearfield preview, farfield source and merged magnitude preview with ' + points.length + ' derived points. Merge frequency ' + recipe.mergeFrequencyHz + ' hertz. Transition from ' + roundDisplay(validation.transition.startHz) + ' to ' + roundDisplay(validation.transition.endHz) + ' hertz. Derived phase unavailable."><rect x="' + marker(validation.transition.startHz).toFixed(1) + '" y="0" width="' + (marker(validation.transition.endHz) - marker(validation.transition.startHz)).toFixed(1) + '" height="' + height + '" class="signal-flow-merge-transition"></rect><line x1="' + marker(recipe.mergeFrequencyHz).toFixed(1) + '" y1="0" x2="' + marker(recipe.mergeFrequencyHz).toFixed(1) + '" y2="' + height + '" class="signal-flow-merge-center"></line><polyline points="' + polyline(lowSource && lowSource.points, 0) + '" class="signal-flow-merge-source low"></polyline><polyline points="' + polyline(lowSource && lowSource.points, recipe.magnitudeOffsetDb) + '" class="signal-flow-merge-adjusted"></polyline><polyline points="' + polyline(highSource && highSource.points, 0) + '" class="signal-flow-merge-source high"></polyline><polyline points="' + polyline(points, 0) + '" class="signal-flow-merged-response-line"></polyline></svg><p class="signal-flow-overlay-legend">Nearfield source · Level-aligned nearfield preview · Farfield source · Derived merged response · Merge centre</p>';
 	}
 
 	function measurementGraph(measurement) {
@@ -531,6 +573,21 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 	}
 	function confirmRemoveMeasurement() { pendingMeasurementRemove = selectedMeasurementId; beo.ask('signal-flow-measurement-remove'); }
 	function removeMeasurement() { beo.ask(); if (pendingMeasurementRemove) beo.send({target: 'signal-flow', header: 'measurementDraft', content: {configuration: state.draft, action: 'remove', measurementId: pendingMeasurementRemove, revision: state.revision}}); pendingMeasurementRemove = null; }
+	function startMeasurementMerge() { mergeOpen = true; mergePreview = null; mergeEditingRecipe = null; mergeDraftValues = null; render(); }
+	function editMeasurementMerge(measurementID) {
+		var measurement = state.draft.measurements.measurements.find(function(item) { return item.id === measurementID; });
+		if (!measurement || !measurement.mergeRecipe) return;
+		mergeOpen = true; mergePreview = null; mergeEditingRecipe = JSON.parse(JSON.stringify(measurement.mergeRecipe)); mergeDraftValues = JSON.parse(JSON.stringify(measurement.mergeRecipe)); render();
+	}
+	function mergeFormContent() {
+		return {lowSourceId: $('#signal-flow-merge-low').val(), highSourceId: $('#signal-flow-merge-high').val(), magnitudeOffsetDb: Number($('#signal-flow-merge-offset').val()), mergeFrequencyHz: $('#signal-flow-merge-frequency').val() === '' ? null : Number($('#signal-flow-merge-frequency').val()), transitionWidthOctaves: Number($('#signal-flow-merge-width').val()), name: $('#signal-flow-merge-name').val(), notes: $('#signal-flow-merge-notes').val(), recipeId: mergeEditingRecipe ? mergeEditingRecipe.id : mergePreview && mergePreview.recipe.id, resultMeasurementId: mergeEditingRecipe ? mergeEditingRecipe.resultMeasurementId : mergePreview && mergePreview.recipe.resultMeasurementId};
+	}
+	function captureMeasurementMergeDraft() { if ($('#signal-flow-merge-low').length) mergeDraftValues = mergeFormContent(); }
+	function previewMeasurementMerge() { var content = mergeFormContent(); mergeDraftValues = JSON.parse(JSON.stringify(content)); content.configuration = state.draft; beo.send({target: 'signal-flow', header: 'previewMeasurementMerge', content: content}); }
+	function useSuggestedMergeOffset() { if (!mergePreview || !mergePreview.suggestedAlignment.available) return; $('#signal-flow-merge-offset').val(mergePreview.suggestedAlignment.suggestedOffsetDb); captureMeasurementMergeDraft(); previewMeasurementMerge(); }
+	function resetMeasurementMergeOffset() { $('#signal-flow-merge-offset').val(0); captureMeasurementMergeDraft(); if (mergePreview) previewMeasurementMerge(); }
+	function saveMeasurementMerge() { if (!mergePreview || !mergePreview.validation.valid) return; var content = mergeFormContent(); content.configuration = state.draft; content.revision = state.revision; beo.send({target: 'signal-flow', header: 'saveMeasurementMerge', content: content}); mergeOpen = false; }
+	function closeMeasurementMerge() { mergeOpen = false; mergePreview = null; mergeEditingRecipe = null; mergeDraftValues = null; render(); }
 
 	function validateDraft() {
 		beo.send({target: 'signal-flow', header: 'validate', content: {configuration: state.draft, revision: state.revision}});
@@ -746,6 +803,14 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 		updateMeasurement: updateMeasurement,
 		confirmRemoveMeasurement: confirmRemoveMeasurement,
 		removeMeasurement: removeMeasurement,
+		startMeasurementMerge: startMeasurementMerge,
+		editMeasurementMerge: editMeasurementMerge,
+		captureMeasurementMergeDraft: captureMeasurementMergeDraft,
+		previewMeasurementMerge: previewMeasurementMerge,
+		useSuggestedMergeOffset: useSuggestedMergeOffset,
+		resetMeasurementMergeOffset: resetMeasurementMergeOffset,
+		saveMeasurementMerge: saveMeasurementMerge,
+		closeMeasurementMerge: closeMeasurementMerge,
 		updateDelay: updateDelay,
 		changeDelayUnit: changeDelayUnit,
 		processingTab: processingTab,

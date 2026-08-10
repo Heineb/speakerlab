@@ -28,9 +28,16 @@
 				<p>Import measured frequency response for inspection and electrical-overlay comparison. Source data is preserved and is not used for automatic correction.</p>
 				<label for="signal-flow-measurement-file">Select measurement file</label>
 				<input id="signal-flow-measurement-file" type="file" accept=".txt,.frd,text/plain" onchange="signalFlow.selectMeasurementFile(this);">
+				<button type="button" class="button pill outline" id="signal-flow-merge-open" onclick="signalFlow.startMeasurementMerge();">Merge measurements</button>
 				<div id="signal-flow-measurement-preview" role="status" aria-live="polite"></div>
 				<div id="signal-flow-measurement-list" role="listbox" aria-label="Imported measurements"></div>
 				<div id="signal-flow-measurement-detail" role="region" aria-label="Selected measurement details"></div>
+				<section id="signal-flow-measurement-merge" class="hidden" aria-labelledby="signal-flow-measurement-merge-title">
+					<h3 id="signal-flow-measurement-merge-title">Merge Measurements</h3>
+					<p>Combine a low-frequency observation with a higher-frequency observation. Sources remain unchanged; the result is a derived magnitude response.</p>
+					<div id="signal-flow-measurement-merge-form"></div>
+					<div id="signal-flow-measurement-merge-preview" role="status" aria-live="polite"></div>
+				</section>
 			</section>
 
 			<section class="signal-flow-deployment" aria-labelledby="signal-flow-deployment-title">
