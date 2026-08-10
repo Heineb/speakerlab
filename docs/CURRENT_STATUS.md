@@ -2,31 +2,35 @@
 
 ## Current milestone
 
-**M9 — Measurement Import Foundation**
+**M9 — Measurement Alignment and Nearfield/Farfield Merge Foundation**
 
 Current working branch: `develop`.
 
 ## Latest completed slice
 
-Measurement Import Foundation v1 adds preview-first, server-authoritative REW text and generic FRD import with frequency in hertz, magnitude in decibels and optional phase in degrees. Parsing handles comments and headings, BOM, LF/CRLF, whitespace, tab or unambiguous comma delimiters, scientific notation, descending rows and exact duplicate frequencies. Normalization only sorts ascending and normalizes negative zero; it never smooths, interpolates, unwraps, resamples, calibrates or removes source points.
+Measurement Alignment and Nearfield/Farfield Merge Foundation v1 creates a new derived magnitude response from one low-frequency source, normally nearfield, and one high-frequency source, normally farfield or gated. Imported source measurements remain unchanged and are referenced by stable IDs and integrity hashes.
 
-The versioned model stores bounded normalized points, stable content-derived IDs, names, notes, explicit measurement type, safe source basename, import date, units, output/driver-role association, provenance, warnings and SHA-256 integrity. Limits are 2 MiB per upload, 20,000 rows, 24 measurements and 50,000 total points. Measurements remain in the complete atomic and revisioned `signal-flow.json`, so backup/restore includes metadata and points with measurement and backup integrity verification, preview, rollback and stale-draft conflict protection.
+The visible workflow reports source compatibility, overlap, point count, phase availability, median suggested level offset and overlap variation. The suggestion is never applied invisibly. Manual alignment is bounded to ±30 dB. Merge centre must lie inside the source overlap, and the complete 0.1–2-octave transition must remain covered by both sources.
 
-The accessible Measurements section imports without drag-and-drop, exposes textual detection, errors, warnings and phase availability, supports multiple assigned or unassigned measurements, metadata editing and confirmed removal, and provides responsive measured/electrical overlays. Electrical crossover, EQ and combined-processing curves use a separate relative scale and are not added to measured magnitude or presented as an acoustic prediction. Focused model, storage, client-contract and real-browser REW, no-phase FRD, malformed-file and narrow-layout journeys monitor browser errors.
+Magnitude uses deterministic linear interpolation in log frequency without extrapolation. Exact duplicates use their median. A complementary raised-cosine crossfade in log frequency supplies smooth weights that always sum to one; the result grid is the sorted union of source frequencies over valid coverage. Wrapped phase is never interpolated or averaged. Exact common phase samples receive a shortest-wrapped-difference compatibility summary, while every v1 derived result remains explicitly magnitude-only.
+
+The versioned recipe, source hashes, algorithms, offset, transition, derived points, provenance and derived integrity hash persist together in atomic revisioned `signal-flow.json`. A source rename remains valid; a changed source hash marks the merge stale; source removal is blocked until dependent merges are removed. Backup/restore carries source relationships, recipe and derived result and validates the complete dependency graph.
+
+The responsive keyboard-accessible UI distinguishes source observations, adjusted preview, derived response and electrical overlays. Real-browser journeys cover creation, suggested/manual alignment, preview, save, refresh/restart, edit, source integrity, missing-phase policy, dependent-source removal, invalid transition, large-offset warning and narrow layout with console/page-error monitoring.
 
 ## Remaining risks and limitations
 
-CSV column mapping, impedance, microphone calibration, impulses, display smoothing, gating edits, nearfield/farfield merge, directivity, automatic EQ or optimisation and room correction are absent. Absolute acoustic and electrical reference alignment is undefined, so overlays are visual evidence only.
+V1 does not perform automatic baffle-step correction, port/woofer summation, phase/time or impulse alignment, calibration, diffraction simulation, smoothing, room averaging, directivity processing, automatic EQ, crossover optimisation or FIR generation. A merged response is not automatically anechoic or objectively correct. Sparse, irregular or poorly referenced sources can still produce a technically valid but unreliable result, so warnings and provenance remain essential.
 
-Physical DSP apply remains blocked by fresh hardware identity, GPIO mute confirmation, per-operation physical readback and tolerances, connection-loss invalidation and verified last-known-good rollback. Physical hardware and audible behaviour were not tested.
+Physical DSP apply remains blocked by fresh hardware identity, GPIO mute confirmation, per-operation physical readback and tolerances, connection-loss invalidation and verified last-known-good rollback. Measurement merge data is ignored by DSP compilation.
 
 ## Verification
 
 ```sh
-npm run test:measurement-import
-npm run test:measurement-storage
-npm run test:measurement-ui
-npm run test:measurement-acceptance
+npm run test:measurement-alignment
+npm run test:measurement-merge
+npm run test:measurement-merge-ui
+npm run test:measurement-merge-acceptance
 npm test
 npm run verify
 npm run check:syntax
@@ -35,4 +39,4 @@ git diff --check
 
 ## Next recommended slice
 
-**Measurement Alignment and Nearfield/Farfield Merge Foundation.** Define explicit reference, phase/time alignment and controlled merge rules before any measurement-assisted optimisation.
+**Limiter and Driver Protection Foundation.** Strengthen driver-safety controls before introducing measurement-assisted automatic optimisation.

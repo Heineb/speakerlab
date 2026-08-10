@@ -352,6 +352,8 @@ Each output now supports up to 12 peaking, low-shelf and high-shelf bands inside
 
 Completed foundation: deterministic REW text and generic FRD magnitude/optional-phase import, bounded versioned storage, integrity, output association, portable backup/restore, measured/electrical overlay and accessible real-browser journeys. Automatic correction, alignment, merge and DSP deployment remain separate.
 
+Completed alignment/merge foundation: immutable source relationships, robust visible level suggestion, manual alignment, log-frequency interpolation without extrapolation, smooth raised-cosine transition, magnitude-only derived response, stale/dependency handling, backup/restore and responsive accessible browser journeys. Automatic baffle-step correction, phase/time alignment, EQ and optimisation remain separate.
+
 ### Goals
 
 Allow existing measurement workflows to feed directly into SpeakerLab.

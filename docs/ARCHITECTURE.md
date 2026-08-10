@@ -135,6 +135,8 @@ The endpoints use the existing unauthenticated local-product trust model. They a
 
 Before restore, the settings coordinator synchronously flushes pending saves, cancels the shared timer and rejects ordinary saves until the operation finishes. A second restore is rejected. The service validates and atomically stores the current in-scope configuration as `.speakerlab-last-known-good.json`, stages target/rollback values in memory, then atomically writes and verifies each changed file. On failure it rolls every attempted item back in reverse order and verifies the rollback. Items absent from the backup are left unchanged; no implicit deletion occurs.
 
+Measurement merge sources, derived points, source hashes and versioned recipes are all nested in the one `signal-flow.json` backup item. Export and restore validation traverse that complete dependency graph: a missing source or corrupt derived point hash rejects the item, while an intact but stale source relationship remains readable and visibly requires recomputation. Restore preview reports `settings/signal-flow.json` as changed when a merge recipe/result differs. The existing item-level transaction and rollback therefore restore the prior sources, recipe and derived result together rather than applying a partial merge.
+
 This is a best-effort multi-file transaction, not filesystem-wide atomicity. Process or power loss between replacements, rollback deletion of newly created files and independent cross-process writers remain limitations. Restored files are not applied to extension memory or the DSP; the UI reports that a restart is required.
 
 ## Presets and identities
@@ -237,6 +239,8 @@ Configuration backup/restore intentionally remains split across transports. WebS
 Signal Flow owns the versioned `org.speakerlab.measurements` model inside `signal-flow.json`. Pure parsing and validation live in `measurement-model.js`; the service owns bounded preview tokens, draft operations, assignment and electrical-overlay data. Normalized source points are authoritative. Graph state and derived electrical curves are not persisted, and the DSP compiler ignores measurements.
 
 Keeping bounded measurement data in the complete design reuses optimistic revision checking, atomic write/readback, rollback and portable configuration backup. See ADR 0012 and `docs/MEASUREMENT_IMPORT.md` for formats, normalization and limits.
+
+Derived nearfield/farfield responses use the same measurement collection but carry a versioned merge recipe and source ID/hash dependency edges. `measurement-merge-model.js` owns overlap, alignment suggestion, log-frequency interpolation, phase-compatibility summary and raised-cosine blending. The service regenerates recipe and derived payload together. Missing sources invalidate the dependency graph; changed hashes are exposed as stale until recomputation. DSP compilation has no measurement or merge operation. See ADR 0013 and `docs/MEASUREMENT_MERGE.md`.
 
 ## Hardware- and OS-dependent modules
 

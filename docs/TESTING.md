@@ -454,11 +454,11 @@ Explicit exclusions include network/device identity, authentication-bearing serv
 
 Restore validation covers the 5 MiB input limit, JSON parsing, format and schema versions, required metadata/sections, safe `.json` basenames, duplicate items, per-item/section/overall checksums, unknown required sections and optional-section warnings. Preview classifies created, replaced, unchanged, absent and unsupported content. Absent active items are left unchanged.
 
-The restore tests cover multi-file success, overwrite/create, validation and staging failures, first/later replacement failures, readback failure, reverse rollback, rollback verification/failure reporting, last-known-good verification, pending-save flush/cancellation, ordinary-write locking, concurrent/repeated restore, paths containing spaces and full export/change/restore semantic round trip.
+The restore tests cover multi-file success, overwrite/create, validation and staging failures, first/later replacement failures, readback failure, reverse rollback, rollback verification/failure reporting, last-known-good verification, pending-save flush/cancellation, ordinary-write locking, concurrent/repeated restore, paths containing spaces and full export/change/restore semantic round trip. Measurement-merge coverage additionally proves source/derived/recipe export, source and derived hash preservation, change-plan reporting, missing-source and corrupt-derived rejection, and restoration of the complete dependency graph.
 
 API contract tests exercise capabilities, download, preview, confirmation, invalid/unsupported/oversized input and rollback results. Client-state tests cover selection/validation, summary rendering, explicit confirmation, double-submit prevention, verified success, disconnected state, successful rollback and critical rollback failure.
 
-The UI tests exercise the pure state/rendering seam in `configuration-backup-ui.js`; there is still no full browser automation, DOM layout, keyboard/accessibility or live client/server end-to-end test. The API tests call route handlers directly rather than starting Express. Real signal/restart behavior, HiFiBerryOS filesystem permissions, cross-process writers and physical power-loss recovery remain unverified.
+The UI-state tests exercise the pure state/rendering seam in `configuration-backup-ui.js`, while `test:backup-restore-acceptance` and the merge acceptance journey cover real browser download, preview, confirmation, restart and restored-state inspection. The API tests still call route handlers directly rather than starting Express. HiFiBerryOS filesystem permissions, cross-process writers and physical power-loss recovery remain unverified.
 
 ## Supported server development runtime
 
@@ -606,6 +606,10 @@ Live WebSocket UI interaction, disabled hardware-dependent extensions and Beocre
 `npm run test:measurement-import` covers deterministic REW/FRD detection, parsing, normalization, malformed/binary rejection, path safety and integrity validation. `npm run test:measurement-storage` covers preview confirmation, atomic Signal Flow persistence, reload, assignment, overlay labelling and removal. `npm run test:measurement-ui` protects semantic controls and safety wording.
 
 `npm run test:measurement-acceptance` runs isolated real-browser REW, no-phase FRD, malformed-input and narrow-responsive workflows with the shared console/page-error monitor. Fixtures are small synthetic project-owned text files; oversized inputs are generated in tests rather than committed.
+
+`npm run test:measurement-alignment` covers overlap, log interpolation without extrapolation, robust median alignment, complementary raised-cosine weights, phase wrapping and deterministic magnitude-only output. `npm run test:measurement-merge` covers service/controller preview and save, source immutability, dependencies, edit/regeneration, atomic persistence and backup/restore. `npm run test:measurement-merge-ui` protects workflow semantics and safety wording.
+
+`npm run test:measurement-merge-acceptance` covers a complete nearfield/farfield merge across refresh and restart, exact source immutability, recipe/transition editing, derived electrical overlays, source/hash backup and restore, one-sided missing-phase disclosure, narrow-overlap and large-offset warnings, deliberate warning acceptance, invalid transition/frequency rejection, named stale-source detection and recomputation, dependent-source removal, desktop/tablet/mobile layouts, keyboard-only save/reopen, semantic status/units and the shared browser-error monitor.
 - End-to-end verification of startup mute, audible gain/routing/filter behaviour, EEPROM persistence and restart recovery.
 
 Many of these require the HiFiBerryOS image rather than physical DSP hardware specifically. Tests must distinguish simulated, image integration and hardware-in-the-loop suites.
