@@ -96,6 +96,19 @@ function createController(options) {
 				case 'eligibleAlignments':
 					send('eligibleAlignments', service.eligibleAlignments(content.configuration, content.outputId));
 					break;
+				case 'eligibleCrossoverMeasurements':
+					send('eligibleCrossoverMeasurements', service.eligibleCrossoverMeasurements(content.configuration, content.outputId));
+					break;
+				case 'suggestCrossover':
+					send('crossoverSuggestions', service.suggestCrossover(content.configuration, content.measurementAId, content.measurementBId));
+					break;
+				case 'acceptCrossoverSuggestion':
+					var acceptedCrossover = service.acceptCrossoverSuggestion(content.configuration, content.analysisId, content.suggestionId, content.revision === undefined ? null : content.revision);
+					send('crossoverSuggestionDraft', {configuration: acceptedCrossover.configuration, suggestionId: acceptedCrossover.suggestionId,
+						lowPassOutputId: acceptedCrossover.lowPassOutputId, highPassOutputId: acceptedCrossover.highPassOutputId,
+						changedProcessingOutputIds: acceptedCrossover.changedProcessingOutputIds, validation: acceptedCrossover.validation,
+						revision: content.revision === undefined ? null : content.revision});
+					break;
 				case 'analyseAlignment':
 					send('alignmentAnalysis', service.analyseAlignment(content.configuration, content.measurementAId, content.measurementBId, content.options));
 					break;

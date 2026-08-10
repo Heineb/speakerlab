@@ -29,6 +29,7 @@ function createService(options) {
 	var pendingMeasurements = {};
 	var pendingEQSuggestions = {};
 	var pendingAlignments = {};
+	var pendingCrossoverSuggestions = {};
 	var lastCompilation = null;
 	var lastReadback = null;
 	var lastComparison = null;
@@ -448,6 +449,64 @@ function createService(options) {
 		return {outputId: outputID, pairs: pairs, physicalDeploymentAllowed: false};
 	}
 
+	function eligibleCrossoverMeasurements(configuration, outputID) {
+		var normalized = model.normalize(configuration);
+		if (model.OUTPUT_IDS.indexOf(outputID) === -1) throw routingError('UNKNOWN_CROSSOVER_ASSISTANCE_OUTPUT', 'The selected crossover output is not available.');
+		var primary = normalized.measurements.measurements.filter(function(item) { return item.assignedOutputId === outputID; });
+		var pairs = [];
+		primary.forEach(function(first) {
+			normalized.measurements.measurements.forEach(function(second) {
+				if (second.id === first.id || second.assignedOutputId === outputID) return;
+				var result = model.assistedCrossoverModel.eligibility(normalized, first, second, model.phaseAlignmentModel);
+				var ordered = result.pair;
+				pairs.push({measurementAId: first.id, measurementAName: first.name, measurementBId: second.id, measurementBName: second.name,
+					outputAId: first.assignedOutputId, outputBId: second.assignedOutputId, lowOutputId: ordered ? ordered.low.assignedOutputId : null,
+					highOutputId: ordered ? ordered.high.assignedOutputId : null, eligible: result.eligible, errors: result.errors, warnings: result.warnings,
+					mode: result.timing ? result.timing.mode : null, timingReferenceClassification: result.timing ? result.timing.classification : null,
+					candidateRange: result.candidateRange});
+			});
+		});
+		return {outputId: outputID, pairs: pairs, maximumSuggestions: model.assistedCrossoverModel.MAX_SUGGESTIONS, physicalDeploymentAllowed: false};
+	}
+
+	function suggestCrossover(configuration, measurementAID, measurementBID) {
+		var validation = validateDesign(configuration);
+		if (!validation.valid) throw routingError('VALIDATION_FAILED', 'Crossover assistance requires a valid design draft.', validation);
+		var normalized = model.normalize(configuration);
+		var first = normalized.measurements.measurements.find(function(item) { return item.id === measurementAID; });
+		var second = normalized.measurements.measurements.find(function(item) { return item.id === measurementBID; });
+		var analysis = model.assistedCrossoverModel.analyse({configuration: normalized, measurementA: first, measurementB: second}, {
+			crossover: model.crossoverModel, eq: model.eqModel, processing: model.processingModel, phase: model.phaseAlignmentModel
+		});
+		if (!analysis.valid) throw routingError('CROSSOVER_SUGGESTION_FAILED', 'Crossover suggestions could not be generated.', analysis);
+		var analysisID = 'crossover-analysis-' + crypto.createHash('sha256').update(JSON.stringify({revision: model.revision(normalized), analysis: analysis})).digest('hex').slice(0, 16);
+		analysis.analysisId = analysisID;
+		pendingCrossoverSuggestions[analysisID] = {analysis: model.clone(analysis), sourceRevision: model.revision(normalized)};
+		return analysis;
+	}
+
+	function acceptCrossoverSuggestion(configuration, analysisID, suggestionID, expectedRevision) {
+		var pending = pendingCrossoverSuggestions[analysisID];
+		if (!pending) throw routingError('STALE_CROSSOVER_SUGGESTIONS', 'Generate current crossover suggestions before accepting.');
+		var prior = parseSaved();
+		var currentRevision = prior.configuration ? model.revision(prior.configuration) : null;
+		if (expectedRevision !== currentRevision) throw routingError('REVISION_CONFLICT', 'The saved routing changed while these crossover suggestions were being reviewed.', {currentRevision: currentRevision});
+		var normalized = model.normalize(configuration);
+		if (model.revision(normalized) !== pending.sourceRevision) throw routingError('STALE_CROSSOVER_SUGGESTIONS', 'The design draft changed; generate crossover suggestions again before accepting.');
+		pending.analysis.sources.forEach(function(reference) {
+			var source = normalized.measurements.measurements.find(function(item) { return item.id === reference.id; });
+			if (!source || !source.integrity || source.integrity.hash !== reference.hash) throw routingError('STALE_CROSSOVER_SUGGESTIONS', 'A crossover source changed; generate suggestions again.');
+		});
+		var accepted;
+		try { accepted = model.assistedCrossoverModel.accept(normalized, pending.analysis, suggestionID, model.processingModel); }
+		catch (error) { throw routingError('INVALID_CROSSOVER_SUGGESTION_ACCEPTANCE', error.message); }
+		var resultValidation = validateDesign(accepted.configuration);
+		if (!resultValidation.valid) throw routingError('VALIDATION_FAILED', 'The accepted crossover suggestion does not produce a valid design draft.', resultValidation);
+		delete pendingCrossoverSuggestions[analysisID];
+		return {configuration: accepted.configuration, suggestionId: accepted.suggestionId, lowPassOutputId: accepted.lowPassOutputId,
+			highPassOutputId: accepted.highPassOutputId, changedProcessingOutputIds: accepted.changedProcessingOutputIds, validation: resultValidation};
+	}
+
 	function analyseAlignment(configuration, measurementAID, measurementBID, alignmentOptions) {
 		var validation = validateDesign(configuration);
 		if (!validation.valid) throw routingError('VALIDATION_FAILED', 'Driver alignment requires a valid design draft.', validation);
@@ -662,6 +721,9 @@ function createService(options) {
 		eligibleAlignments: eligibleAlignments,
 		analyseAlignment: analyseAlignment,
 		acceptAlignment: acceptAlignment,
+		eligibleCrossoverMeasurements: eligibleCrossoverMeasurements,
+		suggestCrossover: suggestCrossover,
+		acceptCrossoverSuggestion: acceptCrossoverSuggestion,
 		protectionPreview: protectionPreview,
 		simulateProtection: simulateProtection,
 		measurementPreview: measurementPreview,

@@ -6,6 +6,7 @@ var processingModel = require('./channel-processing-model');
 var eqModel = require('./parametric-eq-model');
 var eqSuggestionModel = require('./eq-suggestion-model');
 var phaseAlignmentModel = require('./phase-alignment-model');
+var assistedCrossoverModel = require('./assisted-crossover-model');
 var protectionModel = require('./driver-protection-model');
 var measurementModel = require('./measurement-model');
 var measurementMergeModel = require('./measurement-merge-model');
@@ -47,6 +48,7 @@ function capabilities(available) {
 		parametricEQ: eqModel.capabilities(),
 		assistedEQ: eqSuggestionModel.capabilities(),
 		phaseAlignment: phaseAlignmentModel.capabilities(processingModel),
+		assistedCrossover: assistedCrossoverModel.capabilities(crossoverModel, processingModel),
 		driverProtection: protectionModel.capabilities(),
 		measurements: measurementModel.capabilities(),
 		measurementMerge: {format: measurementMergeModel.FORMAT, version: measurementMergeModel.VERSION, transitionWidthOctaves: {minimum: measurementMergeModel.MIN_TRANSITION_OCTAVES, maximum: measurementMergeModel.MAX_TRANSITION_OCTAVES}, phaseHandling: ['magnitude-only']}
@@ -294,6 +296,7 @@ module.exports = {
 	eqModel: eqModel,
 	eqSuggestionModel: eqSuggestionModel,
 	phaseAlignmentModel: phaseAlignmentModel,
+	assistedCrossoverModel: assistedCrossoverModel,
 	protectionModel: protectionModel,
 	measurementModel: measurementModel,
 	measurementMergeModel: measurementMergeModel,
