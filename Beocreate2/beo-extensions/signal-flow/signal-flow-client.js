@@ -41,6 +41,7 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 	var eqSuggestionDraftOptions = {};
 	var openAlignmentOutputs = {};
 	var alignmentDraftOptions = {};
+	var openCrossoverAssistanceOutputs = {};
 	var pendingEQResetOutput = null;
 	var pendingDeploymentFocusId = null;
 	var pendingDeploymentFocusSourceId = null;
@@ -93,6 +94,13 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 			requestPreview(data.content.outputId);
 		}
 		if (data.header === 'eligibleAlignments') signalFlowUIState.receiveAlignmentEligibility(state, data.content);
+		if (data.header === 'eligibleCrossoverMeasurements') signalFlowUIState.receiveCrossoverAssistanceEligibility(state, data.content);
+		if (data.header === 'crossoverSuggestions') signalFlowUIState.receiveCrossoverSuggestions(state, data.content);
+		if (data.header === 'crossoverSuggestionDraft') {
+			signalFlowUIState.receiveCrossoverSuggestionDraft(state, data.content);
+			requestPreview(data.content.lowPassOutputId);
+			requestPreview(data.content.highPassOutputId);
+		}
 		if (data.header === 'alignmentAnalysis') signalFlowUIState.receiveAlignmentAnalysis(state, data.content);
 		if (data.header === 'alignmentDraft') {
 			signalFlowUIState.receiveAlignmentDraft(state, data.content);
@@ -201,6 +209,64 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 			marker(response.lowPassCutoffHz, 'LP ' + response.lowPassCutoffHz + ' Hz') + '</svg>' +
 			'<p class="signal-flow-response-summary">' + escapeHTML(response.summary) + '</p>' +
 			'<p class="signal-flow-response-summary">Combined crossover + EQ is solid; EQ contribution is dashed. Does not include driver or enclosure response, room effects or acoustic summation.</p></div>';
+	}
+
+	function crossoverAssistanceGraph(analysis, suggestion) {
+		if (!analysis || !suggestion || !suggestion.prediction || !suggestion.prediction.length) return '';
+		var points = suggestion.prediction, width = 560, height = 190, left = 42, top = 12;
+		var minimum = Math.log(points[0].frequencyHz), range = Math.log(points[points.length - 1].frequencyHz) - minimum || 1;
+		var values = [];
+		points.forEach(function(point) { values.push(point.lowDriverDb, point.highDriverDb, point.currentResultDb, point.sumDb); });
+		var low = Math.min.apply(null, values) - 1, high = Math.max.apply(null, values) + 1, dbRange = high - low || 1;
+		function line(field) { return points.map(function(point) {
+			return (left + (Math.log(point.frequencyHz) - minimum) / range * (width - left - 10)).toFixed(1) + ',' +
+				(top + (high - point[field]) / dbRange * (height - top - 28)).toFixed(1);
+		}).join(' '); }
+		var mode = analysis.mode === 'phase-aware' ? 'Phase-aware predicted complex acoustic sum' : 'Magnitude-only power summation; no complex acoustic sum';
+		var sourceNames = analysis.sources && analysis.sources.length === 2 ? analysis.sources[0].name + ' and ' + analysis.sources[1].name : 'Low driver and high driver';
+		return '<svg class="signal-flow-crossover-assistance-graph" viewBox="0 0 ' + width + ' ' + height + '" role="img" aria-label="' + escapeHTML(mode + '. ' + sourceNames + ', current crossover result and selected suggested result from ' + roundDisplay(analysis.candidateRange.minimumFrequencyHz) + ' to ' + roundDisplay(analysis.candidateRange.maximumFrequencyHz) + ' hertz.') + '">' +
+			'<polyline points="' + line('lowDriverDb') + '" class="low-driver"></polyline><polyline points="' + line('highDriverDb') + '" class="high-driver"></polyline>' +
+			'<polyline points="' + line('currentResultDb') + '" class="current-result"></polyline><polyline points="' + line('sumDb') + '" class="suggested-result"></polyline></svg>' +
+			'<p class="signal-flow-overlay-legend">Low driver · High driver · Current crossover result · Selected suggested result</p>';
+	}
+
+	function crossoverAssistanceControls(output) {
+		var open = !!openCrossoverAssistanceOutputs[output.id];
+		var undo = state.crossoverAssistanceUndo[output.id] ? '<button type="button" class="button pill outline" onclick="signalFlow.undoCrossoverSuggestion(\'' + output.id + '\');">Undo accepted crossover</button>' : '';
+		if (!open) return '<div class="signal-flow-crossover-assistance-entry"><button type="button" class="button pill outline" aria-expanded="false" onclick="signalFlow.openCrossoverAssistance(\'' + output.id + '\');">Suggest setup</button>' + undo + '<p>Compare a few measurement-based crossover alternatives before changing the draft.</p></div>';
+		var eligibility = state.crossoverAssistanceEligibility[output.id], pairs = eligibility ? eligibility.pairs : [];
+		var first = {}, second = {};
+		pairs.filter(function(pair) { return pair.eligible; }).forEach(function(pair) { first[pair.measurementAId] = pair.measurementAName; second[pair.measurementBId] = pair.measurementBName + ' · ' + pair.outputBId; });
+		var sourceA = Object.keys(first).map(function(id) { return option(id, first[id], ''); }).join('');
+		var sourceB = Object.keys(second).map(function(id) { return option(id, second[id], ''); }).join('');
+		var unavailable = pairs.filter(function(pair) { return !pair.eligible; }).map(function(pair) { return '<li>' + escapeHTML(pair.measurementAName + ' + ' + pair.measurementBName + ': ' + pair.errors.map(function(item) { return item.message; }).join(' ')) + '</li>'; }).join('');
+		var analysis = state.crossoverAssistanceAnalyses[output.id], selectedID = state.selectedCrossoverSuggestions[output.id], selected = analysis && analysis.suggestions.find(function(item) { return item.id === selectedID; });
+		var result = '';
+		if (analysis && selected) {
+			var lowOutput = state.draft.outputs.find(function(item) { return item.id === selected.lowPassOutputId; });
+			var highOutput = state.draft.outputs.find(function(item) { return item.id === selected.highPassOutputId; });
+			function orderLabel(order) { return order === 2 ? '2nd order' : order === 3 ? '3rd order' : order + 'th order'; }
+			function outputLabel(outputID) { var found = state.draft.outputs.find(function(item) { return item.id === outputID; }); return found ? found.label : outputID; }
+			var alternatives = analysis.suggestions.map(function(item) {
+				return '<label class="signal-flow-crossover-candidate' + (item.id === selectedID ? ' selected' : '') + '"><input type="radio" name="signal-flow-crossover-candidate-' + output.id + '" value="' + item.id + '" ' + (item.id === selectedID ? 'checked ' : '') + 'onchange="signalFlow.selectCrossoverSuggestion(\'' + output.id + '\', this.value);"><span><strong>' + escapeHTML(item.label) + '</strong> · ' + roundDisplay(item.frequencyHz) + ' Hz · ' + orderLabel(item.order) + ' ' + escapeHTML(item.family === 'linkwitz-riley' ? 'Linkwitz-Riley' : 'Butterworth') + '</span></label>';
+			}).join('');
+			var delay = selected.delaySuggestion ? ' · Delay ' + roundDisplay(selected.delaySuggestion.adjustmentMs) + ' ms on ' + escapeHTML(outputLabel(selected.delaySuggestion.outputId)) : '';
+			var warnings = analysis.warnings.concat(selected.warnings || []).map(function(item) { return '<p class="signal-flow-warning">' + escapeHTML(item.message) + '</p>'; }).join('');
+			var score = selected.scoreComponents;
+			result = '<div class="signal-flow-crossover-assistance-results" role="region" aria-label="Assisted crossover suggestions"><p role="status" aria-live="polite"><strong>' + escapeHTML(analysis.mode === 'phase-aware' ? 'Phase-aware crossover suggestion' : 'Magnitude-based crossover suggestion') + '</strong> · ' + analysis.suggestions.length + ' alternative' + (analysis.suggestions.length === 1 ? '' : 's') + '</p>' +
+				'<div class="signal-flow-crossover-candidates" role="radiogroup" aria-label="Crossover alternatives">' + alternatives + '</div>' +
+				'<div class="signal-flow-crossover-recommendation"><p><strong>' + roundDisplay(selected.frequencyHz) + ' Hz · ' + orderLabel(selected.order) + ' · ' + (selected.polarityRecommendation === 'unavailable' ? 'polarity unchanged' : escapeHTML(selected.polarityRecommendation) + ' polarity') + '</strong>' + delay + '</p><p>' + escapeHTML(selected.reason) + ' Confidence ' + escapeHTML(selected.confidence) + '.</p></div>' +
+				warnings + crossoverAssistanceGraph(analysis, selected) + '<p><strong>' + escapeHTML(analysis.summary) + '</strong></p>' +
+				(analysis.currentBaseline.crossoverFrequencyHz ? '<p>Current crossover baseline: ' + roundDisplay(analysis.currentBaseline.crossoverFrequencyHz) + ' Hz.</p>' : '') +
+				'<p>' + escapeHTML(analysis.timingReference.statement) + '</p>' +
+				'<button type="button" class="button pill black" ' + (state.connected ? '' : 'disabled ') + 'onclick="signalFlow.acceptCrossoverSuggestion(\'' + output.id + '\');">Apply suggestion to ' + escapeHTML(lowOutput ? lowOutput.label : selected.lowPassOutputId) + ' and ' + escapeHTML(highOutput ? highOutput.label : selected.highPassOutputId) + '</button> <button type="button" class="button pill outline" onclick="signalFlow.rejectCrossoverSuggestions(\'' + output.id + '\');">Close suggestions</button>' +
+				'<details class="signal-flow-crossover-assistance-advanced" ontoggle="this.querySelector(\'summary\').setAttribute(\'aria-expanded\', this.open ? \'true\' : \'false\');"><summary aria-expanded="false">Advanced analysis</summary><dl><dt>Analysis range</dt><dd>' + roundDisplay(analysis.candidateRange.minimumFrequencyHz) + '–' + roundDisplay(analysis.candidateRange.maximumFrequencyHz) + ' Hz</dd><dt>Timing reference</dt><dd>' + escapeHTML(analysis.timingReference.classification) + '</dd><dt>Objective score</dt><dd>' + selected.score + '</dd><dt>Smoothness</dt><dd>' + score.smoothness + '</dd><dt>Cancellation</dt><dd>' + score.cancellation + '</dd><dt>Gap / overlap</dt><dd>' + score.gap + ' / ' + score.overlap + '</dd><dt>Phase / complexity</dt><dd>' + score.phase + ' / ' + score.complexity + '</dd><dt>Delay samples</dt><dd>' + (selected.delaySuggestion ? selected.delaySuggestion.samplesAt48kHz : 'Not suggested') + '</dd><dt>Included processing</dt><dd>' + escapeHTML(analysis.currentBaseline.processingIncluded.join(', ')) + '</dd></dl></details></div>';
+		}
+		var context = pairs.find(function(pair) { return pair.eligible; });
+		return '<section class="signal-flow-crossover-assistance" aria-label="Assisted crossover design for ' + escapeHTML(output.label) + '"><div class="signal-flow-crossover-assistance-heading"><h4>Suggest setup</h4><button type="button" class="button pill outline" aria-expanded="true" onclick="signalFlow.openCrossoverAssistance(\'' + output.id + '\');">Close</button></div>' +
+			'<div class="signal-flow-crossover-assistance-primary"><label for="signal-flow-crossover-source-a-' + output.id + '">First driver measurement</label><select id="signal-flow-crossover-source-a-' + output.id + '">' + sourceA + '</select><label for="signal-flow-crossover-source-b-' + output.id + '">Second driver measurement</label><select id="signal-flow-crossover-source-b-' + output.id + '">' + sourceB + '</select><button type="button" class="button pill black" ' + (pairs.some(function(pair) { return pair.eligible; }) && state.connected ? '' : 'disabled ') + 'onclick="signalFlow.suggestCrossover(\'' + output.id + '\');">Generate suggestions</button></div>' +
+			'<p class="signal-flow-crossover-assistance-range" role="status">' + (analysis ? 'Candidate region ' + roundDisplay(analysis.candidateRange.minimumFrequencyHz) + '–' + roundDisplay(analysis.candidateRange.maximumFrequencyHz) + ' Hz.' : context ? 'Candidate region ' + roundDisplay(context.candidateRange.minimumFrequencyHz) + '–' + roundDisplay(context.candidateRange.maximumFrequencyHz) + ' Hz · ' + escapeHTML(context.mode === 'phase-aware' ? 'phase-aware available' : 'magnitude-only') + '.' : 'Choose two suitable measurements for different driver ways.') + '</p>' +
+			(!pairs.length ? '<p class="signal-flow-warning">No second driver measurement is available for this output.</p>' : '') + (unavailable ? '<ul class="signal-flow-crossover-assistance-issues">' + unavailable + '</ul>' : '') + result + '</section>';
 	}
 
 	function eqSuggestionGraph(analysis) {
@@ -662,7 +728,7 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 				'<label for="signal-flow-copy-' + output.id + '">Copy to</label><select id="signal-flow-copy-' + output.id + '">' +
 				option('', 'Choose output', '') + copyOptions + '</select><button type="button" class="button pill outline" ' +
 				"onclick=\"signalFlow.copyCrossover('" + output.id + "', document.getElementById('signal-flow-copy-" + output.id + "').value);\">Copy</button></div>" +
-				'</section>' + alignmentControls(output) + parametricEQControls(output) + processingControls(output) + protectionControls(output) + '</article>';
+				crossoverAssistanceControls(output) + '</section>' + alignmentControls(output) + parametricEQControls(output) + processingControls(output) + protectionControls(output) + '</article>';
 		}).join(''));
 
 		var issues = state.validation.errors.concat(state.validation.warnings);
@@ -960,6 +1026,42 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 		render();
 	}
 
+	function openCrossoverAssistance(outputID) {
+		openCrossoverAssistanceOutputs[outputID] = !openCrossoverAssistanceOutputs[outputID];
+		if (openCrossoverAssistanceOutputs[outputID]) beo.send({target: 'signal-flow', header: 'eligibleCrossoverMeasurements', content: {configuration: state.draft, outputId: outputID}});
+		render();
+	}
+
+	function suggestCrossover(outputID) {
+		var sourceA = document.getElementById('signal-flow-crossover-source-a-' + outputID);
+		var sourceB = document.getElementById('signal-flow-crossover-source-b-' + outputID);
+		if (!sourceA || !sourceB || !sourceA.value || !sourceB.value) return;
+		beo.send({target: 'signal-flow', header: 'suggestCrossover', content: {configuration: state.draft, measurementAId: sourceA.value, measurementBId: sourceB.value}});
+	}
+
+	function selectCrossoverSuggestion(outputID, suggestionID) {
+		signalFlowUIState.selectCrossoverSuggestion(state, outputID, suggestionID);
+		render();
+	}
+
+	function acceptCrossoverSuggestion(outputID) {
+		var analysis = state.crossoverAssistanceAnalyses[outputID], suggestionID = state.selectedCrossoverSuggestions[outputID];
+		if (!analysis || !suggestionID || !state.connected) return;
+		beo.send({target: 'signal-flow', header: 'acceptCrossoverSuggestion', content: {configuration: state.draft, analysisId: analysis.analysisId, suggestionId: suggestionID, revision: state.revision}});
+	}
+
+	function rejectCrossoverSuggestions(outputID) {
+		signalFlowUIState.rejectCrossoverSuggestions(state, outputID);
+		render();
+	}
+
+	function undoCrossoverSuggestion(outputID) {
+		signalFlowUIState.undoCrossoverSuggestion(state, outputID);
+		validateDraft();
+		state.draft.outputs.forEach(function(item) { requestPreview(item.id); });
+		render();
+	}
+
 	function openAlignment(outputID) {
 		openAlignmentOutputs[outputID] = !openAlignmentOutputs[outputID];
 		if (openAlignmentOutputs[outputID]) beo.send({target: 'signal-flow', header: 'eligibleAlignments', content: {configuration: state.draft, outputId: outputID}});
@@ -1122,6 +1224,12 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 		acceptEQSuggestions: acceptEQSuggestions,
 		rejectEQSuggestions: rejectEQSuggestions,
 		undoEQSuggestions: undoEQSuggestions,
+		openCrossoverAssistance: openCrossoverAssistance,
+		suggestCrossover: suggestCrossover,
+		selectCrossoverSuggestion: selectCrossoverSuggestion,
+		acceptCrossoverSuggestion: acceptCrossoverSuggestion,
+		rejectCrossoverSuggestions: rejectCrossoverSuggestions,
+		undoCrossoverSuggestion: undoCrossoverSuggestion,
 		openAlignment: openAlignment,
 		analyseAlignment: analyseAlignment,
 		acceptAlignment: acceptAlignment,

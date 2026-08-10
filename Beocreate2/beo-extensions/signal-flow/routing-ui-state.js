@@ -32,10 +32,19 @@
 			alignmentEligibility: {},
 			alignmentAnalyses: {},
 			alignmentUndo: {},
+			crossoverAssistanceEligibility: {},
+			crossoverAssistanceAnalyses: {},
+			selectedCrossoverSuggestions: {},
+			crossoverAssistanceUndo: {},
 			selectedEQBands: {},
 			deployment: null,
 			runtime: {deploymentStatus: 'not-deployed', statusLabel: 'Saved design · Not deployed to DSP'}
 		};
+	}
+
+	function invalidateCrossoverAssistance(state) {
+		state.crossoverAssistanceAnalyses = {};
+		state.selectedCrossoverSuggestions = {};
 	}
 
 	function receiveState(state, payload) {
@@ -66,6 +75,7 @@
 		if (output) output[field] = value;
 		state.dirty = true;
 		state.message = null;
+		invalidateCrossoverAssistance(state);
 		if (state.deployment && state.deployment.compilation) state.deployment.stale = true;
 		return state;
 	}
@@ -78,6 +88,7 @@
 		if (source) state.draft.connections.push({source: source, destination: outputID, enabled: true});
 		state.dirty = true;
 		state.message = null;
+		invalidateCrossoverAssistance(state);
 		if (state.deployment && state.deployment.compilation) state.deployment.stale = true;
 		return state;
 	}
@@ -89,6 +100,7 @@
 		state.dirty = true;
 		state.message = null;
 		delete state.crossoverResponses[outputID];
+		invalidateCrossoverAssistance(state);
 		if (state.deployment && state.deployment.compilation) state.deployment.stale = true;
 		return state;
 	}
@@ -99,6 +111,7 @@
 		state.dirty = true;
 		state.message = payload.action === 'copy' ? 'Crossover copied to the selected output. Save the design to keep it.' : 'Crossover reset in this draft. Save the design to keep it.';
 		state.crossoverResponses = {};
+		invalidateCrossoverAssistance(state);
 		return state;
 	}
 
@@ -108,6 +121,7 @@
 		if (output && output[section]) output[section][field] = value;
 		state.dirty = true;
 		state.message = null;
+		invalidateCrossoverAssistance(state);
 		if (state.deployment && state.deployment.compilation) state.deployment.stale = true;
 		return state;
 	}
@@ -117,6 +131,7 @@
 		state.validation = clone(payload.validation);
 		state.dirty = true;
 		state.message = payload.action === 'copy' ? 'Channel processing copied. Save the design to keep it.' : 'Channel processing reset in this draft. Save the design to keep it.';
+		invalidateCrossoverAssistance(state);
 		return state;
 	}
 
@@ -128,6 +143,7 @@
 		state.dirty = true;
 		state.message = null;
 		delete state.eqResponses[outputID];
+		invalidateCrossoverAssistance(state);
 		if (state.deployment && state.deployment.compilation) state.deployment.stale = true;
 		return state;
 	}
@@ -168,6 +184,7 @@
 			copy: 'Parametric EQ copied with distinct destination identifiers.'
 		}[payload.action] || 'Parametric EQ draft updated.';
 		state.eqResponses = {};
+		invalidateCrossoverAssistance(state);
 		return state;
 	}
 
@@ -199,6 +216,7 @@
 		delete state.eqSuggestions[payload.outputId];
 		state.selectedEQSuggestions[payload.outputId] = [];
 		state.eqResponses = {};
+		invalidateCrossoverAssistance(state);
 		state.message = payload.acceptedSuggestionIds.length + ' suggestion' + (payload.acceptedSuggestionIds.length === 1 ? '' : 's') + ' added as ordinary EQ bands. Save is still required.';
 		if (state.deployment && state.deployment.compilation) state.deployment.stale = true;
 		return state;
@@ -226,6 +244,67 @@
 		return state;
 	}
 
+	function receiveCrossoverAssistanceEligibility(state, payload) {
+		state.crossoverAssistanceEligibility[payload.outputId] = clone(payload);
+		return state;
+	}
+
+	function receiveCrossoverSuggestions(state, payload) {
+		payload.sources.forEach(function(source) {
+			state.crossoverAssistanceAnalyses[source.outputId] = clone(payload);
+			state.selectedCrossoverSuggestions[source.outputId] = payload.suggestions[0] ? payload.suggestions[0].id : null;
+		});
+		state.message = 'Crossover suggestions are ready for review. No design setting has changed.';
+		return state;
+	}
+
+	function selectCrossoverSuggestion(state, outputID, suggestionID) {
+		var analysis = state.crossoverAssistanceAnalyses[outputID];
+		if (analysis && analysis.suggestions.some(function(item) { return item.id === suggestionID; })) {
+			analysis.sources.forEach(function(source) { state.selectedCrossoverSuggestions[source.outputId] = suggestionID; });
+		}
+		return state;
+	}
+
+	function receiveCrossoverSuggestionDraft(state, payload) {
+		var previous = clone(state.draft);
+		state.draft = clone(payload.configuration);
+		state.validation = clone(payload.validation);
+		state.dirty = true;
+		state.crossoverAssistanceUndo[payload.lowPassOutputId] = previous;
+		state.crossoverAssistanceUndo[payload.highPassOutputId] = previous;
+		invalidateCrossoverAssistance(state);
+		state.alignmentAnalyses = {};
+		state.eqSuggestions = {};
+		state.selectedEQSuggestions = {};
+		state.crossoverResponses = {};
+		state.eqResponses = {};
+		state.message = 'Crossover suggestion applied as ordinary crossover' + (payload.changedProcessingOutputIds.length ? ' and included channel-processing' : '') + ' values. Save is still required; recalculate temporary alignment and EQ suggestions.';
+		if (state.deployment && state.deployment.compilation) state.deployment.stale = true;
+		return state;
+	}
+
+	function rejectCrossoverSuggestions(state, outputID) {
+		var analysis = state.crossoverAssistanceAnalyses[outputID];
+		if (analysis) analysis.sources.forEach(function(source) {
+			delete state.crossoverAssistanceAnalyses[source.outputId];
+			delete state.selectedCrossoverSuggestions[source.outputId];
+		});
+		state.message = 'Crossover suggestions closed. Crossover, processing and measurements are unchanged.';
+		return state;
+	}
+
+	function undoCrossoverSuggestion(state, outputID) {
+		if (!state.crossoverAssistanceUndo[outputID]) return state;
+		state.draft = clone(state.crossoverAssistanceUndo[outputID]);
+		state.crossoverAssistanceUndo = {};
+		state.dirty = JSON.stringify(state.draft) !== JSON.stringify(state.saved);
+		state.crossoverResponses = {};
+		state.eqResponses = {};
+		state.message = 'Accepted crossover suggestion undone in this draft.';
+		return state;
+	}
+
 	function receiveAlignmentAnalysis(state, payload) {
 		var outputID = payload.sources[0].outputId;
 		state.alignmentAnalyses[outputID] = clone(payload);
@@ -242,6 +321,7 @@
 		state.eqSuggestions = {};
 		state.selectedEQSuggestions = {};
 		state.eqResponses = {};
+		invalidateCrossoverAssistance(state);
 		state.message = 'Alignment applied as ordinary delay and polarity on ' + payload.outputId + '. Save is still required; recalculate any open EQ suggestion preview.';
 		if (state.deployment && state.deployment.compilation) state.deployment.stale = true;
 		return state;
@@ -268,6 +348,7 @@
 		state.validation = clone(payload.validation);
 		state.dirty = true;
 		state.message = 'Measurement ' + (payload.action === 'import' ? 'imported' : payload.action === 'remove' ? 'removed' : 'updated') + ' in this draft. Save the design to keep it.';
+		invalidateCrossoverAssistance(state);
 		return state;
 	}
 
@@ -284,6 +365,7 @@
 		state.message = null;
 		delete state.protectionPreviews[outputID];
 		delete state.protectionSimulations[outputID];
+		invalidateCrossoverAssistance(state);
 		if (state.deployment && state.deployment.compilation) state.deployment.stale = true;
 		return state;
 	}
@@ -347,6 +429,7 @@
 		state.dirty = false;
 		state.conflict = false;
 		state.message = 'Routing design saved and verified. It has not been deployed to the DSP.';
+		invalidateCrossoverAssistance(state);
 		return state;
 	}
 
@@ -377,6 +460,10 @@
 		state.alignmentEligibility = {};
 		state.alignmentAnalyses = {};
 		state.alignmentUndo = {};
+		state.crossoverAssistanceEligibility = {};
+		state.crossoverAssistanceAnalyses = {};
+		state.selectedCrossoverSuggestions = {};
+		state.crossoverAssistanceUndo = {};
 		return state;
 	}
 
@@ -423,6 +510,12 @@
 		rejectEQSuggestions: rejectEQSuggestions,
 		undoEQSuggestionAcceptance: undoEQSuggestionAcceptance,
 		receiveAlignmentEligibility: receiveAlignmentEligibility,
+		receiveCrossoverAssistanceEligibility: receiveCrossoverAssistanceEligibility,
+		receiveCrossoverSuggestions: receiveCrossoverSuggestions,
+		selectCrossoverSuggestion: selectCrossoverSuggestion,
+		receiveCrossoverSuggestionDraft: receiveCrossoverSuggestionDraft,
+		rejectCrossoverSuggestions: rejectCrossoverSuggestions,
+		undoCrossoverSuggestion: undoCrossoverSuggestion,
 		receiveAlignmentAnalysis: receiveAlignmentAnalysis,
 		receiveAlignmentDraft: receiveAlignmentDraft,
 		rejectAlignment: rejectAlignment,

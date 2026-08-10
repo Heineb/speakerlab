@@ -85,6 +85,12 @@ jobs:
           npm run test:phase-alignment-ui
           npm run test:phase-alignment-acceptance
 
+      - name: Test assisted crossover design foundation
+        run: |
+          npm run test:assisted-crossover
+          npm run test:assisted-crossover-ui
+          npm run test:assisted-crossover-acceptance
+
       - name: Test DSP compilation and simulated readback
         run: |
           npm run test:sigmatcp-framing

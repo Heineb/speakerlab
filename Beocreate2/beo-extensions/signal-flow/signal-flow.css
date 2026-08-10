@@ -132,6 +132,45 @@
 	gap: 8px;
 	margin-top: 10px;
 }
+.signal-flow-crossover-assistance-entry,
+.signal-flow-crossover-assistance {
+	border-top: 1px solid rgba(0, 0, 0, 0.1);
+	margin-top: 14px;
+	padding-top: 12px;
+}
+.signal-flow-crossover-assistance-heading,
+.signal-flow-crossover-assistance-primary {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 8px;
+}
+.signal-flow-crossover-assistance-heading { justify-content: space-between; }
+.signal-flow-crossover-assistance-heading h4 { margin: 0; }
+.signal-flow-crossover-assistance-primary select { min-width: 170px; }
+.signal-flow-crossover-candidates { margin: 10px 0; }
+.signal-flow-crossover-candidate {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	border: 1px solid rgba(0, 0, 0, 0.12);
+	border-radius: 8px;
+	margin: 7px 0;
+	padding: 9px;
+}
+.signal-flow-crossover-candidate.selected { border-color: #2470a0; box-shadow: inset 3px 0 #2470a0; }
+.signal-flow-crossover-recommendation { background: rgba(0, 0, 0, 0.04); border-radius: 8px; padding: 9px; }
+.signal-flow-crossover-recommendation p { margin: 5px 0; }
+.signal-flow-crossover-assistance-graph { width: 100%; max-height: 260px; border: 1px solid rgba(0,0,0,.15); }
+.signal-flow-crossover-assistance-graph polyline { fill: none; stroke-width: 1.5; }
+.signal-flow-crossover-assistance-graph .low-driver { stroke: #777; }
+.signal-flow-crossover-assistance-graph .high-driver { stroke: #777; stroke-dasharray: 6 3; }
+.signal-flow-crossover-assistance-graph .current-result { stroke: #2470a0; stroke-dasharray: 2 3; }
+.signal-flow-crossover-assistance-graph .suggested-result { stroke: #2b7a46; stroke-width: 2.5; }
+.signal-flow-crossover-assistance-advanced { margin-top: 12px; }
+.signal-flow-crossover-assistance-advanced dl { display: grid; grid-template-columns: minmax(9rem, .5fr) 1fr; gap: 5px 10px; }
+.signal-flow-crossover-assistance-advanced dt,
+.signal-flow-crossover-assistance-advanced dd { margin: 0; }
 .signal-flow-processing {
 	border-top: 1px solid rgba(0, 0, 0, 0.12);
 	margin-top: 14px;
@@ -438,6 +477,10 @@
 	.signal-flow-alignment-primary { align-items: stretch; flex-direction: column; }
 	.signal-flow-alignment-primary select,
 	.signal-flow-alignment-primary .button { width: 100%; box-sizing: border-box; }
+	.signal-flow-crossover-assistance-primary { align-items: stretch; flex-direction: column; }
+	.signal-flow-crossover-assistance-primary select,
+	.signal-flow-crossover-assistance-primary .button { width: 100%; box-sizing: border-box; }
+	.signal-flow-crossover-assistance-advanced dl { grid-template-columns: 1fr; }
 	.signal-flow-alignment-options > div,
 	.signal-flow-alignment-results dl { grid-template-columns: 1fr; }
 	.signal-flow-protection-grid,
