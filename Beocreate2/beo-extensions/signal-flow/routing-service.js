@@ -2,6 +2,7 @@
 
 var fs = require('fs');
 var path = require('path');
+var crypto = require('crypto');
 var atomicJSON = require('../../beo-system/atomic-json-file');
 var routingModel = require('./routing-model');
 var targetModel = require('./dsp-target-capability');
@@ -26,6 +27,7 @@ function createService(options) {
 	var compiler = options.compiler || designCompiler;
 	var clock = options.clock || function() { return new Date(); };
 	var pendingMeasurements = {};
+	var pendingEQSuggestions = {};
 	var lastCompilation = null;
 	var lastReadback = null;
 	var lastComparison = null;
@@ -373,6 +375,61 @@ function createService(options) {
 		};
 	}
 
+	function eligibleEQMeasurements(configuration, outputID) {
+		var normalized = model.normalize(configuration);
+		if (model.OUTPUT_IDS.indexOf(outputID) === -1) throw routingError('UNKNOWN_EQ_OUTPUT', 'The selected EQ output is not available.');
+		return {
+			outputId: outputID,
+			measurements: normalized.measurements.measurements.map(function(measurement) {
+				var result = model.eqSuggestionModel.eligibility(measurement, normalized.measurements.measurements, outputID);
+				return {id: measurement.id, name: measurement.name, type: measurement.type, sourceFormat: measurement.sourceFormat,
+					minimumFrequencyHz: measurement.points[0].frequencyHz, maximumFrequencyHz: measurement.points[measurement.points.length - 1].frequencyHz,
+					eligible: result.eligible, errors: result.errors, warnings: result.warnings};
+			}),
+			physicalDeploymentAllowed: false
+		};
+	}
+
+	function suggestEQ(configuration, outputID, measurementID, suggestionOptions) {
+		var validation = validateDesign(configuration);
+		if (!validation.valid) throw routingError('VALIDATION_FAILED', 'EQ suggestions require a valid design draft.', validation);
+		var normalized = model.normalize(configuration);
+		var output = normalized.outputs.find(function(item) { return item.id === outputID; });
+		var measurement = normalized.measurements.measurements.find(function(item) { return item.id === measurementID; });
+		var eqOutput = normalized.parametricEQ.outputs.find(function(item) { return item.outputId === outputID; });
+		var crossoverOutput = normalized.crossover.outputs.find(function(item) { return item.outputId === outputID; });
+		var protection = normalized.driverProtection.outputs.find(function(item) { return item.outputId === outputID; });
+		if (!output || !eqOutput || !crossoverOutput || !protection) throw routingError('UNKNOWN_EQ_OUTPUT', 'The selected EQ output is not available.');
+		var analysis = model.eqSuggestionModel.analyse({measurement: measurement, measurements: normalized.measurements.measurements,
+			output: output, crossoverOutput: crossoverOutput, eqOutput: eqOutput, protection: protection, options: suggestionOptions}, model.eqModel);
+		if (!analysis.valid) throw routingError('EQ_SUGGESTION_FAILED', 'EQ suggestions could not be generated.', analysis);
+		var analysisId = 'eq-analysis-' + crypto.createHash('sha256').update(JSON.stringify({outputID: outputID, revision: model.revision(normalized), analysis: analysis})).digest('hex').slice(0, 16);
+		analysis.analysisId = analysisId;
+		analysis.outputId = outputID;
+		pendingEQSuggestions[analysisId] = {analysis: model.clone(analysis), outputId: outputID, sourceRevision: model.revision(normalized)};
+		return analysis;
+	}
+
+	function acceptEQSuggestions(configuration, outputID, analysisID, selectedIDs, expectedRevision) {
+		var pending = pendingEQSuggestions[analysisID];
+		if (!pending || pending.outputId !== outputID) throw routingError('STALE_EQ_SUGGESTIONS', 'Generate current EQ suggestions before accepting.');
+		var prior = parseSaved();
+		var currentRevision = prior.configuration ? model.revision(prior.configuration) : null;
+		if (expectedRevision !== currentRevision) throw routingError('REVISION_CONFLICT', 'The saved routing changed while these suggestions were being reviewed.', {currentRevision: currentRevision});
+		var normalized = model.normalize(configuration);
+		if (model.revision(normalized) !== pending.sourceRevision) throw routingError('STALE_EQ_SUGGESTIONS', 'The design draft changed; generate suggestions again before accepting.');
+		var source = normalized.measurements.measurements.find(function(item) { return item.id === pending.analysis.measurement.id; });
+		if (!source || source.integrity.hash !== pending.analysis.measurement.hash) throw routingError('STALE_EQ_SUGGESTIONS', 'The source measurement changed; generate suggestions again.');
+		var accepted;
+		try { accepted = model.eqSuggestionModel.accept(normalized.parametricEQ, outputID, pending.analysis, selectedIDs || [], model.eqModel); }
+		catch (error) { throw routingError('INVALID_EQ_SUGGESTION_ACCEPTANCE', error.message); }
+		normalized.parametricEQ = accepted.configuration;
+		var validation = validateDesign(normalized);
+		if (!validation.valid) throw routingError('VALIDATION_FAILED', 'Accepted suggestions do not produce a valid EQ draft.', validation);
+		delete pendingEQSuggestions[analysisID];
+		return {configuration: normalized, outputId: outputID, acceptedSuggestionIds: accepted.acceptedSuggestionIds, validation: validation};
+	}
+
 	function measurementPreview(text, filename) {
 		var preview = model.measurementModel.parseText(text);
 		var token = model.measurementModel.hash(preview.points).slice(0, 24);
@@ -537,6 +594,9 @@ function createService(options) {
 		resetProcessing: resetProcessing,
 		eqPreview: eqPreview,
 		eqDraft: eqDraft,
+		eligibleEQMeasurements: eligibleEQMeasurements,
+		suggestEQ: suggestEQ,
+		acceptEQSuggestions: acceptEQSuggestions,
 		protectionPreview: protectionPreview,
 		simulateProtection: simulateProtection,
 		measurementPreview: measurementPreview,

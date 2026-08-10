@@ -76,6 +76,23 @@ function createController(options) {
 						revision: content.revision === undefined ? null : content.revision
 					});
 					break;
+				case 'eligibleEQMeasurements':
+					send('eligibleEQMeasurements', service.eligibleEQMeasurements(content.configuration, content.outputId));
+					break;
+				case 'suggestEQ':
+					send('eqSuggestions', service.suggestEQ(content.configuration, content.outputId, content.measurementId, content.options));
+					break;
+				case 'acceptEQSuggestions':
+					var acceptedSuggestions = service.acceptEQSuggestions(content.configuration, content.outputId, content.analysisId,
+						content.selectedSuggestionIds, content.revision === undefined ? null : content.revision);
+					send('eqSuggestionDraft', {
+						configuration: acceptedSuggestions.configuration,
+						outputId: acceptedSuggestions.outputId,
+						acceptedSuggestionIds: acceptedSuggestions.acceptedSuggestionIds,
+						validation: acceptedSuggestions.validation,
+						revision: content.revision === undefined ? null : content.revision
+					});
+					break;
 				case 'calculateProtection':
 					send('protectionPreview', service.protectionPreview(content.configuration, content.outputId));
 					break;
