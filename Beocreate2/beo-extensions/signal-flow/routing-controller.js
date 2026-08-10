@@ -86,6 +86,13 @@ function createController(options) {
 				case 'measurementOverlay':
 					send('measurementOverlay', service.measurementOverlay(content.configuration, content.measurementId));
 					break;
+				case 'previewMeasurementMerge':
+					send('measurementMergePreview', service.measurementMergePreview(content.configuration, content));
+					break;
+				case 'saveMeasurementMerge':
+					var mergeDraft = service.saveMeasurementMerge(content.configuration, content);
+					send('measurementDraft', {action: 'merge', configuration: mergeDraft.configuration, measurementId: mergeDraft.measurementId, recipe: mergeDraft.recipe, validation: mergeDraft.validation, revision: content.revision === undefined ? null : content.revision});
+					break;
 				case 'prepareForDSP':
 					send('deploymentResult', {action: 'compile', deployment: service.prepareForDSP(content.revision, runtime())});
 					break;

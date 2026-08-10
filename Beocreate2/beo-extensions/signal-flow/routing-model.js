@@ -5,6 +5,7 @@ var crossoverModel = require('./crossover-model');
 var processingModel = require('./channel-processing-model');
 var eqModel = require('./parametric-eq-model');
 var measurementModel = require('./measurement-model');
+var measurementMergeModel = require('./measurement-merge-model');
 
 var FORMAT = 'org.speakerlab.signal-flow';
 var VERSION = 1;
@@ -41,7 +42,8 @@ function capabilities(available) {
 		crossover: crossoverModel.capabilities(crossoverModel.DEFAULT_SAMPLE_RATE_HZ),
 		channelProcessing: processingModel.capabilities(),
 		parametricEQ: eqModel.capabilities(),
-		measurements: measurementModel.capabilities()
+		measurements: measurementModel.capabilities(),
+		measurementMerge: {format: measurementMergeModel.FORMAT, version: measurementMergeModel.VERSION, transitionWidthOctaves: {minimum: measurementMergeModel.MIN_TRANSITION_OCTAVES, maximum: measurementMergeModel.MAX_TRANSITION_OCTAVES}, phaseHandling: ['magnitude-only']}
 	};
 }
 
@@ -260,6 +262,7 @@ module.exports = {
 	processingModel: processingModel,
 	eqModel: eqModel,
 	measurementModel: measurementModel,
+	measurementMergeModel: measurementMergeModel,
 	capabilities: capabilities,
 	defaultConfiguration: defaultConfiguration,
 	normalize: normalize,

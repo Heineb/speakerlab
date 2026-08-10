@@ -368,11 +368,54 @@ function createService(options) {
 				var output = normalized.outputs.find(function(item) { return item.id === measurement.assignedOutputId; });
 				measurement.driverRole = output ? output.role : null;
 			}
-			if (action === 'remove') list.splice(list.indexOf(measurement), 1);
+			if (action === 'remove') {
+				var dependent = list.find(function(item) { return item.mergeRecipe && (item.mergeRecipe.lowSourceId === measurement.id || item.mergeRecipe.highSourceId === measurement.id); });
+				if (dependent) throw routingError('MEASUREMENT_HAS_DEPENDENT_MERGE', 'Remove the dependent merged response before removing this source.', {dependentMeasurementId: dependent.id, dependentName: dependent.name});
+				list.splice(list.indexOf(measurement), 1);
+			}
 		}
 		var validation = validateDesign(normalized);
 		if (!validation.valid) throw routingError('VALIDATION_FAILED', 'Measurement change is not valid.', validation);
 		return {action: action, configuration: normalized, measurementId: measurement ? measurement.id : null, validation: validation};
+	}
+
+	function measurementMergePreview(configuration, content) {
+		var normalized = model.normalize(configuration);
+		var measurements = normalized.measurements.measurements;
+		var low = measurements.find(function(item) { return item.id === content.lowSourceId; });
+		var high = measurements.find(function(item) { return item.id === content.highSourceId; });
+		if (!low || !high) throw routingError('MISSING_MERGE_SOURCE', 'Choose two available source measurements.');
+		var alignment = model.measurementMergeModel.alignment(low, high);
+		var mergeFrequency = content.mergeFrequencyHz;
+		if (mergeFrequency === undefined || mergeFrequency === null || mergeFrequency === '') mergeFrequency = alignment.overlap.available ? Math.sqrt(alignment.overlap.startHz * alignment.overlap.endHz) : 0;
+		var recipeID = content.recipeId || content.id, resultMeasurementID = content.resultMeasurementId;
+		if (!recipeID && !resultMeasurementID) {
+			var baseRecipe = model.measurementMergeModel.recipe({low: low, high: high, mergeFrequencyHz: mergeFrequency, transitionWidthOctaves: content.transitionWidthOctaves === undefined ? 0.5 : content.transitionWidthOctaves, magnitudeOffsetDb: content.magnitudeOffsetDb === undefined ? 0 : content.magnitudeOffsetDb});
+			recipeID = baseRecipe.id; resultMeasurementID = baseRecipe.resultMeasurementId;
+			var suffix = 2;
+			while (measurements.some(function(item) { return item.id === resultMeasurementID; })) { recipeID = baseRecipe.id + '-' + suffix++; resultMeasurementID = recipeID + '-result'; }
+		}
+		var recipe = model.measurementMergeModel.recipe({id: recipeID, low: low, high: high, resultMeasurementId: resultMeasurementID, mergeFrequencyHz: mergeFrequency, transitionWidthOctaves: content.transitionWidthOctaves === undefined ? 0.5 : content.transitionWidthOctaves, magnitudeOffsetDb: content.magnitudeOffsetDb === undefined ? 0 : content.magnitudeOffsetDb, name: content.name || 'Merged ' + low.name + ' + ' + high.name, notes: content.notes || ''});
+		var validation = model.measurementMergeModel.validate(recipe, measurements, content.resultMeasurementId || null);
+		var result = null;
+		if (validation.valid) result = model.measurementMergeModel.merge(recipe, measurements);
+		return {recipe: recipe, validation: validation, suggestedAlignment: alignment, result: result ? {points: result.points, phaseAvailable: false, summary: result.points.length + ' derived magnitude points; phase is unavailable.'} : null, sources: [low, high].map(function(source) { return {id: source.id, name: source.name, type: source.type, hash: source.integrity.hash, assignedOutputId: source.assignedOutputId, minimumFrequencyHz: source.points[0].frequencyHz, maximumFrequencyHz: source.points[source.points.length - 1].frequencyHz, phaseAvailable: Boolean(source.units.phase), warnings: source.validation && source.validation.warnings ? source.validation.warnings : []}; }), sourcePointsUnchanged: true, acousticClaim: false};
+	}
+
+	function saveMeasurementMerge(configuration, content) {
+		var normalized = model.normalize(configuration);
+		var preview = measurementMergePreview(normalized, content);
+		if (!preview.validation.valid || !preview.result) throw routingError('INVALID_MERGE_RECIPE', 'The merge cannot be saved until its errors are resolved.', preview.validation);
+		var existingIndex = normalized.measurements.measurements.findIndex(function(item) { return item.id === preview.recipe.resultMeasurementId; });
+		if (existingIndex !== -1 && (normalized.measurements.measurements[existingIndex].sourceFormat !== 'derived-merge' || normalized.measurements.measurements[existingIndex].mergeRecipe.id !== preview.recipe.id)) throw routingError('DERIVED_MEASUREMENT_ID_COLLISION', 'Derived measurement identifier collides with an existing measurement.');
+		var result = {points: preview.result.points, validation: preview.validation};
+		var existing = existingIndex === -1 ? null : normalized.measurements.measurements[existingIndex];
+		var derived = model.measurementModel.createDerived(preview.recipe, result, {generatedAt: clock().toISOString(), assignedOutputId: existing ? existing.assignedOutputId : null, driverRole: existing ? existing.driverRole : null});
+		if (existingIndex === -1) normalized.measurements.measurements.push(derived);
+		else normalized.measurements.measurements[existingIndex] = derived;
+		var validation = validateDesign(normalized);
+		if (!validation.valid) throw routingError('VALIDATION_FAILED', 'Derived measurement could not be validated.', validation);
+		return {configuration: normalized, measurementId: derived.id, recipe: preview.recipe, validation: validation};
 	}
 
 	function measurementOverlay(configuration, measurementID) {
@@ -454,6 +497,8 @@ function createService(options) {
 		measurementPreview: measurementPreview,
 		measurementDraft: measurementDraft,
 		measurementOverlay: measurementOverlay,
+		measurementMergePreview: measurementMergePreview,
+		saveMeasurementMerge: saveMeasurementMerge,
 		prepareForDSP: prepareForDSP,
 		applyToSimulator: applyToSimulator,
 		readSimulator: readSimulator,

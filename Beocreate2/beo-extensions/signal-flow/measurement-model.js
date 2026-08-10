@@ -1,6 +1,7 @@
 'use strict';
 
 var crypto = require('crypto');
+var mergeModel = require('./measurement-merge-model');
 
 var FORMAT = 'org.speakerlab.measurements';
 var VERSION = 1;
@@ -8,7 +9,7 @@ var MAX_FILE_BYTES = 2 * 1024 * 1024;
 var MAX_ROWS = 20000;
 var MAX_MEASUREMENTS = 24;
 var MAX_TOTAL_POINTS = 50000;
-var TYPES = ['unknown', 'farfield', 'nearfield', 'gated', 'in-room', 'listening-position', 'driver-raw-response', 'system-response'];
+var TYPES = ['unknown', 'farfield', 'nearfield', 'gated', 'in-room', 'listening-position', 'driver-raw-response', 'system-response', 'derived-merged-response'];
 
 function clone(value) { return JSON.parse(JSON.stringify(value)); }
 function issue(level, code, message, path) { return {level: level, code: code, message: message, path: path || null}; }
@@ -119,6 +120,19 @@ function create(preview, metadata) {
 
 function normalize(configuration) { return clone(configuration || defaults()); }
 
+function createDerived(recipe, result, metadata) {
+	metadata = metadata || {};
+	var points = clone(result.points);
+	return {
+		id: recipe.resultMeasurementId, name: recipe.name, description: recipe.notes, type: 'derived-merged-response', sourceFormat: 'derived-merge', sourceFilename: '',
+		importedAt: metadata.generatedAt || new Date().toISOString(), units: {frequency: 'Hz', magnitude: 'dB', phase: null}, points: points,
+		assignedOutputId: metadata.assignedOutputId || null, driverRole: metadata.driverRole || null, conditions: {},
+		validation: {state: result.validation.warnings.length ? 'warning' : 'valid', warnings: clone(result.validation.warnings)},
+		provenance: {kind: 'derived-merge', recipeVersion: recipe.version, sourceIds: [recipe.lowSourceId, recipe.highSourceId], sourceHashes: [recipe.lowSourceHash, recipe.highSourceHash], generatedAt: metadata.generatedAt || new Date().toISOString(), validFrequencyRangeHz: {minimum: points[0].frequencyHz, maximum: points[points.length - 1].frequencyHz}, phasePolicy: recipe.phaseHandling},
+		integrity: {algorithm: 'sha256', hash: hash(points)}, modelVersion: 1, mergeRecipe: clone(recipe)
+	};
+}
+
 function validate(configuration, outputIDs) {
 	var errors = [], warnings = [], ids = {}, total = 0;
 	if (!configuration || configuration.format !== FORMAT) errors.push(issue('error', 'INVALID_MEASUREMENT_FORMAT', 'Measurement configuration format is not supported.', 'measurements'));
@@ -129,7 +143,7 @@ function validate(configuration, outputIDs) {
 		var base = 'measurements.measurements[' + index + ']';
 		if (!measurement || typeof measurement !== 'object') { errors.push(issue('error', 'INVALID_MEASUREMENT', 'Measurement must be an object.', base)); return; }
 		if (typeof measurement.name !== 'string' || !measurement.name.trim()) errors.push(issue('error', 'INVALID_MEASUREMENT_NAME', 'Measurement needs a name.', base + '.name'));
-		if (['rew-text', 'frd'].indexOf(measurement.sourceFormat) === -1) errors.push(issue('error', 'UNSUPPORTED_SOURCE_FORMAT', 'Measurement source format is not supported.', base + '.sourceFormat'));
+		if (['rew-text', 'frd', 'derived-merge'].indexOf(measurement.sourceFormat) === -1) errors.push(issue('error', 'UNSUPPORTED_SOURCE_FORMAT', 'Measurement source format is not supported.', base + '.sourceFormat'));
 		if (!measurement.units || measurement.units.frequency !== 'Hz' || measurement.units.magnitude !== 'dB' || (measurement.units.phase !== null && measurement.units.phase !== 'degrees')) errors.push(issue('error', 'IMPOSSIBLE_UNIT_DECLARATION', 'Measurement units are not supported.', base + '.units'));
 		if (!measurement.id || ids[measurement.id]) errors.push(issue('error', measurement.id ? 'DUPLICATE_MEASUREMENT_ID' : 'MISSING_MEASUREMENT_ID', 'Measurement identifiers must be present and unique.', base + '.id'));
 		ids[measurement.id] = true;
@@ -144,9 +158,20 @@ function validate(configuration, outputIDs) {
 		if (TYPES.indexOf(measurement.type) === -1) errors.push(issue('error', 'INVALID_MEASUREMENT_TYPE', 'Measurement type is not supported.', base + '.type'));
 		if (measurement.type === 'unknown') warnings.push(issue('warning', 'UNKNOWN_MEASUREMENT_TYPE', 'Measurement type is unknown.', base + '.type'));
 		if (!measurement.assignedOutputId) warnings.push(issue('warning', 'UNASSIGNED_MEASUREMENT', 'Measurement is not assigned to an output.', base + '.assignedOutputId'));
+		if (measurement.sourceFormat === 'derived-merge') {
+			if (!measurement.mergeRecipe) errors.push(issue('error', 'MISSING_MERGE_RECIPE', 'Derived measurement needs its merge recipe.', base + '.mergeRecipe'));
+			else {
+				var mergeValidation = mergeModel.validate(measurement.mergeRecipe, configuration.measurements, measurement.id);
+				if (!mergeValidation.valid) mergeValidation.errors.forEach(function(item) {
+					var mapped = issue(item.code === 'STALE_MERGE_SOURCE' ? 'warning' : item.level, item.code, item.message, base + '.' + (item.path || 'mergeRecipe'));
+					if (mapped.level === 'warning') warnings.push(mapped); else errors.push(mapped);
+				});
+				if (measurement.type !== 'derived-merged-response') errors.push(issue('error', 'INVALID_DERIVED_TYPE', 'Merged measurement must be identified as derived.', base + '.type'));
+			}
+		}
 	});
 	if (total > MAX_TOTAL_POINTS) errors.push(issue('error', 'MEASUREMENT_DATA_TOO_LARGE', 'The design exceeds the total normalized measurement-data limit.'));
 	return {valid: errors.length === 0, errors: errors, warnings: warnings};
 }
 
-module.exports = {FORMAT: FORMAT, VERSION: VERSION, TYPES: TYPES, MAX_FILE_BYTES: MAX_FILE_BYTES, MAX_ROWS: MAX_ROWS, MAX_MEASUREMENTS: MAX_MEASUREMENTS, MAX_TOTAL_POINTS: MAX_TOTAL_POINTS, defaults: defaults, capabilities: capabilities, parseText: parseText, create: create, normalize: normalize, validate: validate, hash: hash};
+module.exports = {FORMAT: FORMAT, VERSION: VERSION, TYPES: TYPES, MAX_FILE_BYTES: MAX_FILE_BYTES, MAX_ROWS: MAX_ROWS, MAX_MEASUREMENTS: MAX_MEASUREMENTS, MAX_TOTAL_POINTS: MAX_TOTAL_POINTS, defaults: defaults, capabilities: capabilities, parseText: parseText, create: create, createDerived: createDerived, normalize: normalize, validate: validate, hash: hash};
