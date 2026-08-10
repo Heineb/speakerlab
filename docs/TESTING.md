@@ -22,6 +22,7 @@ npm run test:dsp-compilation-acceptance
 npm run test:dsp-deployment-accessibility
 npm run test:backup-restore-acceptance
 npm run test:reconnect-acceptance
+npm run test:eq-suggestion-acceptance
 ```
 
 `npm run verify` includes the complete browser suite after the existing Node tests and syntax check. Each test starts the existing local server on an isolated loopback port with a fresh temporary runtime and simulated current-Beocreate DSP; no real configuration, external network, root privilege, HiFiBerryOS service or hardware is used.
@@ -186,6 +187,22 @@ The live local-server test additionally verifies:
 * socket closure during graceful local shutdown.
 
 Backup export, preview, confirmed restore, validation failure, rollback success and critical rollback-failure results remain covered by the configuration API and UI-state suites because those payloads use HTTP, not WebSocket. The live WebSocket test protects the connection/activation/capabilities coordination that enables that UI workflow.
+
+## Measurement-Assisted EQ Suggestions v1
+
+Run:
+
+```sh
+npm run test:eq-suggestions
+npm run test:eq-suggestion-ui
+npm run test:eq-suggestion-acceptance
+```
+
+The pure suite covers log interpolation boundaries/no extrapolation, sparse data, all supported smoothing values and source immutability; Flat/downward targets and reference levels; broad peaks/dips, flat response, noisy data and deep-null restraint; frequency/gain/Q/crossover/headroom bounds; explicit objective penalties, deterministic stop behavior and stable IDs. Integration covers capabilities, eligibility, named analyse/accept envelopes, prediction, additive ordinary PEQ conversion, band capacity, source integrity, stale analyses and saved-revision conflicts.
+
+UI-state and simplicity tests prove that analysis/reject do not dirty the design, acceptance can be undone before Save, disconnect retains review state, diagnostics and numerical controls start hidden, the feature remains contextual to Parametric EQ and no navigation/dashboard was added. Semantic labels, textual headroom/prediction and narrow stacking are protected.
+
+Eleven Chromium journeys cover two-filter accept/save/refresh, reject/source immutability, existing EQ, null avoidance, boost/headroom/protection warnings, crossover-aware range, stale/recomputed merge eligibility, Advanced disclosure, keyboard-only operation, semantic accessibility and desktop/tablet/mobile layouts. The shared fixture supplies traces, screenshots, video, console/request monitoring and isolated server logs on failure. Tests use project-owned synthetic fixtures, no network, hardware, audio, physical DSP write, arbitrary sleep or broad retry.
 
 ## Limiter and Driver Protection Foundation v1
 

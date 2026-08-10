@@ -427,6 +427,12 @@ Help users understand the electrical consequences of filters and protect loudspe
 
 ---
 
+## M11A — Measurement-Assisted EQ Suggestions
+
+Completed v1 foundation: contextual measurement selection inside Parametric EQ, Flat and Gentle downward tilt targets, deterministic log-grid analysis with 1/6-octave default smoothing, crossover/role-aware range, one to five bounded peaking suggestions, strong cut preference, conservative boost and null restraint. Each result is human-reviewed, predicted explicitly and accepted only as an ordinary unsaved PEQ band. Existing EQ, headroom and Driver Protection contribute context and warnings. Source measurements remain unchanged; automatic room correction and physical deployment are excluded.
+
+---
+
 ## M12 — Live meters and diagnostics
 
 ### Goals
