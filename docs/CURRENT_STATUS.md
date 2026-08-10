@@ -37,6 +37,8 @@ npm run check:syntax
 git diff --check
 ```
 
+Local verification on 2026-08-10 passed the complete `npm run verify` suite, including the 223-file JavaScript syntax sweep and 38/38 hardware-free Chromium journeys. The latest remote `develop` Verify run for `47250e3` is not green: macOS passed, while Ubuntu failed the existing repeated WebSocket binary/oversized-message assertion (`2 !== 1`). This merge slice remains local and unpushed as required, so no GitHub Actions run exists for commits `fd8eb08`–`4c855a5`.
+
 ## Next recommended slice
 
 **Limiter and Driver Protection Foundation.** Strengthen driver-safety controls before introducing measurement-assisted automatic optimisation.
