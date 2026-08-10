@@ -303,6 +303,49 @@ function createService(options) {
 		};
 	}
 
+	function protectionPreview(configuration, outputID) {
+		var normalized = model.normalize(configuration);
+		var protection = normalized.driverProtection.outputs.find(function(item) { return item.outputId === outputID; });
+		var equaliser = normalized.parametricEQ.outputs.find(function(item) { return item.outputId === outputID; });
+		var crossover = normalized.crossover.outputs.find(function(item) { return item.outputId === outputID; });
+		var processing = normalized.channelProcessing.outputs.find(function(item) { return item.outputId === outputID; });
+		if (!protection || !equaliser || !crossover || !processing) throw routingError('UNKNOWN_PROTECTION_OUTPUT', 'The selected protection output is not available.');
+		var response = model.eqModel.preview(equaliser, crossover, model.crossoverModel, processing.gain.valueDb);
+		var calculation = model.protectionModel.calculateOutput(protection, {
+			channelGainDb: processing.gain.valueDb,
+			maximumEqBoostDb: response.maximumEqBoostDb,
+			maximumElectricalGainDb: Math.max.apply(null, response.points.map(function(point) {
+				return point.magnitudeDb + processing.gain.valueDb;
+			}))
+		});
+		var validation = validateDesign(normalized);
+		return {
+			outputId: outputID,
+			calculation: calculation,
+			warnings: validation.warnings.filter(function(item) { return item.path === outputID || (item.path && item.path.indexOf(outputID) !== -1); }),
+			errors: validation.errors.filter(function(item) { return item.path && item.path.indexOf('driverProtection.outputs[' + model.OUTPUT_IDS.indexOf(outputID) + ']') !== -1; }),
+			target: targetModel.capability().driverProtection,
+			physicalDeploymentAllowed: false
+		};
+	}
+
+	function simulateProtection(configuration, outputID, sequence) {
+		var normalized = model.normalize(configuration);
+		var preview = protectionPreview(normalized, outputID);
+		var protection = normalized.driverProtection.outputs.find(function(item) { return item.outputId === outputID; });
+		return {
+			outputId: outputID,
+			calculation: preview.calculation,
+			simulation: model.protectionModel.simulateLimiter(protection.limiter,
+				preview.calculation.simulatorThresholdDbfs, sequence || [
+					{levelDbfs: -20, durationMs: 50}, {levelDbfs: -6, durationMs: 20},
+					{levelDbfs: 0, durationMs: 5}, {levelDbfs: 0, durationMs: 100},
+					{levelDbfs: -20, durationMs: 500}
+				]),
+			physicalDeploymentAllowed: false
+		};
+	}
+
 	function eqDraft(configuration, action, outputID, bandID, type, destinationOutputID) {
 		var normalized = model.normalize(configuration);
 		var result;
@@ -494,6 +537,8 @@ function createService(options) {
 		resetProcessing: resetProcessing,
 		eqPreview: eqPreview,
 		eqDraft: eqDraft,
+		protectionPreview: protectionPreview,
+		simulateProtection: simulateProtection,
 		measurementPreview: measurementPreview,
 		measurementDraft: measurementDraft,
 		measurementOverlay: measurementOverlay,

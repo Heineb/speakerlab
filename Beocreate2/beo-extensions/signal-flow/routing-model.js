@@ -4,6 +4,7 @@ var crypto = require('crypto');
 var crossoverModel = require('./crossover-model');
 var processingModel = require('./channel-processing-model');
 var eqModel = require('./parametric-eq-model');
+var protectionModel = require('./driver-protection-model');
 var measurementModel = require('./measurement-model');
 var measurementMergeModel = require('./measurement-merge-model');
 
@@ -42,6 +43,7 @@ function capabilities(available) {
 		crossover: crossoverModel.capabilities(crossoverModel.DEFAULT_SAMPLE_RATE_HZ),
 		channelProcessing: processingModel.capabilities(),
 		parametricEQ: eqModel.capabilities(),
+		driverProtection: protectionModel.capabilities(),
 		measurements: measurementModel.capabilities(),
 		measurementMerge: {format: measurementMergeModel.FORMAT, version: measurementMergeModel.VERSION, transitionWidthOctaves: {minimum: measurementMergeModel.MIN_TRANSITION_OCTAVES, maximum: measurementMergeModel.MAX_TRANSITION_OCTAVES}, phaseHandling: ['magnitude-only']}
 	};
@@ -65,6 +67,7 @@ function defaultConfiguration() {
 		crossover: crossoverModel.defaultConfiguration(OUTPUT_IDS, crossoverModel.DEFAULT_SAMPLE_RATE_HZ),
 		channelProcessing: processingModel.defaultConfiguration(OUTPUT_IDS),
 		parametricEQ: eqModel.defaultConfiguration(OUTPUT_IDS),
+		driverProtection: protectionModel.defaultConfiguration(OUTPUT_IDS),
 		measurements: measurementModel.defaults()
 	};
 }
@@ -94,6 +97,7 @@ function normalize(configuration) {
 		crossover: crossover,
 		channelProcessing: processingModel.normalize(configuration.channelProcessing, OUTPUT_IDS),
 		parametricEQ: eqModel.normalize(configuration.parametricEQ, OUTPUT_IDS),
+		driverProtection: protectionModel.normalize(configuration.driverProtection, OUTPUT_IDS),
 		measurements: measurementModel.normalize(configuration.measurements || measurementModel.defaults())
 	};
 }
@@ -244,6 +248,29 @@ function validate(configuration, availableCapabilities) {
 		crossoverConfiguration, crossoverModel);
 	errors = errors.concat(eqValidation.errors);
 	warnings = warnings.concat(eqValidation.warnings);
+	var protectionContexts = {};
+	OUTPUT_IDS.forEach(function(outputId) {
+		var eqOutput = eqConfiguration.outputs.find(function(item) { return item.outputId === outputId; });
+		var crossoverOutput = crossoverConfiguration.outputs.find(function(item) { return item.outputId === outputId; });
+		var processingOutput = processingConfiguration.outputs.find(function(item) { return item.outputId === outputId; });
+		try {
+			var preview = eqModel.preview(eqOutput, crossoverOutput, crossoverModel, processingOutput.gain.valueDb);
+			protectionContexts[outputId] = {
+				channelGainDb: processingOutput.gain.valueDb,
+				maximumEqBoostDb: preview.maximumEqBoostDb,
+				maximumElectricalGainDb: Math.max.apply(null, preview.points.map(function(point) {
+					return point.magnitudeDb + processingOutput.gain.valueDb;
+				}))
+			};
+		} catch (_) {
+			protectionContexts[outputId] = {channelGainDb: 0, maximumEqBoostDb: 0, maximumElectricalGainDb: 0};
+		}
+	});
+	var protectionConfiguration = configuration.driverProtection || protectionModel.defaultConfiguration(OUTPUT_IDS);
+	var protectionValidation = protectionModel.validate(protectionConfiguration, OUTPUT_IDS,
+		Array.isArray(configuration.outputs) ? configuration.outputs : [], crossoverConfiguration, protectionContexts);
+	errors = errors.concat(protectionValidation.errors);
+	warnings = warnings.concat(protectionValidation.warnings);
 	var measurementValidation = measurementModel.validate(configuration.measurements || measurementModel.defaults(), OUTPUT_IDS);
 	errors = errors.concat(measurementValidation.errors);
 	warnings = warnings.concat(measurementValidation.warnings);
@@ -261,6 +288,7 @@ module.exports = {
 	crossoverModel: crossoverModel,
 	processingModel: processingModel,
 	eqModel: eqModel,
+	protectionModel: protectionModel,
 	measurementModel: measurementModel,
 	measurementMergeModel: measurementMergeModel,
 	capabilities: capabilities,

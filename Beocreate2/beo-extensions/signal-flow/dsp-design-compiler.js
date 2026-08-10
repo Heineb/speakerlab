@@ -82,6 +82,7 @@ function compile(configuration, options) {
 		var crossover = canonical.crossover.outputs.find(function(item) { return item.outputId === output.id; });
 		var processing = canonical.channelProcessing.outputs.find(function(item) { return item.outputId === output.id; });
 		var equaliser = canonical.parametricEQ.outputs.find(function(item) { return item.outputId === output.id; });
+		var protection = canonical.driverProtection.outputs.find(function(item) { return item.outputId === output.id; });
 		var summary = {outputId: output.id, label: output.label, operations: [], status: 'prepared',
 			eqBandsEnabled: equaliser.bands.filter(function(band) { return band.enabled; }).length,
 			filterCapacity: capability.crossover.sectionsPerOutput};
@@ -174,6 +175,47 @@ function compile(configuration, options) {
 		}));
 		summary.operations.push(operations.length);
 		operations.push(operation('polarity', 'processing.polarity', output.id, mapping.polarity, processing.polarity.inverted ? 'inverted' : 'normal', encodedInteger(processing.polarity.inverted ? 1 : 0), 0, 'audio-polarity'));
+		var eqPreview = routingModel.eqModel.preview(equaliser, crossover, routingModel.crossoverModel, processing.gain.valueDb);
+		var protectionCalculation = routingModel.protectionModel.calculateOutput(protection, {
+			channelGainDb: processing.gain.valueDb,
+			maximumEqBoostDb: eqPreview.maximumEqBoostDb,
+			maximumElectricalGainDb: Math.max.apply(null, eqPreview.points.map(function(point) {
+				return point.magnitudeDb + processing.gain.valueDb;
+			}))
+		});
+		summary.protection = {
+			enabled: protection.limiter.enabled,
+			configured: clone(protection),
+			calculated: protectionCalculation,
+			mappingConfidence: 'unknown',
+			physicalTarget: 'unsupported',
+			readback: 'unavailable',
+			simulatorSupported: protectionCalculation.simulatorThresholdDbfs !== null
+		};
+		var protectionConfigured = protection.limiter.enabled || protection.driver.nominalImpedanceOhms !== null ||
+			protection.driver.continuousPowerWatts !== null || protection.amplifier.maximumPeakVoltage !== null ||
+			protection.amplifier.maximumRmsVoltage !== null;
+		if (protectionConfigured) unsupported.push({
+			outputId: output.id,
+			field: 'driverProtection',
+			reason: 'No verified per-output limiter threshold, attack/release or readback mapping exists for current Beocreate hardware.'
+		});
+		if (protection.limiter.enabled && protectionCalculation.simulatorThresholdDbfs === null) {
+			warnings.push(issue('warning', 'PROTECTION_THRESHOLD_CONVERSION_UNRESOLVED', output.label + ' needs an amplifier maximum peak voltage before voltage can be represented in the normalized simulator.', output.id + '.driverProtection'));
+		}
+		if (protection.limiter.enabled && protectionCalculation.simulatorThresholdDbfs !== null) {
+			summary.operations.push(operations.length);
+			summary.protection.simulatorOperationIndex = operations.length;
+			operations.push(operation('simulator-protection', 'driverProtection.limiter', output.id,
+				'simulator:' + output.id + ':peak-limiter', {
+					thresholdPeakVoltage: protection.limiter.thresholdPeakVoltage,
+					effectiveThresholdPeakVoltage: protectionCalculation.effectiveThresholdPeakVoltage,
+					thresholdDbfs: protectionCalculation.simulatorThresholdDbfs,
+					attackMs: protection.limiter.attackMs,
+					releaseMs: protection.limiter.releaseMs
+				}, {encoding: 'simulator-only-normalized-dbfs', decoded: protectionCalculation.simulatorThresholdDbfs,
+					integer: null, hex: null}, 0.0001, 'driver-protection', {physicalWriteAllowed: false}));
+		}
 		outputs.push(summary);
 	});
 	operations.push(operation('leave-safe-state', 'safeState.muted', null, 'gpio-amplifier-mute', false, null, 0, 'critical', {deferredUntilVerified: true}));

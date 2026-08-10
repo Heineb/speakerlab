@@ -36,6 +36,19 @@ function matrix(outputs) {
 				blocker: 'No physical capture or hardware readback proves target application and verification.'
 			});
 		});
+		rows.push({
+			outputId: outputId,
+			field: 'driver-protection',
+			target: 'none verified',
+			representation: 'design volts peak; simulator dBFS only when amplifier maximum peak voltage is entered',
+			evidence: EVIDENCE.metadata + '; Beocreate2/beo-extensions/volume-limit/index.js',
+			confidence: 'unknown',
+			writable: 'unsupported',
+			readable: 'unavailable',
+			verifiable: false,
+			safetyClassification: 'driver-protection',
+			blocker: 'No per-output limiter parameter, threshold conversion, attack/release mapping or readback is verified.'
+		});
 	});
 	rows.push({
 		outputId: 'system',
@@ -91,7 +104,8 @@ function report(outputs, overrides) {
 		'Legacy parameter reads have no timeout and ambiguous late-response handling.',
 		'Legacy writes have no DSP acknowledgement.',
 		'Reconnect does not invalidate pending reads or recheck identity for deployment.',
-		'No verified last-known-good physical plan or rollback exists.'
+		'No verified last-known-good physical plan or rollback exists.',
+		'Per-output limiter mapping, voltage conversion and readback are unavailable.'
 	];
 	rows.filter(function(row) { return row.confidence === 'unknown' || row.readable === 'unavailable'; }).forEach(function(row) {
 		blockers.push(row.outputId + ' ' + row.field + ': ' + row.blocker);
@@ -144,6 +158,7 @@ function classifyOperations(compilation, readiness) {
 	return compilation.operations.map(function(operation) {
 		var field = operation.group === 'filter-coefficients' ?
 			(operation.logicalField && operation.logicalField.indexOf('parametricEQ.') === 0 ? 'parametric-eq' : 'crossover') : operation.group;
+		if (operation.group === 'simulator-protection') field = 'driver-protection';
 		if (operation.group === 'enter-safe-state' || operation.group === 'leave-safe-state') field = 'safe-state';
 		var row = byField[(operation.outputId || 'system') + ':' + field];
 		return {

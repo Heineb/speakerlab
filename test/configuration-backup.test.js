@@ -114,12 +114,16 @@ test('includes the versioned signal-flow settings without changing its format', 
   Object.assign(routing.channelProcessing.outputs[0], {
     gain: {valueDb: -2.5}, delay: {valueMs: 0.42}, polarity: {inverted: true}
   });
+  Object.assign(routing.driverProtection.outputs[0].driver, {manufacturer: 'Example', model: 'Bass 8', nominalImpedanceOhms: 8, continuousPowerWatts: 50});
+  Object.assign(routing.driverProtection.outputs[0].amplifier, {maximumPeakVoltage: 35.36});
+  Object.assign(routing.driverProtection.outputs[0].limiter, {enabled: true, thresholdPeakVoltage: 28.28, safetyMarginDb: -3, attackMs: 5, releaseMs: 250});
   writeJSON(path.join(current.dataDirectory, 'signal-flow.json'), routing);
   const backup = current.service.collectBackup();
   const item = backup.configuration.settings.items.find(function (entry) { return entry.name === 'signal-flow.json'; });
   assert.deepStrictEqual(item.data, routing);
   assert.strictEqual(item.data.crossover.outputs[0].lowPass.cutoffHz, 1800);
   assert.deepStrictEqual(item.data.channelProcessing.outputs[0], routing.channelProcessing.outputs[0]);
+  assert.deepStrictEqual(item.data.driverProtection.outputs[0], routing.driverProtection.outputs[0]);
   assert.strictEqual(item.checksum, configurationBackup.checksum(routing));
 });
 

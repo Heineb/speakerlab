@@ -76,6 +76,12 @@ function createController(options) {
 						revision: content.revision === undefined ? null : content.revision
 					});
 					break;
+				case 'calculateProtection':
+					send('protectionPreview', service.protectionPreview(content.configuration, content.outputId));
+					break;
+				case 'simulateProtection':
+					send('protectionSimulation', service.simulateProtection(content.configuration, content.outputId, content.sequence));
+					break;
 				case 'previewMeasurement':
 					send('measurementPreview', service.measurementPreview(content.text, content.filename));
 					break;

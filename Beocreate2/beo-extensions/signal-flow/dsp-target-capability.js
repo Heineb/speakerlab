@@ -47,6 +47,16 @@ function capability(options) {
 		gain: {minimumDb: -60, maximumVerifiedDb: 0, encoding: 'signed-5.23-fixed-point'},
 		delay: {minimumSamples: 0, maximumSamples: 2000, encoding: 'unsigned-integer-parameter'},
 		polarity: {normal: 0, inverted: 1, encoding: 'unsigned-integer-parameter'},
+		driverProtection: {
+			perOutputLimiterMapping: 'unknown',
+			thresholdRepresentation: 'unsupported',
+			attackMapping: 'unknown',
+			releaseMapping: 'unknown',
+			readback: 'unavailable',
+			simulatorSupport: 'first-order-level-envelope',
+			physicalWriteAllowed: false,
+			evidence: 'Legacy volume-limit registers control source level and are not a per-output driver limiter.'
+		},
 		safeState: {
 			mechanism: 'GPIO 27 amplifier mute',
 			enterBeforeChange: true,

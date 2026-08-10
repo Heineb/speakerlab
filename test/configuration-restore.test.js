@@ -86,6 +86,9 @@ test('restores and rolls back signal-flow settings as central configuration', fu
   Object.assign(original.channelProcessing.outputs[0], {
     gain: {valueDb: -2.5}, delay: {valueMs: 0.42}, polarity: {inverted: true}
   });
+  Object.assign(original.driverProtection.outputs[0].driver, {manufacturer: 'Example', model: 'Bass 8', nominalImpedanceOhms: 8, continuousPowerWatts: 50});
+  Object.assign(original.driverProtection.outputs[0].amplifier, {maximumPeakVoltage: 35.36});
+  Object.assign(original.driverProtection.outputs[0].limiter, {enabled: true, thresholdPeakVoltage: 28.28, safetyMarginDb: -3, attackMs: 5, releaseMs: 250});
   writeJSON(routingPath, original);
   const backup = current.service.collectBackup();
   const changed = JSON.parse(JSON.stringify(original));
@@ -94,6 +97,8 @@ test('restores and rolls back signal-flow settings as central configuration', fu
   changed.channelProcessing.outputs[0].gain.valueDb = -6;
   changed.channelProcessing.outputs[0].delay.valueMs = 1.25;
   changed.channelProcessing.outputs[0].polarity.inverted = false;
+  changed.driverProtection.outputs[0].driver.continuousPowerWatts = 80;
+  changed.driverProtection.outputs[0].limiter.thresholdPeakVoltage = 32;
   writeJSON(routingPath, changed);
   const result = previewAndRestore(current, backup);
   assert.strictEqual(result.status, 'success');
@@ -105,6 +110,8 @@ test('restores and rolls back signal-flow settings as central configuration', fu
   assert.strictEqual(previous.data.channelProcessing.outputs[0].gain.valueDb, -6);
   assert.strictEqual(previous.data.channelProcessing.outputs[0].delay.valueMs, 1.25);
   assert.strictEqual(previous.data.channelProcessing.outputs[0].polarity.inverted, false);
+  assert.strictEqual(previous.data.driverProtection.outputs[0].driver.continuousPowerWatts, 80);
+  assert.strictEqual(previous.data.driverProtection.outputs[0].limiter.thresholdPeakVoltage, 32);
 });
 
 test('creates and verifies a separate immediate pre-restore last-known-good snapshot', function () {
