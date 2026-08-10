@@ -33,6 +33,16 @@ For nearfield/farfield work, choose **Merge Measurements**, inspect overlap and 
 
 Unknown, independent or mismatched timing references, missing phase, magnitude-only/stale merges, weak fits and excessive delay are blocked. The result includes current crossover, EQ, gain, delay and polarity, but it is still a prediction rather than a new acoustic measurement. See [Phase/Time Alignment](PHASE_ALIGNMENT.md).
 
+## Review assisted crossover setups
+
+1. Assign valid measurements to two supported driver ways with useful overlap.
+2. Open **Suggest setup** inside either driver's Crossover section and confirm the named sources and candidate region.
+3. Generate and compare up to three alternatives against the visible current crossover baseline.
+4. Check whether the result is **Phase-aware** or **Magnitude-based**, read confidence and warnings, and use **Advanced** only for scores and timing diagnostics.
+5. Apply one alternative to create ordinary unsaved low-pass/high-pass and any explicitly shown polarity/delay values, or close it to change nothing. Review normally and choose **Save** separately.
+
+Magnitude-only suggestions use power summation and make no complex-sum, polarity or delay claim. Existing EQ, gain and protection settings are not changed; protection warnings are not safety guarantees. See [Assisted Crossover](ASSISTED_CROSSOVER.md).
+
 ## Use assisted EQ
 
 Open **Suggest EQ from measurement** inside an output’s Parametric EQ section. Choose an assigned response and target, review the measured/target/current/predicted curves and select only suitable suggestions. **Accept** creates ordinary unsaved EQ bands; **Reject** changes nothing. Save normally after manual review. This is bounded magnitude assistance, not automatic room correction.

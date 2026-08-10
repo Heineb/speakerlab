@@ -2,7 +2,7 @@
 
 SpeakerLab is an independent open-source continuation of the Bang & Olufsen Beocreate software. It currently targets the existing Beocreate 4-Channel Amplifier and inherited software platform. SpeakerLab is not developed, endorsed or supported by Bang & Olufsen.
 
-The project is under active development and is not yet a production-ready replacement image. Today the hardware-free design workflow can configure routing, crossover, gain, delay, polarity, Parametric EQ and driver-protection assumptions; import and merge measurements; review bounded measurement-assisted EQ and phase/time-alignment suggestions; preview current-Beocreate DSP compilation in a simulator; and back up or restore the complete design. Physical DSP deployment remains deliberately blocked.
+The project is under active development and is not yet a production-ready replacement image. Today the hardware-free design workflow can configure routing, crossover, gain, delay, polarity, Parametric EQ and driver-protection assumptions; import and merge measurements; review bounded assisted crossover, measurement-assisted EQ and phase/time-alignment suggestions; preview current-Beocreate DSP compilation in a simulator; and back up or restore the complete design. Physical DSP deployment remains deliberately blocked.
 
 ## Local development
 
@@ -29,7 +29,7 @@ Focused commands and known coverage gaps are documented in [Testing](docs/TESTIN
 2. Name and enable outputs, assign driver roles and route inputs.
 3. Configure crossover, gain, delay, polarity and Parametric EQ.
 4. Import measurements and optionally merge compatible nearfield/farfield magnitude responses.
-5. Review measurements, assisted EQ and crossover-region phase/time-alignment suggestions, and driver-protection estimates without automatic changes.
+5. Review measurements, assisted crossover alternatives, assisted EQ, crossover-region phase/time-alignment suggestions and driver-protection estimates without automatic changes.
 6. Save the design, inspect **Deployment Preview**, and use backup/restore to protect working state.
 
 See the concise [SpeakerLab User Guide](docs/USER_GUIDE.md) for task-oriented instructions and feature limitations.
@@ -48,6 +48,7 @@ Routine work is performed on `develop`; `master` is the stable integration and r
 - [UI principles](docs/UI_PRINCIPLES.md)
 - [Branding and attribution boundary](docs/BRANDING.md)
 - [Phase/time alignment](docs/PHASE_ALIGNMENT.md)
+- [Assisted crossover design](docs/ASSISTED_CROSSOVER.md)
 - [Upstream relationship](docs/UPSTREAM.md)
 
 ## Licence and upstream attribution

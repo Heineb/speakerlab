@@ -441,6 +441,12 @@ Completed v1 foundation: contextual two-driver alignment around a configured cro
 
 ---
 
+## M11C — Assisted Crossover Design Foundation
+
+Completed v1 foundation: contextual comparison of two supported neighbouring acoustic ways, conservative measurement-overlap range, current-design baseline, existing supported filter families, deterministic multi-factor ranking and no more than three human-reviewed alternatives. Compatible phase/timing permits qualified complex-sum and bounded polarity/delay context; magnitude-only data uses a clearly separate power-sum fallback. Explicit acceptance creates ordinary unsaved crossover and included processing fields. EQ, gain, limiter, protection, measurements, navigation and physical DSP deployment remain unchanged.
+
+---
+
 ## M12 — Live meters and diagnostics
 
 ### Goals

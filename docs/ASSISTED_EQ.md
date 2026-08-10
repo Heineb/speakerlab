@@ -36,3 +36,5 @@ Every suggestion records a stable temporary ID, peaking type, frequency, gain, Q
 ## Deliberate exclusions
 
 V1 has no shelves, crossover suggestions, all-pass, FIR, delay, polarity, limiter changes, arbitrary target editor, ML, automatic save, automatic gain compensation or physical Apply. It does not correct time/phase, directivity, room modes, diffraction, thermal behavior or excursion. Quality still depends on measurement conditions, calibration, gating, source provenance and the validity of combining measurement magnitude with simulated electrical filters.
+
+Assisted Crossover is a separate contextual workflow. It includes current EQ in its prediction but never changes EQ bands. Accepting a crossover suggestion invalidates open EQ-suggestion previews because their crossover/processing context changed; recalculate them before review.

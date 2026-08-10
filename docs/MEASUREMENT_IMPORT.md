@@ -8,6 +8,6 @@ Normalization removes a UTF-8 BOM, accepts LF/CRLF, parses locale-independent de
 
 Limits are 2 MiB input, 20,000 points per file, 24 measurements and 50,000 total points. Binary, ambiguous, partial and non-finite data is rejected. Source paths are never retained.
 
-The Measurements section supports name, notes, explicit type, output association, provenance, phase availability and measured/electrical overlays. Electrical curves use a separate relative scale and are not combined with measured magnitude. No acoustic prediction, automatic EQ, crossover optimisation or DSP deployment is performed.
+The Measurements section supports name, notes, explicit type, output association, provenance, phase availability and measured/electrical overlays. Electrical curves use a separate relative scale and are not combined with measured magnitude there. Explicit downstream Assisted EQ, Phase/Time Alignment and Assisted Crossover workflows may reference immutable imported points; none changes the source or deploys to DSP.
 
 Imported measurements may be referenced immutably by a derived merge recipe. Merge operations never replace their normalized points, metadata or integrity hash. See `docs/MEASUREMENT_MERGE.md`.

@@ -14,6 +14,8 @@ Timing references are explicit metadata, not inferred from filenames or phase sh
 
 SpeakerLab cannot verify a user-entered reference label. Measurements should come from a capture method whose timing relationship is known and preserved. In-room data, narrow overlap, discontinuous phase and strong high-Q crossover-region EQ produce visible caution rather than hidden assumptions.
 
+Assisted Crossover reuses this timing-reference compatibility and robust fit. It may show a bounded polarity/delay proposal only in phase-aware mode; magnitude-only crossover suggestions never inherit or fabricate one. Use the dedicated alignment workflow when timing evidence is weak or the inferred adjustment is outside crossover assistance's conservative bound.
+
 ## Analysis and prediction
 
 Algorithm `speakerlab-phase-alignment-v1` uses a deterministic 81-point logarithmic grid within the measurement overlap and normally within 1.5 octaves around the crossover centre. Advanced controls may only narrow that range.

@@ -219,6 +219,20 @@ Pure tests cover phase unwrap across crossings and multiple wraps, noise/invalid
 
 Eleven Chromium journeys cover accept/save/refresh, polarity preview then apply, incompatible timing references, missing phase, existing-delay no-double-apply, current crossover/EQ context, stale magnitude-only merge blocking, Advanced disclosure, keyboard-only use, semantic graph/status and desktop/tablet/mobile layouts. Synthetic measurements are project-owned, deterministic and isolated. No journey uses external network, audio, hardware or a physical DSP write.
 
+## Assisted Crossover Design Foundation v1
+
+Run:
+
+```sh
+npm run test:assisted-crossover
+npm run test:assisted-crossover-ui
+npm run test:assisted-crossover-acceptance
+```
+
+Pure numerical tests cover broad/narrow/absent overlap, role boundaries, existing filter families, deterministic complex responses, in-phase/cancelling and magnitude-only sums, timing compatibility, ranking components, deduplication, current EQ/processing/protection context, invalid/stale integrity and ordinary bounded acceptance. Integration covers capabilities and eligible pairs, named analyse/accept envelopes, phase-aware and magnitude-only results, transient state, source hashes, unchanged draft, selected ID and saved-revision conflicts. UI-state tests protect preview/reject immutability, alternative selection, ordinary acceptance/undo, invalidation after design edits, disconnected review, Discard, contextual placement, collapsed Advanced, semantics and narrow stacking.
+
+Thirteen Chromium journeys cover accept/Save/refresh, bounded alternatives without draft mutation, magnitude-only labeling, phase-aware complex summation, user-declared timing confidence, poor-overlap blocking, current crossover baseline, existing EQ/gain/delay/polarity preservation, protection warnings, Advanced open/close, keyboard use, semantic status/graph meaning and desktop/tablet/mobile layouts. Fixtures are project-owned, deterministic and isolated; there is no network, audio, hardware, physical DSP write, arbitrary sleep or broad retry.
+
 ## Limiter and Driver Protection Foundation v1
 
 Run:
