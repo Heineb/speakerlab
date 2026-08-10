@@ -137,6 +137,33 @@
 	margin-top: 14px;
 	padding-top: 8px;
 }
+.signal-flow-protection {
+	border-top: 1px solid rgba(0, 0, 0, 0.12);
+	margin-top: 14px;
+	padding-top: 10px;
+}
+.signal-flow-protection > summary {
+	cursor: pointer;
+	font-weight: 600;
+}
+.signal-flow-protection-grid {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 10px;
+}
+.signal-flow-protection section {
+	border: 1px solid rgba(0, 0, 0, 0.1);
+	border-radius: 8px;
+	margin: 10px 0;
+	padding: 10px;
+}
+.signal-flow-protection dl {
+	display: grid;
+	grid-template-columns: minmax(12rem, 0.8fr) 1fr;
+	gap: 5px 10px;
+}
+.signal-flow-protection dt,
+.signal-flow-protection dd { margin: 0; }
 .signal-flow-eq {
 	border-top: 1px solid rgba(0, 0, 0, 0.12);
 	margin-top: 14px;
@@ -329,6 +356,11 @@
 	.signal-flow-processing-grid,
 	.signal-flow-eq-layout,
 	.signal-flow-eq-fields {
+		grid-template-columns: 1fr;
+	}
+	.signal-flow-protection-grid,
+	.signal-flow-protection dl {
+		display: grid;
 		grid-template-columns: 1fr;
 	}
 	.signal-flow-measurement-fields { grid-template-columns: 1fr; }

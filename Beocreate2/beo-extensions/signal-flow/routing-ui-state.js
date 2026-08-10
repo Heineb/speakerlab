@@ -23,6 +23,8 @@
 			message: null,
 			crossoverResponses: {},
 			eqResponses: {},
+			protectionPreviews: {},
+			protectionSimulations: {},
 			selectedEQBands: {},
 			deployment: null,
 			runtime: {deploymentStatus: 'not-deployed', statusLabel: 'Saved design · Not deployed to DSP'}
@@ -175,6 +177,29 @@
 		return state;
 	}
 
+	function editProtection(state, outputID, section, field, value) {
+		if (!state.draft || !state.draft.driverProtection) return state;
+		var output = state.draft.driverProtection.outputs.find(function(item) { return item.outputId === outputID; });
+		if (output && output[section]) output[section][field] = value;
+		state.dirty = true;
+		state.message = null;
+		delete state.protectionPreviews[outputID];
+		delete state.protectionSimulations[outputID];
+		if (state.deployment && state.deployment.compilation) state.deployment.stale = true;
+		return state;
+	}
+
+	function receiveProtectionPreview(state, payload) {
+		state.protectionPreviews[payload.outputId] = clone(payload);
+		return state;
+	}
+
+	function receiveProtectionSimulation(state, payload) {
+		state.protectionSimulations[payload.outputId] = clone(payload);
+		state.message = payload.simulation.supported ? 'Limiter sequence simulated. No audio was generated.' : payload.simulation.reason;
+		return state;
+	}
+
 	function receiveCrossoverResponse(state, payload) {
 		state.crossoverResponses[payload.outputId] = clone(payload.response);
 		return state;
@@ -244,6 +269,8 @@
 		state.message = null;
 		state.crossoverResponses = {};
 		state.eqResponses = {};
+		state.protectionPreviews = {};
+		state.protectionSimulations = {};
 		return state;
 	}
 
@@ -285,6 +312,9 @@
 		receiveEQDraft: receiveEQDraft,
 		receiveMeasurementDraft: receiveMeasurementDraft,
 		receiveEQResponse: receiveEQResponse,
+		editProtection: editProtection,
+		receiveProtectionPreview: receiveProtectionPreview,
+		receiveProtectionSimulation: receiveProtectionSimulation,
 		receiveCrossoverResponse: receiveCrossoverResponse,
 		receiveDeployment: receiveDeployment,
 		deploymentError: deploymentError,

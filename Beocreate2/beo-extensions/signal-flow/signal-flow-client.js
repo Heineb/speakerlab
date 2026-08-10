@@ -36,6 +36,7 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 	};
 	var sideLabels = {unassigned: 'Unassigned', left: 'Left', right: 'Right', mono: 'Mono'};
 	var processingUnits = {};
+	var openProtectionOutputs = {};
 	var pendingEQResetOutput = null;
 	var pendingDeploymentFocusId = null;
 	var pendingDeploymentFocusSourceId = null;
@@ -81,6 +82,8 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 		if (data.header === 'eqResponse') {
 			signalFlowUIState.receiveEQResponse(state, data.content);
 		}
+		if (data.header === 'protectionPreview') signalFlowUIState.receiveProtectionPreview(state, data.content);
+		if (data.header === 'protectionSimulation') signalFlowUIState.receiveProtectionSimulation(state, data.content);
 		if (data.header === 'measurementPreview') measurementPreview = data.content;
 		if (data.header === 'measurementDraft') {
 			signalFlowUIState.receiveMeasurementDraft(state, data.content);
@@ -286,6 +289,71 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 			'</select><button type="button" class="button pill outline" onclick="signalFlow.copyProcessing(\'' + output.id + '\', document.getElementById(\'signal-flow-processing-copy-' + output.id + '\').value);">Copy processing</button></div></section>';
 	}
 
+	function protectionControls(output) {
+		var protection = state.draft.driverProtection.outputs.find(function(item) { return item.outputId === output.id; });
+		var preview = state.protectionPreviews[output.id];
+		var simulation = state.protectionSimulations[output.id];
+		var prefix = 'signal-flow-protection-' + output.id;
+		function field(section, property, label, unit, options) {
+			options = options || {};
+			var value = protection[section][property];
+			var type = options.text ? 'text' : 'number';
+			return '<div class="signal-flow-field"><label for="' + prefix + '-' + property + '">' + label + '</label><div class="signal-flow-unit-input">' +
+				'<input id="' + prefix + '-' + property + '" type="' + type + '" ' + (options.step ? 'step="' + options.step + '" ' : '') +
+				(options.min !== undefined ? 'min="' + options.min + '" ' : '') + (options.max !== undefined ? 'max="' + options.max + '" ' : '') +
+				'value="' + escapeHTML(value === null ? '' : value) + '" aria-describedby="' + prefix + '-notice signal-flow-validation" onchange="signalFlow.updateProtection(\'' +
+				output.id + '\', \'' + section + '\', \'' + property + '\', this.value, ' + (options.text ? 'true' : 'false') + ');">' +
+				(unit ? '<span>' + escapeHTML(unit) + '</span>' : '') + '</div></div>';
+		}
+		var calculation = preview && preview.calculation;
+		var calculationHTML = calculation ? '<dl><dt>Power-derived continuous voltage</dt><dd>' +
+			(calculation.driverContinuousRmsVoltage === null ? 'Not available' : calculation.driverContinuousRmsVoltage + ' V RMS · ' + calculation.driverContinuousPeakVoltage + ' V peak') +
+			'</dd><dt>Raw limiter threshold</dt><dd>' + (calculation.rawThresholdPeakVoltage === null ? 'Not configured' : calculation.rawThresholdPeakVoltage + ' V peak') +
+			'</dd><dt>Threshold after visible margin</dt><dd>' + (calculation.effectiveThresholdPeakVoltage === null ? 'Not available' : calculation.effectiveThresholdPeakVoltage + ' V peak · ' + calculation.effectiveThresholdRmsVoltage + ' V RMS') +
+			'</dd><dt>Limiting factor</dt><dd>' + escapeHTML(calculation.limitingFactor.replace(/-/g, ' ')) + '</dd>' +
+			'<dt>Channel gain</dt><dd>' + calculation.channelGainDb + ' dB</dd><dt>Maximum positive EQ contribution</dt><dd>+' + calculation.maximumEqBoostDb + ' dB</dd>' +
+			'<dt>Potential net boost</dt><dd>' + calculation.potentialNetBoostDb + ' dB</dd><dt>Maximum crossover + EQ + gain on grid</dt><dd>' + calculation.maximumElectricalGainDb + ' dB</dd>' +
+			'<dt>Configured headroom estimate</dt><dd>' + (calculation.remainingConfiguredHeadroomDb === null ? 'Unresolved without amplifier maximum peak voltage' : calculation.remainingConfiguredHeadroomDb + ' dB') + '</dd></dl>' :
+			'<p>Waiting for calculated electrical limits…</p>';
+		var warnings = preview ? preview.warnings : [];
+		var warningHTML = warnings.length ? '<ul>' + warnings.map(function(item) { return '<li>' + escapeHTML(item.message) + '</li>'; }).join('') + '</ul>' : '<p>No output-specific protection warnings.</p>';
+		var simulationHTML = '<p>Run the normalized synthetic sequence to inspect the simplified limiter. No audio is generated.</p>';
+		if (simulation) {
+			if (!simulation.simulation.supported) simulationHTML += '<p class="signal-flow-warning">' + escapeHTML(simulation.simulation.reason) + '</p>';
+			else simulationHTML += '<p><strong>Simulator estimate</strong> · threshold ' + simulation.simulation.thresholdDbfs + ' dBFS · attack ' +
+				simulation.simulation.attackMs + ' ms · release ' + simulation.simulation.releaseMs + ' ms</p><ol>' + simulation.simulation.points.map(function(point) {
+					return '<li>Input ' + point.inputDbfs + ' dBFS for ' + point.durationMs + ' ms · gain reduction ' + point.gainReductionDb + ' dB · output ' + point.outputDbfs + ' dBFS</li>';
+				}).join('') + '</ol>';
+		}
+		return '<details class="signal-flow-protection" id="' + prefix + '" aria-label="Driver Protection for ' + escapeHTML(output.label) + '" ' +
+			(openProtectionOutputs[output.id] ? 'open ' : '') + 'ontoggle="signalFlow.setProtectionOpen(\'' + output.id + '\', this.open);"><summary>Driver Protection</summary>' +
+			'<p id="' + prefix + '-notice"><strong>Protection configuration · Simulator first.</strong> These electrical estimates do not guarantee thermal, excursion, acoustic or damage protection.</p>' +
+			'<section aria-label="Driver metadata"><h4>Driver</h4><div class="signal-flow-protection-grid">' +
+			field('driver', 'manufacturer', 'Manufacturer (optional)', '', {text: true}) + field('driver', 'model', 'Model (optional)', '', {text: true}) +
+			field('driver', 'nominalImpedanceOhms', 'Nominal impedance', 'Ω', {step: '0.1', min: 1, max: 64}) +
+			field('driver', 'continuousPowerWatts', 'Continuous power rating', 'W', {step: '0.1', min: 0}) +
+			field('driver', 'shortTermPowerWatts', 'Short-term power rating (optional)', 'W', {step: '0.1', min: 0}) +
+			field('driver', 'notes', 'Notes', '', {text: true}) + '</div></section>' +
+			'<section aria-label="Amplifier assumptions"><h4>Amplifier</h4><div class="signal-flow-protection-grid">' +
+			field('amplifier', 'maximumRmsVoltage', 'Maximum output voltage', 'V RMS', {step: '0.1', min: 0}) +
+			field('amplifier', 'maximumPeakVoltage', 'Maximum peak or clipping voltage', 'V peak', {step: '0.1', min: 0}) +
+			field('amplifier', 'gainDb', 'Amplifier gain (optional)', 'dB', {step: '0.1', min: 0, max: 60}) +
+			field('amplifier', 'channelAssignment', 'Channel assignment (optional)', '', {text: true}) + '</div></section>' +
+			'<section aria-label="Limiter settings"><h4>Limiter settings</h4><label><input id="' + prefix + '-enabled" type="checkbox" ' + (protection.limiter.enabled ? 'checked ' : '') +
+			'onchange="signalFlow.updateProtection(\'' + output.id + '\', \'limiter\', \'enabled\', this.checked, true);"> Enable peak-voltage limiter design</label><div class="signal-flow-protection-grid">' +
+			field('limiter', 'thresholdPeakVoltage', 'Raw threshold', 'V peak', {step: '0.1', min: 0}) +
+			field('limiter', 'configuredRmsVoltageLimit', 'Configured average limit (optional)', 'V RMS', {step: '0.1', min: 0}) +
+			field('limiter', 'safetyMarginDb', 'Safety margin', 'dB', {step: '0.1', min: -12, max: 0}) +
+			field('limiter', 'attackMs', 'Attack', 'ms', {step: '0.1', min: 0.1, max: 1000}) +
+			field('limiter', 'releaseMs', 'Release', 'ms', {step: '1', min: 10, max: 10000}) + '</div></section>' +
+			'<section class="signal-flow-protection-calculated" aria-label="Calculated electrical limits" aria-live="polite"><h4>Calculated limits</h4>' + calculationHTML +
+			'<p>Sine-wave conversion only. Music, amplifier impedance interaction and real driver behavior differ.</p></section>' +
+			'<section class="signal-flow-protection-warnings" aria-label="Driver Protection warnings" aria-live="polite"><h4>Warnings</h4>' + warningHTML + '</section>' +
+			'<section class="signal-flow-protection-simulator" aria-label="Limiter simulator summary" aria-live="polite"><h4>Simulator</h4>' + simulationHTML +
+			'<button type="button" class="button pill outline" onclick="signalFlow.simulateProtection(\'' + output.id + '\');">Run synthetic level sequence</button></section>' +
+			'<p><strong>Physical mapping:</strong> Unsupported and unverified. No physical Apply action is available.</p></details>';
+	}
+
 	function formatDeploymentValue(value) {
 		if (value === null || value === undefined) return 'Not available';
 		if (typeof value === 'object') return JSON.stringify(value);
@@ -318,7 +386,7 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 				return '<li>' + escapeHTML(blocker) + '</li>';
 			}).join('') + '</ul>'
 		);
-		var featureOrder = ['routing', 'crossover', 'gain', 'delay', 'polarity'];
+		var featureOrder = ['routing', 'crossover', 'parametric-eq', 'gain', 'delay', 'polarity', 'driver-protection'];
 		$('#signal-flow-mapping-readiness').html(
 			'<h3>Mapping confidence</h3><p>Strong evidence remains preview-only until physical readback verifies it.</p>' +
 			featureOrder.map(function(field) {
@@ -390,10 +458,13 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 			var gain = operations.find(function(item) { return item.group === 'gain'; });
 			var delay = operations.find(function(item) { return item.group === 'delay'; });
 			var polarity = operations.find(function(item) { return item.group === 'polarity'; });
+			var protection = operations.find(function(item) { return item.group === 'simulator-protection'; });
 			return '<section class="signal-flow-deployment-output" role="group" aria-label="' + escapeHTML(output.label) + ' deployment comparison">' +
-				'<h3>' + escapeHTML(output.label) + '</h3><p>' + filters.length + ' configured crossover sections</p>' +
+				'<h3>' + escapeHTML(output.label) + '</h3><p>' + filters.length + ' configured crossover/EQ sections</p>' +
+				(output.protection ? '<p><strong>Driver Protection:</strong> ' + (output.protection.enabled ? 'Configured for simulator' : 'Limiter disabled') +
+					' · physical mapping ' + escapeHTML(output.protection.mappingConfidence) + ' · readback ' + escapeHTML(output.protection.readback) + '</p>' : '') +
 				'<dl><dt>Field</dt><dd>Requested</dd><dd>Compiled or actual</dd><dd>Verification status</dd>' +
-				row('Routing', routing) + row('Gain', gain) + row('Delay', delay) + row('Polarity', polarity) + '</dl></section>';
+				row('Routing', routing) + row('Gain', gain) + row('Delay', delay) + row('Polarity', polarity) + row('Limiter simulator', protection) + '</dl></section>';
 		}).join('') : '');
 		$('#signal-flow-deployment-operations .signal-flow-operation-list').html(compilation ? compilation.operations.map(function(item) {
 			return '<div class="signal-flow-operation"><strong>' + (item.index + 1) + '. ' + escapeHTML(item.group) + '</strong> · ' +
@@ -459,7 +530,7 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 				'<label for="signal-flow-copy-' + output.id + '">Copy to</label><select id="signal-flow-copy-' + output.id + '">' +
 				option('', 'Choose output', '') + copyOptions + '</select><button type="button" class="button pill outline" ' +
 				"onclick=\"signalFlow.copyCrossover('" + output.id + "', document.getElementById('signal-flow-copy-" + output.id + "').value);\">Copy</button></div>" +
-				'</section>' + parametricEQControls(output) + processingControls(output) + '</article>';
+				'</section>' + parametricEQControls(output) + processingControls(output) + protectionControls(output) + '</article>';
 		}).join(''));
 
 		var issues = state.validation.errors.concat(state.validation.warnings);
@@ -596,6 +667,7 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 	function update(outputID, field, value) {
 		signalFlowUIState.editOutput(state, outputID, field, value);
 		validateDraft();
+		beo.send({target: 'signal-flow', header: 'calculateProtection', content: {configuration: state.draft, outputId: outputID}});
 		render();
 	}
 
@@ -614,6 +686,7 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 		var normalized = section === 'gain' || section === 'delay' ? Number(value) : value;
 		signalFlowUIState.editProcessing(state, outputID, section, field, normalized);
 		validateDraft();
+		beo.send({target: 'signal-flow', header: 'calculateProtection', content: {configuration: state.draft, outputId: outputID}});
 		render(preferredFocusId);
 	}
 
@@ -668,7 +741,24 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 	function requestPreview(outputID) {
 		beo.send({target: 'signal-flow', header: 'calculateCrossoverResponse', content: {configuration: state.draft, outputId: outputID}});
 		beo.send({target: 'signal-flow', header: 'calculateEQResponse', content: {configuration: state.draft, outputId: outputID}});
+		beo.send({target: 'signal-flow', header: 'calculateProtection', content: {configuration: state.draft, outputId: outputID}});
 	}
+
+	function updateProtection(outputID, section, field, value, textual) {
+		var numeric = Number(value);
+		var normalized = textual ? value : String(value).trim() === '' ? null : isFinite(numeric) ? numeric : value;
+		if (field === 'enabled') normalized = Boolean(value);
+		signalFlowUIState.editProtection(state, outputID, section, field, normalized);
+		validateDraft();
+		beo.send({target: 'signal-flow', header: 'calculateProtection', content: {configuration: state.draft, outputId: outputID}});
+		render();
+	}
+
+	function simulateProtection(outputID) {
+		beo.send({target: 'signal-flow', header: 'simulateProtection', content: {configuration: state.draft, outputId: outputID}});
+	}
+
+	function setProtectionOpen(outputID, open) { openProtectionOutputs[outputID] = open; }
 
 	function selectEQBand(outputID, bandID) {
 		signalFlowUIState.selectEQBand(state, outputID, bandID);
@@ -790,6 +880,9 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 		updateCrossover: updateCrossover,
 		updateProcessing: updateProcessing,
 		updateEQ: updateEQ,
+		updateProtection: updateProtection,
+		simulateProtection: simulateProtection,
+		setProtectionOpen: setProtectionOpen,
 		selectEQBand: selectEQBand,
 		moveEQBand: moveEQBand,
 		eqDraft: eqDraft,
