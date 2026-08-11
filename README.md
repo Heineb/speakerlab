@@ -1,10 +1,14 @@
 # SpeakerLab
 
-SpeakerLab is a modern open-source loudspeaker DSP design environment derived from the original Bang & Olufsen Beocreate codebase. It is independently developed, is not an official Bang & Olufsen project, and is not developed, endorsed or supported by Bang & Olufsen.
+<p align="center">
+  <img src="Beocreate2/beo-system/common/speakerlab-mark.svg" alt="SpeakerLab speaker mark" width="96">
+</p>
 
-SpeakerLab currently targets the existing Beocreate 4-Channel Amplifier and inherited software platform. The project is under active development and is not yet a production-ready replacement image.
+SpeakerLab is an approachable open-source environment for designing and validating loudspeaker DSP configurations. It brings routing, crossover, timing, equalisation, measurements, protection assumptions, backup and simulated deployment into one guided browser workflow.
 
-## What works today
+The current development preview is hardware-free by default and intentionally conservative: designs can be saved, inspected and exercised against a simulator, while physical DSP deployment remains blocked until its safety prerequisites are verified.
+
+## Capabilities
 
 The hardware-free workflow can:
 
@@ -18,25 +22,6 @@ The hardware-free workflow can:
 - save, back up, preview and restore the complete design; and
 - compile a current-Beocreate DSP plan, apply it to the local simulator and compare simulated readback.
 
-Physical DSP deployment is deliberately blocked. Saved, predicted and simulated state must not be interpreted as audible or physically deployed behavior.
-
-## Quick start
-
-Prerequisites: Node.js 24 and npm. The server lockfile was generated with npm 11.6.2.
-
-```sh
-npm ci --prefix Beocreate2/beo-system
-npm run dev
-```
-
-Open the loopback URL printed by the command (normally `http://127.0.0.1:3000/`). The local runtime uses isolated state and a simulated current-Beocreate DSP; it does not write to real `/opt` or `/etc`, require root or contact physical hardware.
-
-Run all documented hardware-free verification with:
-
-```sh
-npm run verify
-```
-
 ## Typical workflow
 
 1. Complete setup, then open **Speaker Design**.
@@ -48,6 +33,39 @@ npm run verify
 
 Start with [Getting Started](docs/GETTING_STARTED.md), then use the task-oriented [Design Workflow](docs/DESIGN_WORKFLOW.md) and [User Guide](docs/USER_GUIDE.md).
 
+## Quick start
+
+Prerequisites: Node.js 24 and npm. The server lockfile was generated with npm 11.6.2.
+
+```sh
+npm ci --prefix Beocreate2/beo-system
+npm run dev
+```
+
+Open the loopback URL printed by the command (normally `http://127.0.0.1:3000/`). The local runtime uses isolated state and a simulated DSP target. It does not write to real `/opt` or `/etc`, require root or contact physical hardware.
+
+Run all documented hardware-free verification with:
+
+```sh
+npm run verify
+```
+
+## Documentation
+
+For users:
+
+- [Getting Started](docs/GETTING_STARTED.md)
+- [Designing a Speaker](docs/DESIGN_WORKFLOW.md)
+- [User Guide](docs/USER_GUIDE.md)
+- [Measurement Import](docs/MEASUREMENT_IMPORT.md), [Measurement Merge](docs/MEASUREMENT_MERGE.md) and [Phase/Time Alignment](docs/PHASE_ALIGNMENT.md)
+- [Assisted Crossover](docs/ASSISTED_CROSSOVER.md), [Assisted EQ](docs/ASSISTED_EQ.md) and [Driver Protection](docs/DRIVER_PROTECTION.md)
+
+For contributors and maintainers:
+
+- [Project Charter](docs/PROJECT_CHARTER.md), [Roadmap](docs/ROADMAP.md) and [Current Status](docs/CURRENT_STATUS.md)
+- [Testing](docs/TESTING.md), [Architecture](docs/ARCHITECTURE.md) and [UI Principles](docs/UI_PRINCIPLES.md)
+- [Repository Hygiene](docs/REPOSITORY_HYGIENE.md), [Branding](docs/BRANDING.md), [Upstream Relationship](docs/UPSTREAM.md) and [Stop and Validate report](docs/VALIDATION.md)
+
 ## Current limitations
 
 - Physical DSP deployment and physical Apply controls remain blocked.
@@ -57,21 +75,20 @@ Start with [Getting Started](docs/GETTING_STARTED.md), then use the task-oriente
 - Assisted crossover, alignment and EQ are conservative suggestions, not automatic optimization or guarantees of audible improvement.
 - Simulator readback is not hardware evidence.
 
-## Documentation
+## Hardware target and safety boundary
 
-- [Getting Started](docs/GETTING_STARTED.md)
-- [Designing a Speaker](docs/DESIGN_WORKFLOW.md)
-- [User Guide](docs/USER_GUIDE.md)
-- [Measurement Import](docs/MEASUREMENT_IMPORT.md) and [Measurement Merge](docs/MEASUREMENT_MERGE.md)
-- [Phase/Time Alignment](docs/PHASE_ALIGNMENT.md)
-- [Assisted Crossover](docs/ASSISTED_CROSSOVER.md) and [Assisted EQ](docs/ASSISTED_EQ.md)
-- [Driver Protection](docs/DRIVER_PROTECTION.md)
-- [Stop and Validate v1 report](docs/VALIDATION.md)
-- [Testing](docs/TESTING.md), [Architecture](docs/ARCHITECTURE.md) and [Current Status](docs/CURRENT_STATUS.md)
-- [UI Principles](docs/UI_PRINCIPLES.md), [Branding](docs/BRANDING.md) and [Upstream Relationship](docs/UPSTREAM.md)
+SpeakerLab currently targets the existing Beocreate 4-Channel Amplifier and inherited software platform. Saved, predicted and simulated states must not be interpreted as audible or physically deployed behavior. Physical Apply controls remain unavailable pending hardware identity, mute, readback, reconnect and rollback evidence.
 
-## Development and upstream
+## Origins and independence
 
-Routine work is performed on `develop`; `master` is the stable integration and release branch. See [AGENTS.md](AGENTS.md) and the [Project Charter](docs/PROJECT_CHARTER.md) before contributing.
+SpeakerLab continues the strongest ideas of the original Bang & Olufsen Beocreate software: an intuitive interface that makes loudspeaker DSP approachable. The original project, contributors and retained source history are acknowledged with respect.
 
-The repository is distributed under the [MIT License](LICENSE). It retains applicable source history, copyright, licence notices and attribution from the original Beocreate project. SpeakerLab development belongs to `Heineb/speakerlab`; `bang-olufsen/create` is historical source material only.
+SpeakerLab is independently developed in `Heineb/speakerlab`. It is not an official Bang & Olufsen project and is not developed, endorsed or supported by Bang & Olufsen. The historical `bang-olufsen/create` repository is source material only.
+
+## Development
+
+The project is under active development and is not yet a production-ready replacement image. Routine work is performed on `develop`; `master` is the stable integration and release branch. Read [AGENTS.md](AGENTS.md), the [Project Charter](docs/PROJECT_CHARTER.md) and [Testing](docs/TESTING.md) before contributing.
+
+## License
+
+The repository is distributed under the [MIT License](LICENSE) and retains applicable copyright, licence notices and attribution from the original Beocreate project.
