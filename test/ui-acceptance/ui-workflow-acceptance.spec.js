@@ -22,6 +22,29 @@ async function configureTwoOutputs(page) {
   await configureOutput(page, 'output-b', {label: 'Tweeter', role: 'tweeter', side: 'left', source: 'left'});
 }
 
+test('beginner can configure and save a basic two-way design without Advanced', async function ({monitoredPage: page, speakerlab}) {
+  await openSpeakerDesign(page, speakerlab);
+  await expect(page.getByText('Choose an output, then work through routing, crossover, level and timing, EQ and protection.')).toBeVisible();
+  await configureTwoOutputs(page);
+
+  let card = await selectOutput(page, 'output-a');
+  await openDesignSection(card, 'Crossover');
+  await card.getByRole('group', {name: 'Low-pass'}).getByLabel('Enabled').check();
+  await card.locator('#signal-flow-lowPass-output-a-frequency').fill('2200');
+  await card.locator('#signal-flow-lowPass-output-a-frequency').blur();
+  card = await selectOutput(page, 'output-b');
+  await openDesignSection(card, 'Crossover');
+  await card.getByRole('group', {name: 'High-pass'}).getByLabel('Enabled').check();
+  await card.locator('#signal-flow-highPass-output-b-frequency').fill('2200');
+  await card.locator('#signal-flow-highPass-output-b-frequency').blur();
+
+  await openWorkspace(page, 'Review');
+  await expect(page.locator('details[open]')).toHaveCount(0);
+  await expect(page.locator('#signal-flow-design-review')).toContainText(/2\/2 configured.*2 routed/s);
+  await page.getByRole('button', {name: 'Save design'}).click();
+  await expect(page.locator('#signal-flow-runtime-status')).toContainText('Design: Saved');
+});
+
 function responseFile(role) {
   const lines = ['# Synthetic SpeakerLab workflow response'];
   for (let index = 0; index < 121; index++) {
@@ -45,15 +68,14 @@ async function importResponse(page, name, role, output, timingGroup) {
     buffer: Buffer.from(responseFile(role))
   });
   await page.getByRole('button', {name: 'Confirm import'}).click();
-  if (timingGroup) {
-    const advanced = page.locator('#signal-flow-measurement-detail details.signal-flow-advanced');
-    await advanced.getByText('Advanced', {exact: true}).click();
-    await page.locator('#signal-flow-measurement-timing-kind').selectOption('shared');
-    await page.locator('#signal-flow-measurement-timing-group').fill(timingGroup);
-  }
+  await expect(page.locator('#signal-flow-measurement-detail')).toHaveAttribute('aria-busy', 'false');
   await page.locator('#signal-flow-measurement-name').fill(name);
   await page.locator('#signal-flow-measurement-type').selectOption(role === 'nearfield' ? 'nearfield' : 'gated');
   await page.locator('#signal-flow-measurement-output').selectOption(output);
+  if (timingGroup) {
+    await page.locator('#signal-flow-measurement-timing-kind').selectOption('shared');
+    await page.locator('#signal-flow-measurement-timing-group').fill(timingGroup);
+  }
   await page.getByRole('button', {name: 'Update measurement'}).click();
   await expect(page.getByRole('option', {name: new RegExp(name)})).toBeVisible();
 }
@@ -179,10 +201,36 @@ test('measurement assistance stays contextual and produces only ordinary design 
       eqBands: current.draft.parametricEQ.outputs.reduce(function (total, output) { return total + output.bands.length; }, 0)
     };
   })).toEqual({persistedAssistance: [], measurements: 4, eqBands: 1});
+
+  card = await selectOutput(page, 'output-a');
+  await openDesignSection(card, 'Driver Protection');
+  const protection = card.locator('#signal-flow-protection-output-a');
+  await protection.locator('summary').click();
+  await protection.getByLabel('Nominal impedance').fill('8');
+  await protection.getByLabel('Nominal impedance').blur();
+  await protection.getByLabel('Continuous power rating').fill('50');
+  await protection.getByLabel('Continuous power rating').blur();
   await openWorkspace(page, 'Review');
   await expect(page.locator('#signal-flow-design-review')).toContainText(/Measurements.*4 available/s);
+  await expect(page.locator('#signal-flow-design-review')).toContainText(/Driver Protection.*1\/2/s);
   await page.getByRole('button', {name: 'Save design'}).click();
   await expect(page.locator('#signal-flow-runtime-status')).toContainText('Design: Saved');
+});
+
+test('reload preserves only useful output and design-section context', async function ({monitoredPage: page, speakerlab}) {
+  await openSpeakerDesign(page, speakerlab);
+  const card = await selectOutput(page, 'output-b');
+  await openDesignSection(card, 'Parametric EQ');
+  await expect(page.locator('#signal-flow-output-select-output-b')).toHaveAttribute('aria-selected', 'true');
+  await expect(card.getByRole('button', {name: /^Parametric EQ/})).toHaveAttribute('aria-expanded', 'true');
+
+  await page.reload({waitUntil: 'domcontentloaded'});
+  await openExtension(page, 'signal-flow');
+  await expect(page.getByRole('tab', {name: 'Design'})).toHaveAttribute('aria-selected', 'true');
+  await expect(page.locator('#signal-flow-output-select-output-b')).toHaveAttribute('aria-selected', 'true');
+  await expect(page.locator('.signal-flow-output')).toHaveAttribute('data-output-id', 'output-b');
+  await expect(page.getByRole('button', {name: /^Parametric EQ/})).toHaveAttribute('aria-expanded', 'true');
+  await expect(page.locator('.signal-flow-workflow-panel:not([hidden])')).toHaveCount(1);
 });
 
 test('clean default keeps specialist diagnostics hidden and exposes one selected output', async function ({monitoredPage: page, speakerlab}) {

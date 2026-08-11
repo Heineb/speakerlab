@@ -70,6 +70,9 @@ test('workspace markup exposes one calm workflow and one Advanced pattern', func
   assert.ok(menu.includes('Physical deployment blocked'));
   assert.ok(menu.includes('not deployed to the physical DSP'));
   assert.ok(client.includes('aria-expanded'));
+  assert.ok(client.includes('speakerlabSignalFlowWorkspaceContextV1'));
+  assert.ok(client.includes('sessionStorage'));
+  assert.ok(client.includes('No design issues found.'));
   assert.ok(css.includes('.signal-flow-advanced'));
   assert.ok(css.includes('.signal-flow-workflow-section'));
   assert.strictEqual(menu.includes('Physical Apply'), false);

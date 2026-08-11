@@ -62,6 +62,32 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 	var selectedOutputID = null;
 	var openOutputSections = {};
 	var contextualMeasurementSelections = {eq: {}, alignment: {}, crossover: {}};
+	var workspaceContextStorageKey = 'speakerlabSignalFlowWorkspaceContextV1';
+	var designSections = ['routing', 'crossover', 'processing', 'eq', 'protection'];
+
+	function restoreWorkspaceContext() {
+		if (typeof sessionStorage === 'undefined') return;
+		try {
+			var stored = JSON.parse(sessionStorage.getItem(workspaceContextStorageKey));
+			if (!stored || typeof stored.selectedOutputID !== 'string') return;
+			selectedOutputID = stored.selectedOutputID;
+			if (stored.openSection === null || designSections.indexOf(stored.openSection) !== -1) {
+				openOutputSections[selectedOutputID] = stored.openSection;
+			}
+		} catch (error) {}
+	}
+
+	function persistWorkspaceContext() {
+		if (typeof sessionStorage === 'undefined' || !selectedOutputID) return;
+		try {
+			sessionStorage.setItem(workspaceContextStorageKey, JSON.stringify({
+				selectedOutputID: selectedOutputID,
+				openSection: openOutputSections[selectedOutputID] === undefined ? 'routing' : openOutputSections[selectedOutputID]
+			}));
+		} catch (error) {}
+	}
+
+	restoreWorkspaceContext();
 
 	$(document).on('general', function(event, data) {
 		if (data.header === 'activatedExtension' && data.content.extension === 'signal-flow') {
@@ -168,8 +194,32 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 			$('#signal-flow-tab-' + item).attr('aria-selected', item === workspace);
 			$('#signal-flow-view-' + item).toggleClass('hidden', item !== workspace);
 		});
-		if (workspace === 'measurements') renderMeasurements();
-		if (workspace === 'review') renderDesignReview();
+	}
+
+	function captureMeasurementFormDraft() {
+		var detail = document.getElementById('signal-flow-measurement-detail');
+		if (currentWorkspace !== 'measurements' || !detail || !detail.contains(document.activeElement)) return null;
+		var measurementID = detail.getAttribute('data-measurement-id');
+		if (!measurementID || !document.getElementById('signal-flow-measurement-name')) return null;
+		return {
+			measurementID: measurementID,
+			name: $('#signal-flow-measurement-name').val(),
+			description: $('#signal-flow-measurement-notes').val(),
+			type: $('#signal-flow-measurement-type').val(),
+			outputID: $('#signal-flow-measurement-output').val(),
+			timingKind: $('#signal-flow-measurement-timing-kind').val(),
+			timingGroup: $('#signal-flow-measurement-timing-group').val()
+		};
+	}
+
+	function restoreMeasurementFormDraft(draft, measurementID) {
+		if (!draft || draft.measurementID !== measurementID) return;
+		$('#signal-flow-measurement-name').val(draft.name);
+		$('#signal-flow-measurement-notes').val(draft.description);
+		$('#signal-flow-measurement-type').val(draft.type);
+		$('#signal-flow-measurement-output').val(draft.outputID);
+		$('#signal-flow-measurement-timing-kind').val(draft.timingKind);
+		$('#signal-flow-measurement-timing-group').val(draft.timingGroup);
 	}
 
 	function selectOutput(outputID, section) {
@@ -177,11 +227,14 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 		selectedOutputID = outputID;
 		if (section) openOutputSections[outputID] = section;
 		currentWorkspace = 'design';
+		persistWorkspaceContext();
 		render('signal-flow-output-select-' + outputID);
 	}
 
 	function toggleOutputSection(outputID, section) {
 		openOutputSections[outputID] = openOutputSections[outputID] === section ? null : section;
+		selectedOutputID = outputID;
+		persistWorkspaceContext();
 		render('signal-flow-section-' + section + '-' + outputID);
 	}
 
@@ -798,6 +851,7 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 
 	function render(preferredFocusId) {
 		var activeControlId = preferredFocusId || (document.activeElement && document.activeElement.id);
+		var measurementFormDraft = captureMeasurementFormDraft();
 		if (state.loading || !state.draft) {
 			$('#signal-flow-runtime-status').text('Loading routing design…');
 			return;
@@ -870,8 +924,8 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 		var issues = state.validation.errors.concat(state.validation.warnings);
 		$('#signal-flow-validation').html(issues.length ? '<ul class="signal-flow-issues">' + issues.map(function(issue) {
 			return '<li class="signal-flow-' + issue.level + '">' + escapeHTML(issue.message) + '</li>';
-		}).join('') + '</ul>' : '<p>No routing-model issues found.</p>');
-		renderMeasurements();
+		}).join('') + '</ul>' : '<p>No design issues found.</p>');
+		renderMeasurements(measurementFormDraft);
 		renderMeasurementMerge();
 		renderDesignReview();
 		showWorkspace(currentWorkspace);
@@ -900,26 +954,30 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 		}
 	}
 
-	function renderMeasurements() {
+	function renderMeasurements(formDraft) {
 		var measurements = state.draft.measurements ? state.draft.measurements.measurements : [];
 		$('#signal-flow-measurement-empty').toggleClass('hidden', measurements.length > 0 || !!measurementPreview);
 		if (selectedMeasurementId && !measurements.some(function(item) { return item.id === selectedMeasurementId; })) selectedMeasurementId = null;
 		var selected = measurements.find(function(item) { return item.id === selectedMeasurementId; }) || measurements[0];
 		if (selected) selectedMeasurementId = selected.id;
+		$('#signal-flow-measurement-detail').attr('aria-busy', selected && measurementOverlay && measurementOverlay.measurementId === selected.id ? 'false' : 'true');
 		$('#signal-flow-measurement-preview').html(measurementPreview ? '<p><strong>Detected ' + escapeHTML(measurementPreview.detectedFormat) + '</strong> · ' + escapeHTML(measurementPreview.confidence) + ' confidence</p><p>' + measurementPreview.recognizedColumns.map(escapeHTML).join(', ') + ' · ' + measurementPreview.summary.pointCount + ' points · ' + measurementPreview.summary.minimumFrequencyHz + '–' + measurementPreview.summary.maximumFrequencyHz + ' Hz · Phase ' + (measurementPreview.summary.phaseAvailable ? 'available' : 'not available') + '</p>' + measurementPreview.warnings.map(function(item) { return '<p class="signal-flow-warning">' + escapeHTML(item.message) + '</p>'; }).join('') + '<button type="button" class="button pill black" onclick="signalFlow.confirmMeasurementImport();">Confirm import</button>' : '');
 		$('#signal-flow-measurement-list').html(measurements.length ? measurements.map(function(item) {
 			return '<button type="button" role="option" aria-selected="' + (selected && item.id === selected.id) + '" class="signal-flow-measurement-item' + (selected && item.id === selected.id ? ' selected' : '') + '" onclick="signalFlow.selectMeasurement(\'' + item.id + '\');"><strong>' + escapeHTML(item.name) + '</strong><span>' + (item.sourceFormat === 'derived-merge' ? 'Derived response' : escapeHTML(item.type)) + ' · ' + item.points.length + ' points · ' + item.points[0].frequencyHz + '–' + item.points[item.points.length - 1].frequencyHz + ' Hz · Phase ' + (item.units.phase ? 'available' : 'not available') + '</span></button>';
 		}).join('') : '<p>No imported measurements.</p>');
-		if (!selected) { $('#signal-flow-measurement-detail').empty(); return; }
+		if (!selected) { $('#signal-flow-measurement-detail').attr('aria-busy', 'false').removeAttr('data-measurement-id').empty(); return; }
+		$('#signal-flow-measurement-detail').attr('data-measurement-id', selected.id);
 		var outputOptions = option('', 'Unassigned', selected.assignedOutputId || '') + state.draft.outputs.map(function(output) { return option(output.id, output.label + ' · ' + roleLabels[output.role], selected.assignedOutputId || ''); }).join('');
 		var typeOptions = state.capabilities.measurements.types.map(function(type) { return option(type, type.replace(/-/g, ' '), selected.type); }).join('');
 		var graph = measurementGraph(selected);
 		var timing = selected.conditions && selected.conditions.timingReference ? selected.conditions.timingReference : {kind: 'unknown', group: null};
 		var timingOptions = option('unknown', 'Unknown / unavailable', timing.kind) + option('shared', 'Shared absolute reference', timing.kind) + option('relative', 'Shared relative phase reference', timing.kind) + option('independent', 'Independent reference', timing.kind);
+		var timingFields = '<div class="signal-flow-measurement-fields"><label>Timing reference<select id="signal-flow-measurement-timing-kind" ' + (selected.sourceFormat === 'derived-merge' ? 'disabled' : '') + '>' + timingOptions + '</select></label><label>Reference group<input id="signal-flow-measurement-timing-group" value="' + escapeHTML(timing.group || '') + '" placeholder="Same capture or clock ID" ' + (selected.sourceFormat === 'derived-merge' ? 'disabled' : '') + '></label></div><p>Use the same reference group only when phase measurements share that timing basis. Unknown or independent references cannot support predicted driver alignment.</p>';
 		var staleSources = selected.mergeRecipe ? [{id: selected.mergeRecipe.lowSourceId, hash: selected.mergeRecipe.lowSourceHash, role: 'Nearfield'}, {id: selected.mergeRecipe.highSourceId, hash: selected.mergeRecipe.highSourceHash, role: 'Farfield'}].map(function(reference) { var source = measurements.find(function(item) { return item.id === reference.id; }); return !source || !source.integrity || source.integrity.hash !== reference.hash ? reference.role + ' source ' + (source ? '“' + source.name + '” changed' : 'is missing') : null; }).filter(Boolean) : [];
 		var contextualActions = selected.assignedOutputId ? '<div class="signal-flow-measurement-context-actions" aria-label="Use this measurement"><button type="button" class="button pill outline" onclick="signalFlow.useMeasurementFor(\'crossover\', \'' + selected.assignedOutputId + '\');">Use for Crossover</button><button type="button" class="button pill outline" onclick="signalFlow.useMeasurementFor(\'alignment\', \'' + selected.assignedOutputId + '\');">Use for Driver alignment</button><button type="button" class="button pill outline" onclick="signalFlow.useMeasurementFor(\'eq\', \'' + selected.assignedOutputId + '\');">Use for Parametric EQ</button></div>' : '';
-		var provenance = '<details class="signal-flow-advanced" ontoggle="this.querySelector(\'summary\').setAttribute(\'aria-expanded\', this.open ? \'true\' : \'false\');"><summary aria-expanded="false">Advanced</summary><div class="signal-flow-measurement-fields"><label>Timing reference<select id="signal-flow-measurement-timing-kind" ' + (selected.sourceFormat === 'derived-merge' ? 'disabled' : '') + '>' + timingOptions + '</select></label><label>Reference group<input id="signal-flow-measurement-timing-group" value="' + escapeHTML(timing.group || '') + '" placeholder="Same capture or clock ID" ' + (selected.sourceFormat === 'derived-merge' ? 'disabled' : '') + '></label></div><p>Use the same explicit reference group only when both phase measurements share that timing basis. Unknown or independent references cannot support predicted complex summation.</p><p>Source: ' + escapeHTML(selected.sourceFilename || (selected.sourceFormat === 'derived-merge' ? 'derived from saved sources' : 'unnamed file')) + ' · ' + escapeHTML(selected.sourceFormat) + ' · Imported/generated ' + escapeHTML(selected.importedAt) + ' · Integrity ' + escapeHTML(selected.integrity.hash.slice(0, 12)) + '</p></details>';
-		$('#signal-flow-measurement-detail').html('<h3>' + escapeHTML(selected.name) + '</h3>' + (selected.sourceFormat === 'derived-merge' ? '<p><strong>Derived response</strong> · Magnitude only · Source observations remain unchanged.</p>' : '') + '<div class="signal-flow-measurement-fields"><label>Name<input id="signal-flow-measurement-name" value="' + escapeHTML(selected.name) + '" ' + (selected.sourceFormat === 'derived-merge' ? 'disabled' : '') + '></label><label>Notes<textarea id="signal-flow-measurement-notes" ' + (selected.sourceFormat === 'derived-merge' ? 'disabled' : '') + '>' + escapeHTML(selected.description) + '</textarea></label><label>Measurement type<select id="signal-flow-measurement-type" ' + (selected.sourceFormat === 'derived-merge' ? 'disabled' : '') + '>' + typeOptions + '</select></label><label>Assigned output<select id="signal-flow-measurement-output">' + outputOptions + '</select></label></div>' + (selected.sourceFormat === 'derived-merge' ? '<button type="button" class="button pill black" onclick="signalFlow.editMeasurementMerge(\'' + selected.id + '\');">Edit merge recipe</button><button type="button" class="button pill outline" onclick="signalFlow.updateMeasurement();">Update assignment</button>' : '<button type="button" class="button pill black" onclick="signalFlow.updateMeasurement();">Update measurement</button>') + '<button type="button" class="button pill outline" onclick="signalFlow.confirmRemoveMeasurement();">Remove measurement</button>' + contextualActions + graph + '<p><strong>' + (selected.sourceFormat === 'derived-merge' ? 'Derived response' : 'Measured response') + '</strong> is shown separately from crossover, EQ and combined electrical processing. This is not an acoustic prediction, calibration claim or automatic correction, and it is not an anechoic claim.</p>' + provenance);
+		var provenance = '<details class="signal-flow-advanced" ontoggle="this.querySelector(\'summary\').setAttribute(\'aria-expanded\', this.open ? \'true\' : \'false\');"><summary aria-expanded="false">Advanced</summary><p>Source: ' + escapeHTML(selected.sourceFilename || (selected.sourceFormat === 'derived-merge' ? 'derived from saved sources' : 'unnamed file')) + ' · ' + escapeHTML(selected.sourceFormat) + ' · Imported/generated ' + escapeHTML(selected.importedAt) + ' · Integrity ' + escapeHTML(selected.integrity.hash.slice(0, 12)) + '</p></details>';
+		$('#signal-flow-measurement-detail').html('<h3>' + escapeHTML(selected.name) + '</h3>' + (selected.sourceFormat === 'derived-merge' ? '<p><strong>Derived response</strong> · Magnitude only · Source observations remain unchanged.</p>' : '') + '<div class="signal-flow-measurement-fields"><label>Name<input id="signal-flow-measurement-name" value="' + escapeHTML(selected.name) + '" ' + (selected.sourceFormat === 'derived-merge' ? 'disabled' : '') + '></label><label>Notes<textarea id="signal-flow-measurement-notes" ' + (selected.sourceFormat === 'derived-merge' ? 'disabled' : '') + '>' + escapeHTML(selected.description) + '</textarea></label><label>Measurement type<select id="signal-flow-measurement-type" ' + (selected.sourceFormat === 'derived-merge' ? 'disabled' : '') + '>' + typeOptions + '</select></label><label>Assigned output<select id="signal-flow-measurement-output">' + outputOptions + '</select></label></div>' + timingFields + (selected.sourceFormat === 'derived-merge' ? '<button type="button" class="button pill black" onclick="signalFlow.editMeasurementMerge(\'' + selected.id + '\');">Edit merge recipe</button><button type="button" class="button pill outline" onclick="signalFlow.updateMeasurement();">Update assignment</button>' : '<button type="button" class="button pill black" onclick="signalFlow.updateMeasurement();">Update measurement</button>') + '<button type="button" class="button pill outline" onclick="signalFlow.confirmRemoveMeasurement();">Remove measurement</button>' + contextualActions + graph + '<p><strong>' + (selected.sourceFormat === 'derived-merge' ? 'Derived response' : 'Measured response') + '</strong> is shown separately from crossover, EQ and combined electrical processing. This is not an acoustic prediction, calibration claim or automatic correction, and it is not an anechoic claim.</p>' + provenance);
+		restoreMeasurementFormDraft(formDraft, selected.id);
 		if (selected.sourceFormat === 'derived-merge') $('#signal-flow-measurement-detail h3').after(staleSources.length ? '<p class="signal-flow-error" role="alert">Stale derived response: ' + escapeHTML(staleSources.join('; ')) + '. Recompute the merge before treating it as current.</p>' : '<p class="signal-flow-status-matched" role="status">Derived response is current for its saved source hashes.</p>');
 	}
 
