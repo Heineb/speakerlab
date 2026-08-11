@@ -1,7 +1,9 @@
 # Repository Hygiene and Master Readiness
 
-Audit date: 2026-08-11  
-Candidate branch: `develop`  
+Audit date: 2026-08-11
+
+Candidate branch: `develop`
+
 Comparison branch: `master`
 
 ## Outcome
