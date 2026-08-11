@@ -16,7 +16,7 @@ The audit, release boundary, dependency assessment, documentation hierarchy, Git
 
 ## Verification
 
-`npm run verify` passes on the final local audit candidate. It validates links across 27 documentation files, passes the complete Node/model/contract suite, checks 247 JavaScript files and passes all 95 real-Chromium journeys in 15.1 minutes. Focused branding and documentation-link tests pass, as do `git diff --check`, repository-local privacy scans and pixel-comparison/render checks for the four changed PDFs.
+`npm run verify` passes on committed audit implementation `46cc136`. It validates links across 27 documentation files, passes the complete Node/model/contract suite, checks 247 JavaScript files and passes all 95 real-Chromium journeys in 15.2 minutes. Focused branding and documentation-link tests pass, as do `git diff --check`, repository-local privacy scans and pixel-comparison/render checks for the four changed PDFs. The following local commit records this result in documentation only.
 
 GitHub Actions run `31487716136` is green on Ubuntu and macOS for published `develop` head `68f141b`. Stop and Validate plus this repository-hygiene candidate are newer local commits and have not been pushed or run in CI.
 

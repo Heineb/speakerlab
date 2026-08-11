@@ -87,7 +87,7 @@ Four PDFs under `Guides/` exposed historical local `/Users/...` authoring paths 
 | 11. Repository-local secret/privacy scan clean | Pass | PDF XMP paths removed; no credential pattern found |
 | 12. Physical DSP safety boundary unchanged | Pass | Physical Apply remains blocked |
 | 13. Focused tests green | Pass | Branding and documentation-link suites pass |
-| 14. Full hardware-free verification green | Pass | `npm run verify`: links across 27 docs, complete Node suite, 247-file syntax check and 95 Chromium journeys in 15.1 minutes |
+| 14. Full hardware-free verification green | Pass | On `46cc136`, `npm run verify`: links across 27 docs, complete Node suite, 247-file syntax check and 95 Chromium journeys in 15.2 minutes |
 | 15. Candidate-head CI green on supported runners | **Fail** | Push/review is user-owned; obtain green Ubuntu and macOS checks for the final head |
 
 Criterion 15 keeps the formal verdict at **NOT READY FOR MASTER** until CI evaluates the exact candidate head.
