@@ -1,15 +1,16 @@
 'use strict';
 
 const {test, expect} = require('./fixtures');
-const {openApplication, completeSetup, openExtension, configureTwoWayStereo} = require('./helpers');
+const {openApplication, completeSetup, openExtension, configureTwoWayStereo, selectOutput, openDesignSection, openWorkspace} = require('./helpers');
 
 async function openEQ(page, speakerlab, viewport) {
   if (viewport) await page.setViewportSize(viewport);
   await openApplication(page, speakerlab);
   await completeSetup(page, 'Other Speaker');
   await openExtension(page, 'signal-flow');
-  await configureTwoWayStereo(page);
-  return page.locator('.signal-flow-output[data-output-id="output-a"]');
+  const card = await configureTwoWayStereo(page);
+  await openDesignSection(card, 'Parametric EQ');
+  return card;
 }
 
 async function addBand(card) {
@@ -35,10 +36,14 @@ test('peaking EQ saves across refresh and restart with a combined electrical pre
 
   await page.reload({waitUntil: 'domcontentloaded'});
   await openExtension(page, 'signal-flow');
+  let restored = await selectOutput(page, 'output-a');
+  await openDesignSection(restored, 'Parametric EQ');
   await expect(page.locator('#signal-flow-eq-output-a-eq-a-1-gain')).toHaveValue('-3');
   await speakerlab.restart('connected');
   await page.reload({waitUntil: 'domcontentloaded'});
   await openExtension(page, 'signal-flow');
+  restored = await selectOutput(page, 'output-a');
+  await openDesignSection(restored, 'Parametric EQ');
   await expect(page.locator('.signal-flow-output[data-output-id="output-a"] .signal-flow-eq-band')).toHaveAttribute('aria-label', /Cone resonance.*enabled/i);
 });
 
@@ -67,8 +72,10 @@ test('shelves, warnings, bypass, duplicate, remove and copy work at narrow width
   await expect(card.locator('.signal-flow-eq-band')).toHaveCount(1);
   await card.locator('#signal-flow-eq-copy-output-a').selectOption('output-c');
   await card.getByRole('button', {name: 'Copy EQ'}).click();
-  await expect(page.locator('.signal-flow-output[data-output-id="output-c"] .signal-flow-eq-band')).toHaveCount(1);
-  await expect(page.locator('.signal-flow-output[data-output-id="output-c"] .signal-flow-eq-band')).toHaveAttribute('aria-label', /Low shelf/);
+  const copied = await selectOutput(page, 'output-c');
+  await openDesignSection(copied, 'Parametric EQ');
+  await expect(copied.locator('.signal-flow-eq-band')).toHaveCount(1);
+  await expect(copied.locator('.signal-flow-eq-band')).toHaveAttribute('aria-label', /Low shelf/);
 });
 
 test('EQ validation, keyboard semantics and simulator-only deployment remain explicit', async function ({monitoredPage: page, speakerlab}) {
@@ -89,7 +96,8 @@ test('EQ validation, keyboard semantics and simulator-only deployment remain exp
   await card.getByLabel('Gain (dB)').fill('-3');
   await card.getByLabel('Gain (dB)').blur();
   for (const outputID of ['output-b', 'output-d']) {
-    const tweeter = page.locator('.signal-flow-output[data-output-id="' + outputID + '"]');
+    const tweeter = await selectOutput(page, outputID);
+    await openDesignSection(tweeter, 'Crossover');
     await tweeter.getByRole('group', {name: 'High-pass'}).getByRole('checkbox').check();
     await tweeter.locator('#signal-flow-highPass-' + outputID + '-family').selectOption('linkwitz-riley');
     await tweeter.locator('#signal-flow-highPass-' + outputID + '-slope').selectOption('24');
@@ -97,6 +105,7 @@ test('EQ validation, keyboard semantics and simulator-only deployment remain exp
     await tweeter.locator('#signal-flow-highPass-' + outputID + '-frequency').blur();
   }
   await page.locator('#signal-flow-save').click();
+  await openWorkspace(page, 'Review');
   await page.locator('#signal-flow-compile').click();
   await expect(page.locator('#signal-flow-deployment-status')).toContainText(/Prepared|physical/i);
   await expect(page.getByRole('button', {name: /physical apply/i})).toHaveCount(0);

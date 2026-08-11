@@ -1,13 +1,14 @@
 'use strict';
 
 const {test, expect} = require('./fixtures');
-const {openApplication, completeSetup, openExtension, configureTwoWayStereo} = require('./helpers');
+const {openApplication, completeSetup, openExtension, configureTwoWayStereo, selectOutput, openDesignSection} = require('./helpers');
 
 async function openProcessingDesign(page, speakerlab) {
   await openApplication(page, speakerlab);
   await completeSetup(page, 'Other Speaker');
   await openExtension(page, 'signal-flow');
-  await configureTwoWayStereo(page);
+  const card = await configureTwoWayStereo(page);
+  await openDesignSection(card, 'Level & timing');
 }
 
 test('gain delay and polarity save across refresh and server restart', async function ({monitoredPage: page, speakerlab}) {
@@ -28,6 +29,7 @@ test('gain delay and polarity save across refresh and server restart', async fun
 
   await page.reload({waitUntil: 'domcontentloaded'});
   await openExtension(page, 'signal-flow');
+  await openDesignSection(await selectOutput(page, 'output-a'), 'Level & timing');
   await expect(page.locator('#signal-flow-gain-output-a')).toHaveValue('-2.5');
   await expect(page.locator('#signal-flow-delay-output-a')).toHaveValue('0.42');
   await expect(page.locator('#signal-flow-polarity-output-a')).toHaveValue('inverted');
@@ -35,6 +37,7 @@ test('gain delay and polarity save across refresh and server restart', async fun
   await speakerlab.restart('connected');
   await page.reload({waitUntil: 'domcontentloaded'});
   await openExtension(page, 'signal-flow');
+  await openDesignSection(await selectOutput(page, 'output-a'), 'Level & timing');
   await expect(page.locator('#signal-flow-gain-output-a')).toHaveValue('-2.5');
   await expect(page.locator('#signal-flow-delay-output-a')).toHaveValue('0.42');
   await expect(page.locator('#signal-flow-polarity-output-a')).toHaveValue('inverted');
@@ -57,8 +60,12 @@ test('unit conversion, validation, warnings, reset and processing copy are visib
 
   await left.locator('#signal-flow-processing-copy-output-a').selectOption('output-c');
   await left.getByRole('button', {name: 'Copy processing'}).click();
-  await expect(page.locator('#signal-flow-gain-output-c')).toHaveValue('2');
-  await expect(page.locator('#signal-flow-polarity-output-c')).toHaveValue('inverted');
+  const right = await selectOutput(page, 'output-c');
+  await openDesignSection(right, 'Level & timing');
+  await expect(right.locator('#signal-flow-gain-output-c')).toHaveValue('2');
+  await expect(right.locator('#signal-flow-polarity-output-c')).toHaveValue('inverted');
+  await selectOutput(page, 'output-a');
+  await openDesignSection(left, 'Level & timing');
 
   await left.locator('#signal-flow-gain-output-a').fill('7');
   await left.locator('#signal-flow-gain-output-a').blur();
@@ -73,7 +80,7 @@ test('unit conversion, validation, warnings, reset and processing copy are visib
 test('processing controls support keyboard editing and semantic inspection', async function ({monitoredPage: page, speakerlab}) {
   await page.setViewportSize({width: 834, height: 1112});
   await openProcessingDesign(page, speakerlab);
-  const gain = page.getByLabel('Gain').first();
+  const gain = page.getByLabel('Level', {exact: true});
   const delay = page.getByLabel('Delay', {exact: true}).first();
   const unit = page.getByLabel('Delay unit for Left woofer');
   const polarity = page.getByLabel('Polarity', {exact: true}).first();

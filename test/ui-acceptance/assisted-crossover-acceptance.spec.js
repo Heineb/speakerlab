@@ -3,7 +3,7 @@
 const crypto = require('crypto');
 const routing = require('../../Beocreate2/beo-extensions/signal-flow/routing-model');
 const {test, expect} = require('./fixtures');
-const {openApplication, completeSetup, openExtension} = require('./helpers');
+const {openApplication, completeSetup, openExtension, openDesignSection} = require('./helpers');
 
 function measurement(id, outputId, role, options) {
   options = options || {};
@@ -51,7 +51,9 @@ async function openDesign(page, speakerlab, configuration) {
   await openApplication(page, speakerlab);
   await completeSetup(page, 'Other Speaker');
   await openExtension(page, 'signal-flow');
-  return page.locator('.signal-flow-output[data-output-id="output-a"]');
+  const card = page.locator('.signal-flow-output[data-output-id="output-a"]');
+  await openDesignSection(card, 'Crossover');
+  return card;
 }
 
 async function openAssistance(card) {

@@ -77,7 +77,7 @@ test('markup provides labelled controls, simulated electrical SVG and narrow sta
   assert.ok(client.includes('type="number"'));
   assert.ok(client.includes('role="img"'));
   assert.ok(client.includes('<svg'));
-  assert.ok(menu.includes('does not deploy to the DSP'));
+  assert.ok(menu.includes('not deployed to the physical DSP'));
   assert.ok(css.includes('.signal-flow-crossover-grid'));
   assert.ok(css.includes('grid-template-columns: 1fr'));
 });

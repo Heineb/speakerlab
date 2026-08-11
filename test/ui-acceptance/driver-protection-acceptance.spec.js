@@ -2,16 +2,17 @@
 
 const fs = require('fs');
 const {test, expect} = require('./fixtures');
-const {openApplication, completeSetup, openExtension, configureOutput} = require('./helpers');
+const {openApplication, completeSetup, openExtension, configureOutput, selectOutput, openDesignSection, openWorkspace} = require('./helpers');
 
 async function openProtection(page, speakerlab, role) {
   await openApplication(page, speakerlab);
   await completeSetup(page, 'Other Speaker');
   await openExtension(page, 'signal-flow');
   await configureOutput(page, 'output-a', {label: role === 'tweeter' ? 'Test tweeter' : 'Test woofer', role: role || 'woofer', side: 'left', source: 'left'});
+  const card = await selectOutput(page, 'output-a');
+  await openDesignSection(card, 'Driver Protection');
   const region = page.locator('#signal-flow-protection-output-a');
-  await region.locator('summary').click();
-  await expect(region).toHaveAttribute('open', '');
+  await ensureProtectionOpen(region);
   return region;
 }
 
@@ -22,8 +23,9 @@ async function setField(region, label, value) {
 }
 
 async function ensureProtectionOpen(region) {
-  if ((await region.getAttribute('open')) === null) await region.locator('summary').click();
-  await expect(region).toHaveAttribute('open', '');
+  const advanced = region.locator('details.signal-flow-advanced');
+  if ((await advanced.getAttribute('open')) === null) await advanced.locator('summary').click();
+  await expect(advanced).toHaveAttribute('open', '');
 }
 
 async function configureProtection(region) {
@@ -56,15 +58,17 @@ test('1 configure driver protection and persist across refresh and restart', asy
   await save(page);
   await page.reload({waitUntil: 'domcontentloaded'});
   await openExtension(page, 'signal-flow');
+  await openDesignSection(await selectOutput(page, 'output-a'), 'Driver Protection');
   region = page.locator('#signal-flow-protection-output-a');
-  await region.locator('summary').click();
+  await ensureProtectionOpen(region);
   await expect(region.getByLabel('Nominal impedance')).toHaveValue('8');
   await expect(region.getByLabel('Safety margin')).toHaveValue('-3');
   await speakerlab.restart('connected');
   await page.reload({waitUntil: 'domcontentloaded'});
   await openExtension(page, 'signal-flow');
+  await openDesignSection(await selectOutput(page, 'output-a'), 'Driver Protection');
   region = page.locator('#signal-flow-protection-output-a');
-  await region.locator('summary').click();
+  await ensureProtectionOpen(region);
   await expect(region.getByLabel('Raw threshold')).toHaveValue('28.2843');
   await expect(region.getByLabel('Release')).toHaveValue('250');
 });
@@ -73,15 +77,17 @@ test('2 EQ and channel gain appear in the conservative headroom summary without 
   const region = await openProtection(page, speakerlab);
   await configureProtection(region);
   const card = page.locator('.signal-flow-output[data-output-id="output-a"]');
+  await openDesignSection(card, 'Parametric EQ');
   await card.getByRole('button', {name: 'Add EQ band'}).click();
   await card.getByLabel('Gain (dB)').fill('8');
   await card.getByLabel('Gain (dB)').blur();
-  await page.locator('#signal-flow-gain-output-a').fill('-1');
-  await page.locator('#signal-flow-gain-output-a').blur();
+  await page.evaluate(function () { signalFlow.updateProcessing('output-a', 'gain', 'valueDb', -1); });
+  await openDesignSection(card, 'Driver Protection');
+  await ensureProtectionOpen(region);
   await expect(region.getByRole('region', {name: 'Calculated electrical limits'})).toContainText(/Channel gain[\s\S]*-1 dB/);
   await expect(region.getByRole('region', {name: 'Calculated electrical limits'})).toContainText(/Maximum positive EQ contribution[\s\S]*7\.99 dB/);
   await expect(region.getByRole('region', {name: 'Driver Protection warnings'})).toContainText(/potential gain and EQ boost/i);
-  await expect(page.locator('#signal-flow-gain-output-a')).toHaveValue('-1');
+  expect(await page.evaluate(function () { return signalFlow.getState().draft.channelProcessing.outputs[0].gain.valueDb; })).toBe(-1);
 });
 
 test('3 amplifier conflict becomes the limiting factor and remains a deliberate warning', async function ({monitoredPage: page, speakerlab}) {
@@ -140,6 +146,7 @@ test('7 backup preview and restore return protection limits without a stale-draf
   await page.locator('#backup-download-button').click();
   const backupPath = await (await pending).path();
   await openExtension(page, 'signal-flow');
+  await openDesignSection(await selectOutput(page, 'output-a'), 'Driver Protection');
   const reopened = page.locator('#signal-flow-protection-output-a');
   await ensureProtectionOpen(reopened);
   await setField(reopened, 'Raw threshold', 32);
@@ -156,6 +163,7 @@ test('7 backup preview and restore return protection limits without a stale-draf
   await speakerlab.restart('connected');
   await page.reload({waitUntil: 'domcontentloaded'});
   await openExtension(page, 'signal-flow');
+  await openDesignSection(await selectOutput(page, 'output-a'), 'Driver Protection');
   const restored = page.locator('#signal-flow-protection-output-a');
   await ensureProtectionOpen(restored);
   await expect(restored.getByLabel('Raw threshold')).toHaveValue('28.2843');
@@ -165,9 +173,11 @@ test('8 deployment preview identifies unsupported mapping and simulator readback
   const region = await openProtection(page, speakerlab);
   await configureProtection(region);
   await save(page);
+  await openWorkspace(page, 'Review');
   await page.locator('#signal-flow-compile').click();
+  await page.locator('#signal-flow-deployment-advanced').getByText('Advanced', {exact: true}).click();
   await expect(page.locator('#signal-flow-mapping-readiness')).toContainText(/Driver-protection|Driver protection/i);
-  await expect(page.locator('#signal-flow-deployment-outputs')).toContainText(/physical mapping unknown/i);
+  await expect(page.locator('#signal-flow-deployment-comparison-detail')).toContainText(/physical mapping unknown/i);
   await expect(page.getByRole('button', {name: /physical apply/i})).toHaveCount(0);
   await page.locator('#signal-flow-simulate-apply').click();
   await page.locator('#signal-flow-simulate-read').click();
@@ -179,7 +189,7 @@ test('8 deployment preview identifies unsupported mapping and simulator readback
   await page.evaluate(function (index) { beo.send({target: 'signal-flow', header: 'setSimulationScenario', content: {scenario: {type: 'mismatch', operationIndex: index, delta: 0.5}}}); }, operationIndex);
   await page.locator('#signal-flow-simulate-read').click();
   await page.locator('#signal-flow-simulate-compare').click();
-  await expect(page.locator('#signal-flow-deployment-outputs')).toContainText('different');
+  await expect(page.locator('#signal-flow-deployment-comparison-detail')).toContainText('different');
 });
 
 test('9 disconnect retains protection draft and reconnect reports a revision conflict', async function ({monitoredPage: page, speakerlab}) {

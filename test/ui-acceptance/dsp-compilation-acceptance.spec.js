@@ -1,7 +1,7 @@
 'use strict';
 
 const {test, expect} = require('./fixtures');
-const {openApplication, completeSetup, openExtension, configureTwoWayStereo} = require('./helpers');
+const {openApplication, completeSetup, openExtension, configureTwoWayStereo, selectOutput, openDesignSection, openWorkspace} = require('./helpers');
 
 async function prepareDesign(page, speakerlab) {
   await openApplication(page, speakerlab);
@@ -9,26 +9,40 @@ async function prepareDesign(page, speakerlab) {
   await openExtension(page, 'signal-flow');
   await configureTwoWayStereo(page);
   for (const output of ['output-a', 'output-c']) {
-    await page.locator('#signal-flow-lowPass-' + output + '-family').selectOption('linkwitz-riley');
-    await page.locator('#signal-flow-lowPass-' + output + '-slope').selectOption('24');
-    await page.locator('.signal-flow-output[data-output-id="' + output + '"] .signal-flow-crossover-filter').nth(1).getByLabel('Enabled').check();
-    await page.locator('#signal-flow-lowPass-' + output + '-frequency').fill('2000');
-    await page.locator('#signal-flow-lowPass-' + output + '-frequency').blur();
+    const card = await selectOutput(page, output);
+    await openDesignSection(card, 'Crossover');
+    await card.locator('#signal-flow-lowPass-' + output + '-family').selectOption('linkwitz-riley');
+    await card.locator('#signal-flow-lowPass-' + output + '-slope').selectOption('24');
+    await card.locator('.signal-flow-crossover-filter').nth(1).getByLabel('Enabled').check();
+    await card.locator('#signal-flow-lowPass-' + output + '-frequency').fill('2000');
+    await card.locator('#signal-flow-lowPass-' + output + '-frequency').blur();
   }
   for (const output of ['output-b', 'output-d']) {
-    await page.locator('#signal-flow-highPass-' + output + '-family').selectOption('linkwitz-riley');
-    await page.locator('#signal-flow-highPass-' + output + '-slope').selectOption('24');
-    await page.locator('.signal-flow-output[data-output-id="' + output + '"] .signal-flow-crossover-filter').first().getByLabel('Enabled').check();
-    await page.locator('#signal-flow-highPass-' + output + '-frequency').fill('2000');
-    await page.locator('#signal-flow-highPass-' + output + '-frequency').blur();
+    const card = await selectOutput(page, output);
+    await openDesignSection(card, 'Crossover');
+    await card.locator('#signal-flow-highPass-' + output + '-family').selectOption('linkwitz-riley');
+    await card.locator('#signal-flow-highPass-' + output + '-slope').selectOption('24');
+    await card.locator('.signal-flow-crossover-filter').first().getByLabel('Enabled').check();
+    await card.locator('#signal-flow-highPass-' + output + '-frequency').fill('2000');
+    await card.locator('#signal-flow-highPass-' + output + '-frequency').blur();
   }
+  let card = await selectOutput(page, 'output-a');
+  await openDesignSection(card, 'Level & timing');
   await page.locator('#signal-flow-gain-output-a').fill('-2.5');
   await page.locator('#signal-flow-gain-output-a').blur();
   await page.locator('#signal-flow-delay-output-a').fill('0.42');
   await page.locator('#signal-flow-delay-output-a').blur();
+  card = await selectOutput(page, 'output-b');
+  await openDesignSection(card, 'Level & timing');
   await page.locator('#signal-flow-polarity-output-b').selectOption('inverted');
   await page.locator('#signal-flow-save').click();
   await expect(page.locator('#signal-flow-message')).toContainText('saved');
+  await openWorkspace(page, 'Review');
+}
+
+async function openDeploymentAdvanced(page) {
+  const details = page.locator('#signal-flow-deployment-advanced');
+  if ((await details.getAttribute('open')) === null) await details.getByText('Advanced', {exact: true}).click();
 }
 
 async function setScenario(page, type) {
@@ -45,22 +59,24 @@ test('complete design compiles into a current-Beocreate preview without physical
   await page.locator('#signal-flow-compile').click();
   await expect(page.locator('#signal-flow-deployment-target')).toContainText('Beocreate Universal v10');
   await expect(page.locator('#signal-flow-deployment-target')).toContainText('48000 Hz');
-  await expect(page.locator('#signal-flow-deployment-status')).toContainText('Prepared only');
-  await expect(page.locator('#signal-flow-deployment-status')).toContainText('Not deployed to physical DSP');
+  await expect(page.locator('#signal-flow-deployment-status')).toContainText('Simulated');
+  await expect(page.locator('#signal-flow-deployment-status')).toContainText('Physical deployment unavailable');
   await expect(page.locator('.signal-flow-deployment-output')).toHaveCount(4);
   await expect(page.locator('#signal-flow-deployment-operations')).toContainText('Technical proposed operations');
 });
 
 test('unsupported positive gain is identified and simulator application is blocked', async function ({monitoredPage: page, speakerlab}) {
   await prepareDesign(page, speakerlab);
+  await openDesignSection(await selectOutput(page, 'output-a'), 'Level & timing');
   await page.locator('#signal-flow-gain-output-a').fill('3');
   await page.locator('#signal-flow-gain-output-a').blur();
   await page.locator('#signal-flow-save').click();
+  await openWorkspace(page, 'Review');
   await page.locator('#signal-flow-compile').click();
   await expect(page.locator('#signal-flow-deployment-issues')).toContainText(/positive gain.*not proven safe/i);
-  await expect(page.locator('#signal-flow-deployment-status')).toContainText('unsupported');
+  await expect(page.locator('#signal-flow-deployment-status')).toContainText('Blocked');
   await expect(page.locator('#signal-flow-simulate-apply')).toBeDisabled();
-  await expect(page.locator('#signal-flow-gain-output-a')).toBeEditable();
+  expect(await page.evaluate(function () { return signalFlow.getState().draft.channelProcessing.outputs[0].gain.valueDb; })).toBe(3);
 });
 
 test('simulator apply, readback, comparison and mismatch remain explicit across refresh', async function ({monitoredPage: page, speakerlab}) {
@@ -71,9 +87,10 @@ test('simulator apply, readback, comparison and mismatch remain explicit across 
   await page.locator('#signal-flow-simulate-read').click();
   await page.locator('#signal-flow-simulate-compare').click();
   await expect(page.locator('#signal-flow-deployment-status')).toContainText('matched');
-  await expect(page.locator('#signal-flow-deployment-status')).toContainText('Not deployed to physical DSP');
+  await expect(page.locator('#signal-flow-deployment-status')).toContainText('Physical deployment unavailable');
   await page.reload({waitUntil: 'domcontentloaded'});
   await openExtension(page, 'signal-flow');
+  await openWorkspace(page, 'Review');
   await expect(page.locator('#signal-flow-deployment-status')).toContainText('matched');
 
   await page.evaluate(function () {
@@ -96,30 +113,33 @@ test('design edits make compilation stale and reconnect never preserves a false 
   await page.locator('#signal-flow-simulate-apply').click();
   await page.locator('#signal-flow-simulate-read').click();
   await page.locator('#signal-flow-simulate-compare').click();
+  await openDesignSection(await selectOutput(page, 'output-a'), 'Level & timing');
   await page.locator('#signal-flow-delay-output-a').fill('1');
   await page.locator('#signal-flow-delay-output-a').blur();
   await expect(page.locator('#signal-flow-deployment-status')).toContainText(/stale/i);
   await expect(page.locator('#signal-flow-simulate-apply')).toBeDisabled();
   await page.locator('#signal-flow-save').click();
+  await openWorkspace(page, 'Review');
   await page.locator('#signal-flow-compile').click();
-  await expect(page.locator('#signal-flow-deployment-status')).toContainText('prepared');
+  await expect(page.locator('#signal-flow-deployment-status')).toContainText('Preview ready');
 
   await speakerlab.stop();
   await expect(page.locator('body')).toHaveClass(/connecting/);
   await expect(page.locator('#signal-flow-deployment-status')).not.toContainText('matched');
   await speakerlab.start('connected');
   await expect(page.locator('body')).not.toHaveClass(/connecting|disconnected/, {timeout: 10000});
-  await expect(page.locator('#signal-flow-deployment-status')).toContainText('Not compiled');
+  await expect(page.locator('#signal-flow-deployment-status')).toContainText('Preview not prepared');
 });
 
 test('deployment preview is responsive, keyboard reachable and semantically labelled', async function ({monitoredPage: page, speakerlab}) {
   await page.setViewportSize({width: 390, height: 844});
   await prepareDesign(page, speakerlab);
-  const compile = page.getByRole('button', {name: 'Compile for current Beocreate DSP'});
+  const compile = page.getByRole('button', {name: 'Preview deployment'});
   await compile.focus();
   await compile.press('Enter');
   await expect(page.getByRole('region', {name: 'Current Beocreate DSP target'})).toContainText('Current Beocreate DSP');
-  await expect(page.getByRole('region', {name: 'Deployment errors and warnings'})).toContainText('Compilation summary');
+  await expect(page.getByRole('region', {name: 'Deployment errors and warnings'})).toContainText('Preview summary');
+  await openDeploymentAdvanced(page);
   await expect(page.getByRole('group', {name: 'Left woofer deployment comparison'})).toContainText('Requested');
   const apply = page.getByRole('button', {name: 'Apply to simulator'});
   const readback = page.getByRole('button', {name: 'Read back from simulator'});
@@ -167,6 +187,7 @@ test('deployment preview is responsive, keyboard reachable and semantically labe
 test('mapping readiness exposes confidence for every major current-Beocreate feature', async function ({monitoredPage: page, speakerlab}) {
   await prepareDesign(page, speakerlab);
   await page.locator('#signal-flow-compile').click();
+  await openDeploymentAdvanced(page);
   const mapping = page.getByRole('region', {name: 'Mapping confidence summary'});
   for (const field of ['Routing', 'Crossover', 'Gain', 'Delay', 'Polarity']) {
     await expect(mapping.getByRole('group', {name: new RegExp(field + ' mapping status', 'i')})).toContainText('Strong evidence');
@@ -179,10 +200,12 @@ test('mapping readiness exposes confidence for every major current-Beocreate fea
 test('unknown safety-critical mapping visibly blocks readiness while design and simulator remain available', async function ({monitoredPage: page, speakerlab}) {
   await prepareDesign(page, speakerlab);
   await page.locator('#signal-flow-compile').click();
+  await openDeploymentAdvanced(page);
   await setScenario(page, 'unknown-mapping');
   await expect(page.getByRole('group', {name: 'routing mapping status'})).toContainText('Unknown');
   await expect(page.getByRole('region', {name: 'Physical transport readiness'})).toContainText('output-a routing: Mapping evidence is unavailable');
   await expect(page.locator('#signal-flow-simulate-apply')).toBeEnabled();
+  await openDesignSection(await selectOutput(page, 'output-a'), 'Level & timing');
   await expect(page.locator('#signal-flow-gain-output-a')).toBeEditable();
   await expect(page.getByRole('button', {name: /physical apply/i})).toHaveCount(0);
 });
@@ -190,6 +213,7 @@ test('unknown safety-critical mapping visibly blocks readiness while design and 
 test('unavailable readback is announced and never presented as matched', async function ({monitoredPage: page, speakerlab}) {
   await prepareDesign(page, speakerlab);
   await page.locator('#signal-flow-compile').click();
+  await openDeploymentAdvanced(page);
   await page.locator('#signal-flow-simulate-apply').click();
   await setScenario(page, 'readback-unavailable');
   await page.locator('#signal-flow-simulate-read').click();
@@ -203,9 +227,10 @@ test('unavailable readback is announced and never presented as matched', async f
 test('program identity mismatch invalidates the preview and asks for recompilation', async function ({monitoredPage: page, speakerlab}) {
   await prepareDesign(page, speakerlab);
   await page.locator('#signal-flow-compile').click();
+  await openDeploymentAdvanced(page);
   await setScenario(page, 'identity-mismatch');
-  await expect(page.locator('#signal-flow-deployment-status')).toContainText('Program identity mismatch');
-  await expect(page.locator('#signal-flow-deployment-status')).toContainText('recompile required');
+  await expect(page.locator('#signal-flow-deployment-status')).toContainText('Program identity changed');
+  await expect(page.locator('#signal-flow-deployment-status')).toContainText('preview again');
   await expect(page.getByRole('region', {name: 'Current Beocreate DSP target'})).toContainText('known-incompatible');
   await expect(page.locator('#signal-flow-simulate-apply')).toBeDisabled();
   await expect(page.getByRole('button', {name: /physical apply/i})).toHaveCount(0);
@@ -214,6 +239,7 @@ test('program identity mismatch invalidates the preview and asks for recompilati
 test('transport timeout malformed response disconnect and stale response never produce false verification', async function ({monitoredPage: page, speakerlab}) {
   await prepareDesign(page, speakerlab);
   await page.locator('#signal-flow-compile').click();
+  await openDeploymentAdvanced(page);
   await page.locator('#signal-flow-simulate-apply').click();
   for (const scenario of ['timeout', 'malformed-response', 'stale-response']) {
     await setScenario(page, scenario);
@@ -232,8 +258,9 @@ test('transport timeout malformed response disconnect and stale response never p
 test('recovery summary explains mute readback rollback unknown state and manual intervention', async function ({monitoredPage: page, speakerlab}) {
   await prepareDesign(page, speakerlab);
   await page.locator('#signal-flow-compile').click();
-  await page.locator('#signal-flow-recovery-details').getByText('Safety and recovery summary').click();
+  await openDeploymentAdvanced(page);
   const recovery = page.getByRole('region', {name: 'Safety and recovery prerequisites'});
+  await expect(recovery).toBeVisible();
   await expect(recovery).toContainText('physical state cannot be confirmed');
   await expect(recovery).toContainText('verification is not physically proven');
   await expect(recovery).toContainText('Rollback capability: not implemented');
@@ -245,13 +272,12 @@ test('readiness summaries remain keyboard reachable and readable at desktop tabl
   await prepareDesign(page, speakerlab);
   await page.locator('#signal-flow-compile').focus();
   await page.locator('#signal-flow-compile').press('Enter');
+  await openDeploymentAdvanced(page);
   for (const viewport of [{width: 1440, height: 1000}, {width: 768, height: 900}, {width: 390, height: 844}]) {
     await page.setViewportSize(viewport);
     await expect(page.getByRole('region', {name: 'Mapping confidence summary'})).toBeVisible();
     await expect(page.getByRole('region', {name: 'Physical transport readiness'})).toBeVisible();
   }
-  await page.locator('#signal-flow-recovery-details').getByText('Safety and recovery summary').focus();
-  await page.keyboard.press('Enter');
   await expect(page.getByRole('region', {name: 'Safety and recovery prerequisites'})).toBeVisible();
   await expect(page.getByRole('button', {name: /physical apply/i})).toHaveCount(0);
 });
@@ -260,11 +286,10 @@ test('read-only evidence provenance remains accessible without implying physical
   await openApplication(page, speakerlab);
   await completeSetup(page, 'Other Speaker');
   await openExtension(page, 'signal-flow');
-  const summary = page.getByText('Read-only evidence summary', {exact: true});
-  await summary.focus();
-  await expect(summary).toBeFocused();
-  await summary.press('Enter');
+  await openWorkspace(page, 'Review');
+  await openDeploymentAdvanced(page);
   const provenance = page.getByRole('region', {name: 'Read-only hardware evidence provenance'});
+  await expect(provenance).toBeVisible();
   await expect(provenance).toContainText('accepted-repository-evidence');
   await expect(provenance).toContainText('Repository-backed; no physical capture performed');
   await expect(provenance).toContainText('physical values and tolerances unverified');

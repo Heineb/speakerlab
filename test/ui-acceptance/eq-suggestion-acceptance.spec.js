@@ -2,7 +2,7 @@
 
 const path = require('path');
 const {test, expect} = require('./fixtures');
-const {openApplication, completeSetup, openExtension, configureOutput} = require('./helpers');
+const {openApplication, completeSetup, openExtension, configureOutput, openWorkspace, selectOutput, openDesignSection} = require('./helpers');
 
 const fixtureRoot = path.join(__dirname, '..', 'fixtures');
 
@@ -11,10 +11,13 @@ async function openOutput(page, speakerlab, role) {
   await completeSetup(page, 'Other Speaker');
   await openExtension(page, 'signal-flow');
   await configureOutput(page, 'output-a', {label: role === 'tweeter' ? 'Reference tweeter' : 'Reference woofer', role: role || 'woofer', side: 'left', source: 'left'});
-  return page.locator('.signal-flow-output[data-output-id="output-a"]');
+  const card = await selectOutput(page, 'output-a');
+  await openDesignSection(card, 'Parametric EQ');
+  return card;
 }
 
 async function importMeasurement(page, filename, type) {
+  await openWorkspace(page, 'Measurements');
   await page.locator('#signal-flow-measurement-file').setInputFiles(path.join(fixtureRoot, filename));
   await expect(page.locator('#signal-flow-measurement-preview')).toContainText(/Detected frd/i);
   await page.getByRole('button', {name: 'Confirm import'}).click();
@@ -23,6 +26,9 @@ async function importMeasurement(page, filename, type) {
   await page.locator('#signal-flow-measurement-output').selectOption('output-a');
   await page.getByRole('button', {name: 'Update measurement'}).click();
   await expect(page.locator('#signal-flow-message')).toContainText(/Measurement updated/i);
+  await selectOutput(page, 'output-a');
+  const card = page.locator('.signal-flow-output[data-output-id="output-a"]');
+  await openDesignSection(card, 'Parametric EQ');
 }
 
 async function openSuggestions(card) {
@@ -63,6 +69,7 @@ test('1 basic assisted EQ suggestions become normal editable bands only after re
   await expect(page.locator('#signal-flow-message')).toContainText('saved');
   await page.reload({waitUntil: 'domcontentloaded'});
   await openExtension(page, 'signal-flow');
+  await openDesignSection(await selectOutput(page, 'output-a'), 'Parametric EQ');
   await expect(page.locator('.signal-flow-output[data-output-id="output-a"] .signal-flow-eq-band')).toHaveCount(2);
 });
 
@@ -120,20 +127,22 @@ test('5 positive correction reports headroom and protection concern without chan
     signalFlow.updateProtection('output-a', 'limiter', 'enabled', true, false);
     signalFlow.updateProtection('output-a', 'limiter', 'thresholdPeakVoltage', 20, false);
   });
-  const gainBefore = await page.locator('#signal-flow-gain-output-a').inputValue();
+  const gainBefore = await page.evaluate(function () { return signalFlow.getState().draft.channelProcessing.outputs[0].gain.valueDb; });
   const region = await openSuggestions(card);
   const results = await generate(region, 'flat');
   await expect(results).toContainText(/voltage demand|headroom/i);
   await expect(results).toContainText(/configured electrical protection limit/i);
-  expect(await page.locator('#signal-flow-gain-output-a').inputValue()).toBe(gainBefore);
+  expect(await page.evaluate(function () { return signalFlow.getState().draft.channelProcessing.outputs[0].gain.valueDb; })).toBe(gainBefore);
 });
 
 test('6 crossover-aware range excludes irrelevant corrections outside woofer operation', async function ({monitoredPage: page, speakerlab}) {
   const card = await openOutput(page, speakerlab, 'woofer');
   await importMeasurement(page, 'measurement-eq-suggestions.frd', 'farfield');
+  await openDesignSection(card, 'Crossover');
   await card.getByRole('group', {name: 'Low-pass'}).getByRole('checkbox').check();
   await card.locator('#signal-flow-lowPass-output-a-frequency').fill('2000');
   await card.locator('#signal-flow-lowPass-output-a-frequency').blur();
+  await openDesignSection(card, 'Parametric EQ');
   const region = await openSuggestions(card);
   const results = await generate(region, 'flat');
   await expect(results).toContainText(/Active range .*1818/i);
@@ -145,6 +154,7 @@ test('7 stale merged source is blocked and becomes eligible after source hashes 
   const card = await openOutput(page, speakerlab, 'woofer');
   await importMeasurement(page, 'measurement-nearfield.frd', 'nearfield');
   await importMeasurement(page, 'measurement-farfield.frd', 'farfield');
+  await openWorkspace(page, 'Measurements');
   await page.getByRole('button', {name: 'Merge measurements'}).click();
   const lowValue = await page.locator('#signal-flow-merge-low option', {hasText: 'measurement-nearfield.frd'}).getAttribute('value');
   const highValue = await page.locator('#signal-flow-merge-high option', {hasText: 'measurement-farfield.frd'}).getAttribute('value');
@@ -156,13 +166,25 @@ test('7 stale merged source is blocked and becomes eligible after source hashes 
   await expect(page.locator('#signal-flow-measurement-merge-preview')).toContainText(/Merge review.*Derived merged response/i);
   await expect(page.getByRole('button', {name: 'Save merged response to draft'})).toBeEnabled();
   await page.getByRole('button', {name: 'Save merged response to draft'}).click();
+  await page.evaluate(function () {
+    window.__eqSuggestionAssignmentResponse = null;
+    $(document).on('signal-flow.eq-suggestion-assignment-test', function (event, data) {
+      if (data.header === 'measurementDraft' && data.content.action === 'update') window.__eqSuggestionAssignmentResponse = data.content;
+    });
+  });
   await page.locator('#signal-flow-measurement-output').selectOption('output-a');
+  await expect(page.locator('#signal-flow-measurement-output')).toHaveValue('output-a');
   await page.getByRole('button', {name: 'Update assignment'}).click();
-  await expect(page.locator('#signal-flow-message')).toContainText(/Measurement updated/i);
+  await page.waitForFunction(function () { return window.__eqSuggestionAssignmentResponse !== null; });
+  expect(await page.evaluate(function () {
+    return window.__eqSuggestionAssignmentResponse.configuration.measurements.measurements.find(function (item) { return item.sourceFormat === 'derived-merge'; }).assignedOutputId;
+  })).toBe('output-a');
   await page.evaluate(function () {
     var derived = signalFlow.getState().draft.measurements.measurements.find(function (item) { return item.sourceFormat === 'derived-merge'; });
     derived.mergeRecipe.lowSourceHash = 'stale-source-hash';
   });
+  await selectOutput(page, 'output-a');
+  await openDesignSection(card, 'Parametric EQ');
   let region = await openSuggestions(card);
   await expect(region).toContainText(/Recompute the stale merged response/i);
   await page.evaluate(function () {

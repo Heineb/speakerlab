@@ -50,10 +50,11 @@ test('uses labelled native controls, textual units, progressive disclosure and r
   const menu = fs.readFileSync(path.join(directory, 'menu.html'), 'utf8');
   const css = fs.readFileSync(path.join(directory, 'signal-flow.css'), 'utf8');
   ['Driver Protection', 'Nominal impedance', 'Continuous power rating', 'V RMS', 'V peak', 'Safety margin', 'Attack', 'Release', 'Calculated limits', 'Limiter simulator summary', 'No physical Apply action'].forEach(function (text) { assert.ok(client.includes(text), text); });
-  assert.ok(client.includes('<details class="signal-flow-protection"'));
+  assert.ok(client.includes('<section class="signal-flow-protection"'));
+  assert.ok(client.includes('<details class="signal-flow-advanced"'));
   assert.ok(client.includes('aria-label="Driver Protection for'));
   assert.ok(client.includes('aria-live="polite"'));
-  assert.ok(menu.includes('does not deploy to the DSP'));
+  assert.ok(menu.includes('not deployed to the physical DSP'));
   assert.ok(css.includes('.signal-flow-protection-grid'));
   assert.ok(css.includes('@media (max-width: 620px)'));
 });

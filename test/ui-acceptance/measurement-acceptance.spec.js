@@ -1,11 +1,12 @@
 const {test, expect} = require('./fixtures');
 const path = require('path');
-const {openApplication, completeSetup, openExtension} = require('./helpers');
+const {openApplication, completeSetup, openExtension, openWorkspace} = require('./helpers');
 
 async function openMeasurements(page, speakerlab) {
   await openApplication(page, speakerlab);
   await completeSetup(page, 'Other Speaker');
   await openExtension(page, 'signal-flow');
+  await openWorkspace(page, 'Measurements');
 }
 
 test('imports REW, associates metadata, persists, and remains accessible on narrow screens', async function({monitoredPage: page, speakerlab}) {
@@ -27,6 +28,7 @@ test('imports REW, associates metadata, persists, and remains accessible on narr
   await expect(page.locator('#signal-flow-message')).toContainText(/saved/i);
   await page.reload();
   await openExtension(page, 'signal-flow');
+  await openWorkspace(page, 'Measurements');
   await expect(page.getByRole('option', {name: /Woofer gated/})).toBeVisible();
   await expect(page.getByText(/not an acoustic prediction/i)).toBeVisible();
 });

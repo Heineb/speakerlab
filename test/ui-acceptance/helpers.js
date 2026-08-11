@@ -46,15 +46,37 @@ async function waitForNavigation(page) {
 }
 
 async function configureOutput(page, output, values) {
+  await selectOutput(page, output);
   const card = page.locator('.signal-flow-output[data-output-id="' + output + '"]');
   await expect(card).toBeVisible();
-  const enabled = card.locator('.signal-flow-output-header input[type="checkbox"]');
+  await openDesignSection(card, 'Output & routing');
+  const enabled = card.locator('#signal-flow-enabled-' + output);
   if (!(await enabled.isChecked())) await enabled.check();
   await card.locator('#signal-flow-label-' + output).fill(values.label);
   await card.locator('#signal-flow-label-' + output).blur();
   await card.locator('#signal-flow-role-' + output).selectOption(values.role);
   await card.locator('#signal-flow-side-' + output).selectOption(values.side);
   await card.locator('#signal-flow-source-' + output).selectOption(values.source);
+}
+
+async function selectOutput(page, output) {
+  await openWorkspace(page, 'Design');
+  const selector = page.locator('#signal-flow-output-select-' + output);
+  await expect(selector).toBeVisible();
+  if ((await selector.getAttribute('aria-selected')) !== 'true') await selector.click();
+  return page.locator('.signal-flow-output[data-output-id="' + output + '"]');
+}
+
+async function openDesignSection(card, name) {
+  const button = card.getByRole('button', {name: new RegExp('^' + name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))}).first();
+  await expect(button).toBeVisible();
+  if ((await button.getAttribute('aria-expanded')) !== 'true') await button.click();
+}
+
+async function openWorkspace(page, name) {
+  const tab = page.getByRole('tab', {name: name, exact: true});
+  await expect(tab).toBeVisible();
+  if ((await tab.getAttribute('aria-selected')) !== 'true') await tab.click();
 }
 
 async function configureTwoWayStereo(page) {
@@ -67,12 +89,16 @@ async function configureTwoWayStereo(page) {
   for (const output of Object.keys(values)) {
     await configureOutput(page, output, values[output]);
   }
+  return selectOutput(page, 'output-a');
 }
 
 module.exports = {
   openApplication,
   completeSetup,
   openExtension,
+  openWorkspace,
+  selectOutput,
+  openDesignSection,
   configureOutput,
   configureTwoWayStereo
 };

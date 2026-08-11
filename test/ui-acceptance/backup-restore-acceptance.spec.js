@@ -6,6 +6,8 @@ const {
   openApplication,
   completeSetup,
   openExtension,
+  selectOutput,
+  openDesignSection,
   configureTwoWayStereo
 } = require('./helpers');
 
@@ -28,6 +30,7 @@ test('configuration backup downloads, previews and restores through the real UI'
   await completeSetup(page, 'Other Speaker');
   await openExtension(page, 'signal-flow');
   await configureTwoWayStereo(page);
+  await openDesignSection(await selectOutput(page, 'output-a'), 'Level & timing');
   await page.locator('#signal-flow-gain-output-a').fill('-2.5');
   await page.locator('#signal-flow-gain-output-a').blur();
   await page.locator('#signal-flow-delay-output-a').fill('0.42');
@@ -40,8 +43,11 @@ test('configuration backup downloads, previews and restores through the real UI'
   expect(fs.statSync(backupPath).size).toBeGreaterThan(0);
 
   await openExtension(page, 'signal-flow');
+  let output = await selectOutput(page, 'output-a');
+  await openDesignSection(output, 'Output & routing');
   await page.locator('#signal-flow-label-output-a').fill('Changed after backup');
   await page.locator('#signal-flow-label-output-a').blur();
+  await openDesignSection(output, 'Level & timing');
   await page.locator('#signal-flow-gain-output-a').fill('-6');
   await page.locator('#signal-flow-gain-output-a').blur();
   await page.locator('#signal-flow-delay-output-a').fill('1.25');
@@ -59,7 +65,10 @@ test('configuration backup downloads, previews and restores through the real UI'
   await speakerlab.restart('connected');
   await page.reload({waitUntil: 'domcontentloaded'});
   await openExtension(page, 'signal-flow');
+  output = await selectOutput(page, 'output-a');
+  await openDesignSection(output, 'Output & routing');
   await expect(page.locator('#signal-flow-label-output-a')).toHaveValue('Left woofer');
+  await openDesignSection(output, 'Level & timing');
   await expect(page.locator('#signal-flow-gain-output-a')).toHaveValue('-2.5');
   await expect(page.locator('#signal-flow-delay-output-a')).toHaveValue('0.42');
   await expect(page.locator('#signal-flow-polarity-output-a')).toHaveValue('inverted');

@@ -3,11 +3,11 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const {test, expect} = require('./fixtures');
-const {openApplication, completeSetup, openExtension} = require('./helpers');
+const {openApplication, completeSetup, openExtension, openWorkspace} = require('./helpers');
 
 async function openMeasurements(page, speakerlab, viewport) {
   if (viewport) await page.setViewportSize(viewport);
-  await openApplication(page, speakerlab); await completeSetup(page, 'Other Speaker'); await openExtension(page, 'signal-flow');
+  await openApplication(page, speakerlab); await completeSetup(page, 'Other Speaker'); await openExtension(page, 'signal-flow'); await openWorkspace(page, 'Measurements');
 }
 async function importMeasurement(page, filename, name, type) {
   await page.locator('#signal-flow-measurement-file').setInputFiles(path.join(__dirname, '../fixtures', filename));
@@ -59,7 +59,7 @@ test('creates, persists and edits a derived nearfield/farfield merge without cha
   await expect(workflow.locator('#signal-flow-measurement-merge-preview p', {hasText: 'Suggested level offset'})).toContainText('6');
   await expect(workflow.getByRole('img', {name: /merged magnitude preview/i})).toBeVisible();
   await workflow.getByRole('button', {name: 'Save merged response to draft'}).click();
-  await expect(page.locator('#signal-flow-measurement-list').getByRole('option', {name: /Woofer merged reference.*Derived merged response/})).toBeVisible();
+  await expect(page.locator('#signal-flow-measurement-list').getByRole('option', {name: /Woofer merged reference.*Derived response/})).toBeVisible();
   await page.locator('#signal-flow-measurement-output').selectOption('output-a');
   await page.getByRole('button', {name: 'Update assignment'}).click();
   await expect(page.locator('#signal-flow-measurement-detail .signal-flow-electrical-response-line')).toHaveCount(3);
@@ -70,9 +70,9 @@ test('creates, persists and edits a derived nearfield/farfield merge without cha
   await expect(page.locator('#signal-flow-message')).toContainText(/saved/i);
   const sourceSnapshot = JSON.stringify(JSON.parse(fs.readFileSync(speakerlab.statePath('signal-flow.json'), 'utf8')).measurements.measurements.filter(function(item) { return item.sourceFormat !== 'derived-merge'; }));
   const backupPath = await downloadBackup(page);
-  await page.reload(); await openExtension(page, 'signal-flow');
-  await expect(page.locator('#signal-flow-measurement-list').getByRole('option', {name: /Woofer merged reference.*Derived merged response/})).toBeVisible();
-  await speakerlab.restart('connected'); await page.reload(); await openExtension(page, 'signal-flow');
+  await page.reload(); await openExtension(page, 'signal-flow'); await openWorkspace(page, 'Measurements');
+  await expect(page.locator('#signal-flow-measurement-list').getByRole('option', {name: /Woofer merged reference.*Derived response/})).toBeVisible();
+  await speakerlab.restart('connected'); await page.reload(); await openExtension(page, 'signal-flow'); await openWorkspace(page, 'Measurements');
   await page.locator('#signal-flow-measurement-list').getByRole('option', {name: /Woofer merged reference/}).click();
   await expect(page.locator('#signal-flow-measurement-detail').getByRole('status')).toContainText(/current for its saved source hashes/);
   await page.getByRole('button', {name: 'Edit merge recipe'}).click();
@@ -91,7 +91,7 @@ test('creates, persists and edits a derived nearfield/farfield merge without cha
   await expect(page.locator('#configuration-backup-changes')).not.toHaveText('0 changes');
   await page.locator('#configuration-restore-confirm').click();
   await expect(page.locator('#configuration-restore-title')).toHaveText('Configuration restored');
-  await speakerlab.restart('connected'); await page.reload(); await openExtension(page, 'signal-flow');
+  await speakerlab.restart('connected'); await page.reload(); await openExtension(page, 'signal-flow'); await openWorkspace(page, 'Measurements');
   await page.locator('#signal-flow-measurement-list').getByRole('option', {name: /Woofer merged reference/}).click();
   await page.getByRole('button', {name: 'Edit merge recipe'}).click();
   await expect(page.getByLabel('Level alignment')).toHaveValue('6');
@@ -107,8 +107,8 @@ test('keeps magnitude-only phase policy and blocks removal of a depended-on sour
   await expect(workflow.getByText(/does not correct baffle step/)).toBeVisible();
   await workflow.getByRole('button', {name: 'Save merged response to draft'}).click();
   await page.locator('#signal-flow-measurement-list').getByRole('option', {name: /Woofer nearfield/}).click();
-  await page.getByRole('button', {name: 'Remove', exact: true}).click();
-  await page.getByRole('button', {name: 'Remove measurement'}).click();
+  await page.getByRole('button', {name: 'Remove measurement'}).first().click();
+  await page.locator('#signal-flow-measurement-remove').getByRole('button', {name: 'Remove measurement'}).click();
   await expect(page.locator('#signal-flow-message')).toContainText(/dependent merged response/i);
   await expect(page.locator('#signal-flow-measurement-list').getByRole('option', {name: /Woofer nearfield/})).toBeVisible();
 });
@@ -120,7 +120,7 @@ test('exposes validation, warnings and native controls at narrow width', async f
   await expect(workflow.getByText(/narrower than one octave/)).toBeVisible();
   await expect(workflow.getByRole('button', {name: 'Save merged response to draft'})).toBeEnabled();
   await workflow.getByRole('button', {name: 'Save merged response to draft'}).click();
-  await expect(page.locator('#signal-flow-measurement-list').getByRole('option', {name: /Unreliable preview.*Derived merged response/})).toBeVisible();
+  await expect(page.locator('#signal-flow-measurement-list').getByRole('option', {name: /Unreliable preview.*Derived response/})).toBeVisible();
   const warningCodes = await page.evaluate(function() { return signalFlow.getState().draft.measurements.measurements.find(function(item) { return item.sourceFormat === 'derived-merge'; }).validation.warnings.map(function(item) { return item.code; }); });
   expect(warningCodes).toEqual(expect.arrayContaining(['NARROW_OVERLAP', 'LARGE_ALIGNMENT_OFFSET']));
   await page.getByRole('button', {name: 'Edit merge recipe'}).click();
@@ -152,7 +152,7 @@ test('announces a changed source by name and recomputes the stale derived respon
   low.points[0].magnitudeDb += 1;
   low.integrity.hash = crypto.createHash('sha256').update(JSON.stringify(low.points)).digest('hex');
   fs.writeFileSync(statePath, JSON.stringify(state));
-  await speakerlab.start('connected'); await page.reload({waitUntil: 'domcontentloaded'}); await openExtension(page, 'signal-flow');
+  await speakerlab.start('connected'); await page.reload({waitUntil: 'domcontentloaded'}); await openExtension(page, 'signal-flow'); await openWorkspace(page, 'Measurements');
   await page.locator('#signal-flow-measurement-list').getByRole('option', {name: /Woofer merged reference/}).click();
   await expect(page.locator('#signal-flow-measurement-detail').getByRole('alert')).toContainText(/Nearfield source.*Woofer nearfield.*changed/);
   await expect(page.locator('#signal-flow-measurement-detail').getByRole('status')).toHaveCount(0);
@@ -180,7 +180,7 @@ test('supports a keyboard-only merge preview with semantic status', async functi
   await expect(workflow.getByRole('img', {name: /derived phase unavailable/i})).toBeVisible();
   await expect(workflow.getByRole('status')).toContainText(/Selected sources.*phase unavailable.*Chosen level offset.*Transition/s);
   const save = workflow.getByRole('button', {name: 'Save merged response to draft'}); await save.focus(); await page.keyboard.press('Enter');
-  const derived = page.locator('#signal-flow-measurement-list').getByRole('option', {name: /Merged response.*Derived merged response/}); await expect(derived).toBeVisible(); await derived.focus(); await page.keyboard.press('Enter');
+  const derived = page.locator('#signal-flow-measurement-list').getByRole('option', {name: /Merged response.*Derived response/}); await expect(derived).toBeVisible(); await derived.focus(); await page.keyboard.press('Enter');
   const edit = page.getByRole('button', {name: 'Edit merge recipe'}); await edit.focus(); await page.keyboard.press('Enter');
   await expect(page.getByRole('region', {name: 'Merge Measurements'})).toBeVisible(); await expect(page.getByLabel('Transition width')).toHaveValue('1');
 });

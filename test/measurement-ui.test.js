@@ -4,8 +4,8 @@ const assert = require('assert'); const fs = require('fs'); const path = require
 const menu = fs.readFileSync(path.join(__dirname, '../Beocreate2/beo-extensions/signal-flow/menu.html'), 'utf8');
 const client = fs.readFileSync(path.join(__dirname, '../Beocreate2/beo-extensions/signal-flow/signal-flow-client.js'), 'utf8');
 [
-  'aria-labelledby="signal-flow-measurements-title"', 'label for="signal-flow-measurement-file"', 'role="listbox"',
-  'aria-live="polite"', 'Source data is preserved', 'not used for automatic correction'
+  'aria-labelledby="signal-flow-measurements-title"', 'for="signal-flow-measurement-file"', 'role="listbox"',
+  'aria-live="polite"', 'Source data is preserved', 'assistance remains optional and explicit'
 ].forEach(function(text) { assert.ok(menu.includes(text), 'missing semantic UI contract: ' + text); });
 [
   'previewMeasurement', 'measurementDraft', 'measurementOverlay', 'Measured response', 'Combined electrical processing response',

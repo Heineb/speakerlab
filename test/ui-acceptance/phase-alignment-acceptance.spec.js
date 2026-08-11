@@ -3,7 +3,7 @@
 const crypto = require('crypto');
 const routing = require('../../Beocreate2/beo-extensions/signal-flow/routing-model');
 const {test, expect} = require('./fixtures');
-const {openApplication, completeSetup, openExtension} = require('./helpers');
+const {openApplication, completeSetup, openExtension, openWorkspace, openDesignSection} = require('./helpers');
 
 function measurement(id, outputId, delayMs, options) {
   options = options || {};
@@ -55,7 +55,9 @@ async function openDesign(page, speakerlab, configuration) {
   await openApplication(page, speakerlab);
   await completeSetup(page, 'Other Speaker');
   await openExtension(page, 'signal-flow');
-  return page.locator('.signal-flow-output[data-output-id="output-a"]');
+  const card = page.locator('.signal-flow-output[data-output-id="output-a"]');
+  await openDesignSection(card, 'Crossover');
+  return card;
 }
 
 async function openAlignment(card) {
@@ -104,6 +106,7 @@ test('3 incompatible timing references block alignment without fabricated delay'
   await expect(region).toContainText(/do not share the same timing-reference|compatible timing-reference/i);
   await expect(region.getByRole('button', {name: 'Analyse alignment'})).toBeDisabled();
   await expect(region).not.toContainText('resulting delay');
+  await openWorkspace(page, 'Measurements');
   await expect(page.locator('#signal-flow-measurement-detail')).toBeVisible();
 });
 

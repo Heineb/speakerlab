@@ -6,6 +6,7 @@ const {
   openApplication,
   completeSetup,
   openExtension,
+  openDesignSection,
   configureTwoWayStereo
 } = require('./helpers');
 
@@ -16,6 +17,7 @@ async function prepareSavedRouting(page, speakerlab) {
   await configureTwoWayStereo(page);
   await page.locator('#signal-flow-save').click();
   await expect(page.locator('#signal-flow-message')).toContainText('saved');
+  await openDesignSection(page.locator('.signal-flow-output[data-output-id="output-a"]'), 'Level & timing');
 }
 
 function changeSavedProcessing(speakerlab, gain) {
