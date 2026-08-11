@@ -193,6 +193,12 @@
 		return state;
 	}
 
+	function eqSuggestionSource(eligibility, preferredID) {
+		var measurements = eligibility && Array.isArray(eligibility.measurements) ? eligibility.measurements : [];
+		return measurements.find(function(item) { return item.id === preferredID; }) ||
+			measurements.find(function(item) { return item.eligible; }) || measurements[0] || null;
+	}
+
 	function receiveEQSuggestions(state, payload) {
 		state.eqSuggestions[payload.outputId] = clone(payload);
 		state.selectedEQSuggestions[payload.outputId] = [];
@@ -547,6 +553,7 @@
 		receiveProcessingDraft: receiveProcessingDraft,
 		receiveEQDraft: receiveEQDraft,
 		receiveEQSuggestionEligibility: receiveEQSuggestionEligibility,
+		eqSuggestionSource: eqSuggestionSource,
 		receiveEQSuggestions: receiveEQSuggestions,
 		toggleEQSuggestion: toggleEQSuggestion,
 		receiveEQSuggestionDraft: receiveEQSuggestionDraft,

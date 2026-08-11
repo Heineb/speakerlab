@@ -61,12 +61,26 @@ test('disconnect retains suggestion review but normal save and acceptance can be
   assert.match(state.message, /Disconnected/);
 });
 
+test('selected measurement eligibility is stable by ID and ignores unrelated source errors', function () {
+  const sparse = {id: 'sparse', eligible: false, errors: [{code: 'INSUFFICIENT_MEASUREMENT_POINTS', message: 'Too few points.'}]};
+  const derived = {id: 'derived', eligible: false, errors: [{code: 'STALE_DERIVED_MEASUREMENT', message: 'Recompute.'}]};
+  const valid = {id: 'valid', eligible: true, errors: []};
+  const eligibility = {measurements: [sparse, derived, valid]};
+  assert.strictEqual(stateModel.eqSuggestionSource(eligibility, 'derived'), derived);
+  eligibility.measurements.reverse();
+  assert.strictEqual(stateModel.eqSuggestionSource(eligibility, 'derived'), derived);
+  assert.deepStrictEqual(stateModel.eqSuggestionSource(eligibility, 'derived').errors.map(item => item.code), ['STALE_DERIVED_MEASUREMENT']);
+  assert.strictEqual(stateModel.eqSuggestionSource(eligibility, 'missing'), valid);
+});
+
 test('default UI stays contextual and hides numerical optimisation controls under Advanced', function () {
   const root = path.join(__dirname, '..', 'Beocreate2', 'beo-extensions', 'signal-flow');
   const client = fs.readFileSync(path.join(root, 'signal-flow-client.js'), 'utf8');
   const menu = fs.readFileSync(path.join(root, 'menu.html'), 'utf8');
   assert.ok(client.includes('Suggest EQ from measurement'));
   assert.ok(client.includes('class="signal-flow-eq-suggestion-advanced"'));
+  assert.ok(client.includes('selectEQMeasurement'));
+  assert.ok(client.includes('This merged measurement is out of date. Recompute it before using Suggest EQ.'));
   assert.ok(client.includes('<summary aria-expanded="false">Advanced</summary>'));
   const advancedSummary = client.indexOf('<summary aria-expanded="false">Advanced</summary>');
   assert.ok(client.indexOf('Analysis smoothing') > advancedSummary);

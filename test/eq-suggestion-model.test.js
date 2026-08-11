@@ -161,6 +161,27 @@ test('eligibility blocks assignment and stale derived sources and warns for weak
   assert.ok(result.warnings.some(item => item.code === 'UNKNOWN_MEASUREMENT_TYPE'));
 });
 
+test('eligibility preserves point quality and stale provenance as independent blockers', function () {
+  const low = measurement('low-source');
+  const high = measurement('high-source');
+  const sparse = measurement('sparse-source');
+  sparse.points = sparse.points.slice(0, 8);
+  sparse.integrity.hash = crypto.createHash('sha256').update(JSON.stringify(sparse.points)).digest('hex');
+  let result = suggestions.eligibility(sparse, [sparse], 'output-a');
+  assert.deepStrictEqual(result.errors.map(item => item.code), ['INSUFFICIENT_MEASUREMENT_POINTS']);
+
+  const derived = measurement('derived-source');
+  derived.sourceFormat = 'derived-merge';
+  derived.mergeRecipe = {lowSourceId: low.id, highSourceId: high.id, lowSourceHash: low.integrity.hash, highSourceHash: high.integrity.hash};
+  result = suggestions.eligibility(derived, [sparse, low, high, derived], 'output-a');
+  assert.strictEqual(result.eligible, true);
+  low.points[0].magnitudeDb += 1;
+  low.integrity.hash = crypto.createHash('sha256').update(JSON.stringify(low.points)).digest('hex');
+  result = suggestions.eligibility(derived, [sparse, low, high, derived], 'output-a');
+  assert.strictEqual(result.eligible, false);
+  assert.deepStrictEqual(result.errors.map(item => item.code), ['STALE_DERIVED_MEASUREMENT']);
+});
+
 test('accept adds selected standard bands, preserves existing EQ and enforces capacity', function () {
   const source = measurement('accept', f => gaussian(f, 1200, 0.45, 7) + gaussian(f, 3000, 0.35, 5));
   const analysis = suggestions.analyse(context(source), eq);

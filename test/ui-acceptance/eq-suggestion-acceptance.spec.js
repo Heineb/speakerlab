@@ -1,5 +1,7 @@
 'use strict';
 
+const crypto = require('crypto');
+const fs = require('fs');
 const path = require('path');
 const {test, expect} = require('./fixtures');
 const {openApplication, completeSetup, openExtension, configureOutput, openWorkspace, selectOutput, openDesignSection} = require('./helpers');
@@ -166,6 +168,15 @@ test('7 stale merged source is blocked and becomes eligible after source hashes 
   await expect(page.locator('#signal-flow-measurement-merge-preview')).toContainText(/Merge review.*Derived merged response/i);
   await expect(page.getByRole('button', {name: 'Save merged response to draft'})).toBeEnabled();
   await page.getByRole('button', {name: 'Save merged response to draft'}).click();
+  await expect(page.locator('#signal-flow-measurement-detail h3')).toHaveText('Merged response');
+  const summary = await page.evaluate(function () {
+    return signalFlow.getState().draft.measurements.measurements.map(function (item) {
+      return {id: item.id, sourceFormat: item.sourceFormat, pointCount: item.points.length};
+    });
+  });
+  const derivedSummary = summary.find(item => item.sourceFormat === 'derived-merge');
+  expect(summary.filter(item => item.sourceFormat !== 'derived-merge').map(item => item.pointCount)).toEqual([8, 10]);
+  expect(derivedSummary.pointCount).toBe(13);
   await page.evaluate(function () {
     window.__eqSuggestionAssignmentResponse = null;
     $(document).on('signal-flow.eq-suggestion-assignment-test', function (event, data) {
@@ -179,22 +190,63 @@ test('7 stale merged source is blocked and becomes eligible after source hashes 
   expect(await page.evaluate(function () {
     return window.__eqSuggestionAssignmentResponse.configuration.measurements.measurements.find(function (item) { return item.sourceFormat === 'derived-merge'; }).assignedOutputId;
   })).toBe('output-a');
-  await page.evaluate(function () {
-    var derived = signalFlow.getState().draft.measurements.measurements.find(function (item) { return item.sourceFormat === 'derived-merge'; });
-    derived.mergeRecipe.lowSourceHash = 'stale-source-hash';
-  });
+  await page.getByRole('button', {name: 'Save design'}).click();
+  await expect(page.locator('#signal-flow-message')).toContainText(/saved/i);
+
+  await speakerlab.stop();
+  const statePath = speakerlab.statePath('signal-flow.json');
+  const saved = JSON.parse(fs.readFileSync(statePath, 'utf8'));
+  const derived = saved.measurements.measurements.find(item => item.id === derivedSummary.id);
+  const low = saved.measurements.measurements.find(item => item.id === derived.mergeRecipe.lowSourceId);
+  expect(low.integrity.hash).toBe(derived.mergeRecipe.lowSourceHash);
+  low.points[0].magnitudeDb += 1;
+  low.integrity.hash = crypto.createHash('sha256').update(JSON.stringify(low.points)).digest('hex');
+  expect(low.integrity.hash).not.toBe(derived.mergeRecipe.lowSourceHash);
+  fs.writeFileSync(statePath, JSON.stringify(saved));
+
+  await speakerlab.start('connected');
+  await page.reload({waitUntil: 'domcontentloaded'});
+  await openExtension(page, 'signal-flow');
+  await openWorkspace(page, 'Measurements');
+  await page.locator('#signal-flow-measurement-list').getByRole('option', {name: /Merged response/}).click();
+  await expect(page.locator('#signal-flow-measurement-detail').getByRole('alert')).toContainText(/Nearfield source.*changed.*Recompute/i);
+  await page.getByRole('button', {name: 'Use for Parametric EQ'}).click();
+
+  let region = card.getByRole('region', {name: /Assisted EQ suggestions/});
+  const reference = region.getByLabel('Reference measurement');
+  await expect(reference).toHaveValue(derivedSummary.id);
+  await expect(region.getByRole('alert')).toContainText('This merged measurement is out of date. Recompute it before using Suggest EQ.');
+  await expect(region.getByRole('alert')).not.toContainText(/too few points/i);
+  await expect(region.getByRole('button', {name: 'Suggest EQ', exact: true})).toBeDisabled();
+  await region.getByRole('button', {name: 'Close'}).click();
+  region = await openSuggestions(card);
+  await expect(region.getByLabel('Reference measurement')).toHaveValue(derivedSummary.id);
+
+  await openWorkspace(page, 'Measurements');
+  await page.locator('#signal-flow-measurement-list').getByRole('option', {name: /Merged response/}).click();
+  await page.getByRole('button', {name: 'Edit merge recipe'}).click();
+  await page.getByRole('button', {name: 'Preview merge'}).click();
+  await page.getByRole('button', {name: 'Save merged response to draft'}).click();
+  await expect(page.locator('#signal-flow-measurement-detail').getByRole('status')).toContainText(/current for its saved source hashes/);
+
   await selectOutput(page, 'output-a');
   await openDesignSection(card, 'Parametric EQ');
-  let region = await openSuggestions(card);
-  await expect(region).toContainText(/Recompute the stale merged response/i);
-  await page.evaluate(function () {
-    var list = signalFlow.getState().draft.measurements.measurements;
-    var derived = list.find(function (item) { return item.sourceFormat === 'derived-merge'; });
-    derived.mergeRecipe.lowSourceHash = list.find(function (item) { return item.id === derived.mergeRecipe.lowSourceId; }).integrity.hash;
-  });
-  await card.getByRole('button', {name: 'Close'}).click();
+  if (await card.getByRole('button', {name: 'Close'}).count()) await card.getByRole('button', {name: 'Close'}).click();
   region = await openSuggestions(card);
-  await expect(region.getByLabel('Reference measurement').locator('option:not([disabled])')).toHaveCount(1);
+  await expect(region.getByLabel('Reference measurement')).toHaveValue(derivedSummary.id);
+  await expect(region.getByRole('button', {name: 'Suggest EQ', exact: true})).toBeEnabled();
+  await page.getByRole('button', {name: 'Save design'}).click();
+  await expect(page.locator('#signal-flow-message')).toContainText(/saved/i);
+
+  await speakerlab.stop();
+  await speakerlab.start('connected');
+  await page.reload({waitUntil: 'domcontentloaded'});
+  await openExtension(page, 'signal-flow');
+  const restartedCard = await selectOutput(page, 'output-a');
+  await openDesignSection(restartedCard, 'Parametric EQ');
+  region = await openSuggestions(restartedCard);
+  await expect(region.getByLabel('Reference measurement')).toHaveValue(derivedSummary.id);
+  await expect(region.getByRole('button', {name: 'Suggest EQ', exact: true})).toBeEnabled();
 });
 
 test('8 Advanced disclosure keeps numerical optimisation controls out of the primary flow', async function ({monitoredPage: page, speakerlab}) {

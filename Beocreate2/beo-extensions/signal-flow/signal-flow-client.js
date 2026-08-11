@@ -20,6 +20,7 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 			selectOutput: function() {},
 			toggleOutputSection: function() {},
 			useMeasurementFor: function() {},
+			selectEQMeasurement: function() {},
 			route: function() {},
 			save: function() {},
 			discard: function() {},
@@ -95,7 +96,11 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 		if (data.header === 'eqResponse') {
 			signalFlowUIState.receiveEQResponse(state, data.content);
 		}
-		if (data.header === 'eligibleEQMeasurements') signalFlowUIState.receiveEQSuggestionEligibility(state, data.content);
+		if (data.header === 'eligibleEQMeasurements') {
+			signalFlowUIState.receiveEQSuggestionEligibility(state, data.content);
+			var selectedEQSource = signalFlowUIState.eqSuggestionSource(data.content, contextualMeasurementSelections.eq[data.content.outputId]);
+			if (selectedEQSource) contextualMeasurementSelections.eq[data.content.outputId] = selectedEQSource.id;
+		}
 		if (data.header === 'eqSuggestions') signalFlowUIState.receiveEQSuggestions(state, data.content);
 		if (data.header === 'eqSuggestionDraft') {
 			signalFlowUIState.receiveEQSuggestionDraft(state, data.content);
@@ -391,12 +396,19 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 		if (!open) return '<div class="signal-flow-eq-suggestion-entry"><button type="button" class="button pill outline" aria-expanded="false" onclick="signalFlow.openEQSuggestions(\'' + output.id + '\');">Suggest EQ from measurement</button>' + undo + '<p>Human-reviewed, bounded peaking EQ suggestions. No automatic design changes.</p></div>';
 		var eligibility = state.eqSuggestionEligibility[output.id];
 		var measurements = eligibility ? eligibility.measurements : [];
-		var eligibleMeasurements = measurements.filter(function(item) { return item.eligible; });
+		var selectedSource = signalFlowUIState.eqSuggestionSource(eligibility, contextualMeasurementSelections.eq[output.id]);
+		var selectedSourceID = selectedSource ? selectedSource.id : null;
 		var measurementOptions = measurements.map(function(item) {
 			var label = item.name + ' · ' + item.type + (item.eligible ? '' : ' · unavailable');
-			return '<option value="' + escapeHTML(item.id) + '" ' + (item.id === contextualMeasurementSelections.eq[output.id] ? 'selected ' : '') + (item.eligible ? '' : 'disabled ') + '>' + escapeHTML(label) + '</option>';
+			return '<option value="' + escapeHTML(item.id) + '" ' + (item.id === selectedSourceID ? 'selected ' : '') + '>' + escapeHTML(label) + '</option>';
 		}).join('');
-		var unavailable = measurements.filter(function(item) { return !item.eligible; }).map(function(item) { return '<li>' + escapeHTML(item.name + ': ' + item.errors.map(function(problem) { return problem.message; }).join(' ')) + '</li>'; }).join('');
+		var unavailable = measurements.filter(function(item) { return !item.eligible && item.id !== selectedSourceID; }).map(function(item) { return '<li>' + escapeHTML(item.name + ': ' + item.errors.map(function(problem) { return problem.message; }).join(' ')) + '</li>'; }).join('');
+		var selectedSourceIssue = '';
+		if (!selectedSource) selectedSourceIssue = '<p class="signal-flow-warning" role="status">Import and assign a reference measurement before using Suggest EQ.</p>';
+		else if (!selectedSource.eligible) {
+			var stale = selectedSource.errors.some(function(problem) { return problem.code === 'STALE_DERIVED_MEASUREMENT'; });
+			selectedSourceIssue = '<p class="signal-flow-warning" role="alert">' + escapeHTML(stale ? 'This merged measurement is out of date. Recompute it before using Suggest EQ.' : selectedSource.errors.map(function(problem) { return problem.message; }).join(' ')) + '</p>';
+		}
 		var analysis = state.eqSuggestions[output.id];
 		var draftOptions = eqSuggestionDraftOptions[output.id] || {target: 'flat', smoothing: '1/6', minimumFrequencyHz: null, maximumFrequencyHz: null, referenceLevelDb: null, tiltDbPerOctave: -1, boostLimitDb: 3, filterLimit: 5, considerExistingEQ: true};
 		var selected = state.selectedEQSuggestions[output.id] || [];
@@ -416,12 +428,11 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 				(selected.length && state.connected ? '' : 'disabled ') + 'onclick="signalFlow.acceptEQSuggestions(\'' + output.id + '\');">Accept selected suggestions</button><button type="button" class="button pill outline" onclick="signalFlow.rejectEQSuggestions(\'' + output.id + '\');">Reject all suggestions</button></div></div>';
 		}
 		return '<section class="signal-flow-eq-suggestions" aria-label="Assisted EQ suggestions for ' + escapeHTML(output.label) + '"><div class="signal-flow-eq-suggestion-heading"><h4>Suggest EQ</h4><button type="button" class="button pill outline" aria-expanded="true" onclick="signalFlow.openEQSuggestions(\'' + output.id + '\');">Close</button></div>' +
-			'<p>Select an assigned reference measurement and a simple target. Suggestions remain drafts until you select and accept them.</p><div class="signal-flow-eq-suggestion-primary"><label for="signal-flow-eq-suggestion-measurement-' + output.id + '">Reference measurement</label><select id="signal-flow-eq-suggestion-measurement-' + output.id + '">' + measurementOptions + '</select>' +
+			'<p>Select an assigned reference measurement and a simple target. Suggestions remain drafts until you select and accept them.</p><div class="signal-flow-eq-suggestion-primary"><label for="signal-flow-eq-suggestion-measurement-' + output.id + '">Reference measurement</label><select id="signal-flow-eq-suggestion-measurement-' + output.id + '" onchange="signalFlow.selectEQMeasurement(\'' + output.id + '\', this.value);">' + measurementOptions + '</select>' +
 			'<label for="signal-flow-eq-suggestion-target-' + output.id + '">Target</label><select id="signal-flow-eq-suggestion-target-' + output.id + '">' + option('flat', 'Flat', draftOptions.target) + option('gentle-downward-tilt', 'Gentle downward tilt', draftOptions.target) + '</select>' +
-			'<button type="button" class="button pill black" ' + (eligibleMeasurements.length && state.connected ? '' : 'disabled ') + 'onclick="signalFlow.suggestEQ(\'' + output.id + '\');">Suggest EQ</button></div>' +
-			(!eligibleMeasurements.length ? '<p class="signal-flow-warning" role="status">No eligible measurement is assigned to this output.</p>' : '') + (unavailable ? '<ul class="signal-flow-eq-source-issues">' + unavailable + '</ul>' : '') +
+			'<button type="button" class="button pill black" ' + (selectedSource && selectedSource.eligible && state.connected ? '' : 'disabled ') + 'onclick="signalFlow.suggestEQ(\'' + output.id + '\');">Suggest EQ</button></div>' + selectedSourceIssue +
 			'<p class="signal-flow-eq-range" role="status">' + (analysis ? 'Active optimisation range ' + roundDisplay(analysis.activeRange.minimumFrequencyHz) + '–' + roundDisplay(analysis.activeRange.maximumFrequencyHz) + ' Hz.' : 'The active optimisation range will be derived from measurement coverage, output role and crossover.') + '</p>' +
-			'<details class="signal-flow-eq-suggestion-advanced" ontoggle="this.querySelector(\'summary\').setAttribute(\'aria-expanded\', this.open ? \'true\' : \'false\');"><summary aria-expanded="false">Advanced</summary><div class="signal-flow-eq-suggestion-options"><label>Analysis smoothing<select id="signal-flow-eq-suggestion-smoothing-' + output.id + '">' + option('1/6', 'Normal (1/6 octave)', draftOptions.smoothing) + option('none', 'None', draftOptions.smoothing) + option('1/12', '1/12 octave', draftOptions.smoothing) + option('1/3', '1/3 octave', draftOptions.smoothing) + '</select></label>' +
+			'<details class="signal-flow-eq-suggestion-advanced" ontoggle="this.querySelector(\'summary\').setAttribute(\'aria-expanded\', this.open ? \'true\' : \'false\');"><summary aria-expanded="false">Advanced</summary>' + (unavailable ? '<h5>Other measurement eligibility</h5><ul class="signal-flow-eq-source-issues">' + unavailable + '</ul>' : '') + '<div class="signal-flow-eq-suggestion-options"><label>Analysis smoothing<select id="signal-flow-eq-suggestion-smoothing-' + output.id + '">' + option('1/6', 'Normal (1/6 octave)', draftOptions.smoothing) + option('none', 'None', draftOptions.smoothing) + option('1/12', '1/12 octave', draftOptions.smoothing) + option('1/3', '1/3 octave', draftOptions.smoothing) + '</select></label>' +
 			'<label>Minimum frequency (Hz)<input id="signal-flow-eq-suggestion-min-' + output.id + '" type="number" min="10" placeholder="Automatic" value="' + escapeHTML(draftOptions.minimumFrequencyHz === null ? '' : draftOptions.minimumFrequencyHz) + '"></label><label>Maximum frequency (Hz)<input id="signal-flow-eq-suggestion-max-' + output.id + '" type="number" max="20000" placeholder="Automatic" value="' + escapeHTML(draftOptions.maximumFrequencyHz === null ? '' : draftOptions.maximumFrequencyHz) + '"></label>' +
 			'<label>Target reference level (dB)<input id="signal-flow-eq-suggestion-reference-' + output.id + '" type="number" step="0.1" placeholder="Automatic median" value="' + escapeHTML(draftOptions.referenceLevelDb === null ? '' : draftOptions.referenceLevelDb) + '"></label><label>Target tilt (dB/octave)<input id="signal-flow-eq-suggestion-tilt-' + output.id + '" type="number" step="0.1" min="-3" max="1" value="' + draftOptions.tiltDbPerOctave + '"></label>' +
 			'<label>Positive boost limit (dB)<input id="signal-flow-eq-suggestion-boost-' + output.id + '" type="number" min="0" max="6" step="0.5" value="' + draftOptions.boostLimitDb + '"></label><label>Suggestion limit<input id="signal-flow-eq-suggestion-limit-' + output.id + '" type="number" min="1" max="7" value="' + draftOptions.filterLimit + '"></label>' +
@@ -1101,6 +1112,11 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 		render();
 	}
 
+	function selectEQMeasurement(outputID, measurementID) {
+		contextualMeasurementSelections.eq[outputID] = measurementID;
+		render('signal-flow-eq-suggestion-measurement-' + outputID);
+	}
+
 	function optionalNumber(id) {
 		var element = document.getElementById(id);
 		if (!element || String(element.value).trim() === '') return null;
@@ -1349,6 +1365,7 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 		setProtectionOpen: setProtectionOpen,
 		selectEQBand: selectEQBand,
 		openEQSuggestions: openEQSuggestions,
+		selectEQMeasurement: selectEQMeasurement,
 		suggestEQ: suggestEQ,
 		toggleEQSuggestion: toggleEQSuggestion,
 		acceptEQSuggestions: acceptEQSuggestions,

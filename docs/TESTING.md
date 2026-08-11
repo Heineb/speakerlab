@@ -205,6 +205,8 @@ UI-state and simplicity tests prove that analysis/reject do not dirty the design
 
 Eleven Chromium journeys cover two-filter accept/save/refresh, reject/source immutability, existing EQ, null avoidance, boost/headroom/protection warnings, crossover-aware range, stale/recomputed merge eligibility, Advanced disclosure, keyboard-only operation, semantic accessibility and desktop/tablet/mobile layouts. The shared fixture supplies traces, screenshots, video, console/request monitoring and isolated server logs on failure. Tests use project-owned synthetic fixtures, no network, hardware, audio, physical DSP write, arbitrary sleep or broad retry.
 
+The stale/recomputed merge journey deliberately uses sparse 8- and 10-point source fixtures that are valid merge inputs but independently below Assisted EQ's 12-point minimum. Their derived frequency union has 13 points. The test selects the derived response by stable measurement ID, waits for the authoritative assignment response, changes a persisted source with a matching integrity hash, and recomputes through the visible merge workflow. This prevents source ordering, stale status text or asynchronous draft replacement from masking the provenance contract.
+
 ## Measurement Phase/Time Alignment Foundation v1
 
 Run:

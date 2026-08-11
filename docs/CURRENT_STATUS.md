@@ -16,13 +16,15 @@ SpeakerLab now presents its established loudspeaker features as one **Speaker De
 
 Assisted features remain transient until explicit acceptance converts their result to ordinary unsaved design fields. Contextual measurement actions now preserve the selected measurement as the assistant reference. One collapsed **Advanced** pattern contains provenance, algorithm metrics, mapping, compiler and transport/readback details; validation, stale state, protection limitations and physical-deployment blockers stay visible.
 
+Assisted EQ eligibility is contextual to the explicitly selected measurement. Selection is retained by stable ID while the assistant is open or closed, unrelated invalid measurements stay in Advanced detail, and a stale derived response receives one primary recompute blocker. Recomputing the merge updates its saved source-hash relationship and restores eligibility without weakening the 12-point source-quality minimum.
+
 Canonical terms distinguish Output/Driver, Level & timing, Measurement/derived response, Measured/Predicted/Simulated, Saved/Unsaved/Error and Simulated/Blocked deployment. The default view renders one selected output, one expanded section and no permanent multi-graph dashboard.
 
 README, Getting Started, Design Workflow, User Guide, UI principles, architecture, roadmap, testing and focused feature guides describe the consolidated paths. SpeakerLab remains the product identity; current-Beocreate references are retained only for supported hardware/DSP targets, inherited interfaces, history or attribution.
 
 ## Verification
 
-`npm run verify` passes locally. It validates links across 25 documentation files, runs the complete Node and contract suite, checks 247 JavaScript files for syntax and passes 93 real-browser journeys in 14.7 minutes. `git diff --check` also passes.
+`npm run verify` passes locally. It validates links across 25 documentation files, runs the complete Node and contract suite, checks 247 JavaScript files for syntax and passes 93 real-browser journeys in 15.7 minutes. `git diff --check` also passes.
 
 The dedicated browser coverage includes a complete two-output design through Review/Save/restart, a measurement import/merge/alignment/assisted-crossover/assisted-EQ flow, clean default disclosure, mutation-free Advanced behavior, keyboard/semantic state and desktop/tablet/mobile layouts. The in-app browser backend was unavailable for a separate manual walkthrough; Playwright screenshots and semantic snapshots provided the available visual evidence. Simulator results remain hardware-free and are not evidence of audible output or physical deployment.
 
