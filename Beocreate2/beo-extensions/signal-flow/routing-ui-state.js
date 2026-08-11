@@ -490,6 +490,49 @@
 		};
 	}
 
+	function designReview(state) {
+		if (!state.draft) return null;
+		var outputs = state.draft.outputs;
+		var enabled = outputs.filter(function(output) { return output.enabled; });
+		var routedIDs = state.draft.connections.filter(function(connection) { return connection.enabled; }).map(function(connection) { return connection.destination; });
+		var crossoverIDs = state.draft.crossover.outputs.filter(function(output) { return output.highPass.enabled || output.lowPass.enabled; }).map(function(output) { return output.outputId; });
+		var adjustedIDs = state.draft.channelProcessing.outputs.filter(function(output) {
+			return output.gain.valueDb !== 0 || output.delay.valueMs !== 0 || output.polarity.inverted;
+		}).map(function(output) { return output.outputId; });
+		var eqBands = state.draft.parametricEQ.outputs.reduce(function(total, output) {
+			return total + output.bands.filter(function(band) { return band.enabled; }).length;
+		}, 0);
+		var protectedIDs = state.draft.driverProtection.outputs.filter(function(output) {
+			return output.limiter.enabled || output.driver.continuousPowerWatts !== null || output.amplifier.maximumPeakVoltage !== null;
+		}).map(function(output) { return output.outputId; });
+		var measurements = state.draft.measurements.measurements;
+		var staleMeasurements = measurements.filter(function(measurement) {
+			if (!measurement.mergeRecipe) return false;
+			return [{id: measurement.mergeRecipe.lowSourceId, hash: measurement.mergeRecipe.lowSourceHash}, {id: measurement.mergeRecipe.highSourceId, hash: measurement.mergeRecipe.highSourceHash}].some(function(reference) {
+				var source = measurements.find(function(item) { return item.id === reference.id; });
+				return !source || !source.integrity || source.integrity.hash !== reference.hash;
+			});
+		}).length;
+		var errors = state.validation && state.validation.errors ? state.validation.errors.length : 0;
+		var warnings = state.validation && state.validation.warnings ? state.validation.warnings.length : 0;
+		return {
+			designState: errors ? 'Error' : state.dirty ? 'Unsaved' : 'Saved',
+			deploymentState: 'Blocked',
+			simulatorState: state.runtime && state.runtime.simulated ? 'Simulated' : 'Not simulated',
+			configuredOutputs: enabled.filter(function(output) { return output.role !== 'unassigned'; }).length,
+			enabledOutputs: enabled.length,
+			routedOutputs: enabled.filter(function(output) { return routedIDs.indexOf(output.id) !== -1; }).length,
+			crossoverOutputs: enabled.filter(function(output) { return crossoverIDs.indexOf(output.id) !== -1; }).length,
+			adjustedOutputs: enabled.filter(function(output) { return adjustedIDs.indexOf(output.id) !== -1; }).length,
+			eqBands: eqBands,
+			protectedOutputs: enabled.filter(function(output) { return protectedIDs.indexOf(output.id) !== -1; }).length,
+			measurements: measurements.length,
+			staleMeasurements: staleMeasurements,
+			errors: errors,
+			warnings: warnings
+		};
+	}
+
 	return {
 		create: create,
 		receiveState: receiveState,
@@ -536,6 +579,7 @@
 		connectionChanged: connectionChanged,
 		canSave: canSave,
 		summary: summary,
+		designReview: designReview,
 		clone: clone
 	};
 }));

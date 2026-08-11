@@ -1,74 +1,86 @@
-<div class="menu-screen" id="signal-flow" data-icon="channels.svg" data-menu-title="Signal Flow" data-stylesheet="signal-flow.css" data-built-in="1" data-context="sound/adjustments" data-namespace="signalFlow">
+<div class="menu-screen" id="signal-flow" data-icon="channels.svg" data-menu-title="Speaker Design" data-stylesheet="signal-flow.css" data-built-in="1" data-context="sound/adjustments" data-namespace="signalFlow">
 	<header>
 		<div class="back-button master"></div>
-		<h1>Signal Flow</h1>
+		<h1>Speaker Design</h1>
 	</header>
 	<div class="scroll-area">
 		<div class="menu-content signal-flow-content">
 			<div class="signal-flow-status" id="signal-flow-runtime-status">Loading routing design…</div>
-			<p class="signal-flow-safety-note">This editor saves a loudspeaker design with simulated electrical crossover responses. It does not deploy to the DSP, include driver or enclosure response, or guarantee driver protection.</p>
+			<p class="signal-flow-safety-note">Build and review one loudspeaker design. Saved settings remain separate from simulated state and are not deployed to the physical DSP.</p>
+			<nav class="signal-flow-workspace-nav" role="tablist" aria-label="Speaker Design workspace">
+				<button type="button" role="tab" id="signal-flow-tab-design" aria-controls="signal-flow-view-design" aria-selected="true" onclick="signalFlow.showWorkspace('design');">Design</button>
+				<button type="button" role="tab" id="signal-flow-tab-measurements" aria-controls="signal-flow-view-measurements" aria-selected="false" onclick="signalFlow.showWorkspace('measurements');">Measurements</button>
+				<button type="button" role="tab" id="signal-flow-tab-review" aria-controls="signal-flow-view-review" aria-selected="false" onclick="signalFlow.showWorkspace('review');">Review</button>
+			</nav>
 
-			<section aria-labelledby="signal-flow-inputs-title">
-				<h2 id="signal-flow-inputs-title">Inputs</h2>
-				<div class="signal-flow-inputs" id="signal-flow-inputs"></div>
-			</section>
+			<div id="signal-flow-view-design" class="signal-flow-workspace-view" role="tabpanel" aria-labelledby="signal-flow-tab-design">
+				<section aria-labelledby="signal-flow-inputs-title">
+					<div class="signal-flow-section-heading"><div><h2 id="signal-flow-inputs-title">Design</h2><p>Choose an output, then work through routing, crossover, level and timing, EQ and protection.</p></div></div>
+					<div class="signal-flow-inputs" id="signal-flow-inputs" aria-label="Available inputs"></div>
+				</section>
 
-			<section aria-labelledby="signal-flow-outputs-title">
-				<h2 id="signal-flow-outputs-title">Output channels</h2>
-				<div id="signal-flow-outputs" aria-live="polite"></div>
-			</section>
+				<section aria-labelledby="signal-flow-outputs-title">
+					<h2 id="signal-flow-outputs-title">Outputs</h2>
+					<div id="signal-flow-output-selector" class="signal-flow-output-selector" role="tablist" aria-label="Select output"></div>
+					<div id="signal-flow-outputs" aria-live="polite"></div>
+				</section>
+			</div>
 
-			<section aria-labelledby="signal-flow-validation-title">
-				<h2 id="signal-flow-validation-title">Design check</h2>
-				<div id="signal-flow-validation" aria-live="polite"></div>
-			</section>
-
+			<div id="signal-flow-view-measurements" class="signal-flow-workspace-view hidden" role="tabpanel" aria-labelledby="signal-flow-tab-measurements">
 			<section id="signal-flow-measurements" aria-labelledby="signal-flow-measurements-title">
 				<h2 id="signal-flow-measurements-title">Measurements</h2>
-				<p>Import measured frequency response for inspection and electrical-overlay comparison. Source data is preserved and is not used for automatic correction.</p>
-				<label for="signal-flow-measurement-file">Select measurement file</label>
+				<p>Import a measurement to inspect and assign the driver response. Source data is preserved; assistance remains optional and explicit.</p>
+				<label class="button pill black signal-flow-file-action" for="signal-flow-measurement-file">Import measurement</label>
 				<input id="signal-flow-measurement-file" type="file" accept=".txt,.frd,text/plain" onchange="signalFlow.selectMeasurementFile(this);">
 				<button type="button" class="button pill outline" id="signal-flow-merge-open" onclick="signalFlow.startMeasurementMerge();">Merge measurements</button>
+				<p id="signal-flow-measurement-empty">No measurements yet. Import a measurement to compare the driver response with your design.</p>
 				<div id="signal-flow-measurement-preview" role="status" aria-live="polite"></div>
 				<div id="signal-flow-measurement-list" role="listbox" aria-label="Imported measurements"></div>
 				<div id="signal-flow-measurement-detail" role="region" aria-label="Selected measurement details"></div>
 				<section id="signal-flow-measurement-merge" class="hidden" aria-labelledby="signal-flow-measurement-merge-title">
-					<h3 id="signal-flow-measurement-merge-title">Merge Measurements</h3>
+					<h3 id="signal-flow-measurement-merge-title">Merge measurements</h3>
 					<p>Combine a low-frequency observation with a higher-frequency observation. Sources remain unchanged; the result is a derived magnitude response.</p>
 					<div id="signal-flow-measurement-merge-form"></div>
 					<div id="signal-flow-measurement-merge-preview" role="status" aria-live="polite"></div>
 				</section>
 			</section>
+			</div>
 
+			<div id="signal-flow-view-review" class="signal-flow-workspace-view hidden" role="tabpanel" aria-labelledby="signal-flow-tab-review">
+			<section aria-labelledby="signal-flow-review-title">
+				<h2 id="signal-flow-review-title">Design Review</h2>
+				<p>Check the complete speaker, resolve important issues and save before previewing deployment.</p>
+				<div id="signal-flow-design-review" class="signal-flow-design-review" aria-live="polite"></div>
+			</section>
+			<section aria-labelledby="signal-flow-validation-title">
+				<h2 id="signal-flow-validation-title">Issues</h2>
+				<div id="signal-flow-validation" aria-live="polite"></div>
+			</section>
 			<section class="signal-flow-deployment" aria-labelledby="signal-flow-deployment-title">
-				<h2 id="signal-flow-deployment-title">Deployment preview</h2>
-				<p><strong>Prepared only · Simulated · Not deployed to physical DSP</strong></p>
+				<h2 id="signal-flow-deployment-title">Deployment Preview</h2>
+				<p><strong>Simulated · Physical deployment blocked</strong></p>
 				<div id="signal-flow-deployment-status" role="status" aria-live="polite"></div>
 				<div id="signal-flow-deployment-target" role="region" aria-label="Current Beocreate DSP target"></div>
-				<div id="signal-flow-transport-readiness" class="signal-flow-readiness" role="region" aria-label="Physical transport readiness"></div>
-				<div id="signal-flow-mapping-readiness" class="signal-flow-readiness" role="region" aria-label="Mapping confidence summary"></div>
-				<details id="signal-flow-evidence-details">
-					<summary>Read-only evidence summary</summary>
-					<div id="signal-flow-evidence-readiness" class="signal-flow-readiness" role="region" aria-label="Read-only hardware evidence provenance"></div>
-				</details>
-				<details id="signal-flow-recovery-details">
-					<summary>Safety and recovery summary</summary>
-					<div id="signal-flow-recovery-readiness" role="region" aria-label="Safety and recovery prerequisites"></div>
-				</details>
 				<div id="signal-flow-deployment-issues" role="region" aria-label="Deployment errors and warnings"></div>
-				<div id="signal-flow-deployment-outputs" aria-label="Per-output deployment comparison"></div>
-				<details id="signal-flow-deployment-operations">
-					<summary>Technical proposed operations</summary>
-					<div class="signal-flow-operation-list"></div>
+				<div id="signal-flow-deployment-outputs" aria-label="What would be applied by output"></div>
+				<details id="signal-flow-deployment-advanced" class="signal-flow-advanced" ontoggle="this.querySelector('summary').setAttribute('aria-expanded', this.open ? 'true' : 'false');">
+					<summary aria-expanded="false">Advanced</summary>
+					<div id="signal-flow-transport-readiness" class="signal-flow-readiness" role="region" aria-label="Physical transport readiness"></div>
+					<div id="signal-flow-mapping-readiness" class="signal-flow-readiness" role="region" aria-label="Mapping confidence summary"></div>
+					<div id="signal-flow-evidence-readiness" class="signal-flow-readiness" role="region" aria-label="Read-only hardware evidence provenance"></div>
+					<div id="signal-flow-recovery-readiness" role="region" aria-label="Safety and recovery prerequisites"></div>
+					<div id="signal-flow-deployment-comparison-detail" aria-label="Detailed per-output deployment comparison"></div>
+					<div id="signal-flow-deployment-operations"><h3>Technical proposed operations</h3><div class="signal-flow-operation-list"></div></div>
 				</details>
 				<div class="signal-flow-deployment-actions" aria-label="Deployment preview actions">
-					<button type="button" class="button pill black" id="signal-flow-compile" onkeydown="signalFlow.deploymentTab(event, 'signal-flow-simulate-apply');" onclick="signalFlow.prepareForDSP();">Compile for current Beocreate DSP</button>
+					<button type="button" class="button pill black" id="signal-flow-compile" onkeydown="signalFlow.deploymentTab(event, 'signal-flow-simulate-apply');" onclick="signalFlow.prepareForDSP();">Preview deployment</button>
 					<button type="button" class="button pill outline" id="signal-flow-simulate-apply" disabled onkeydown="signalFlow.deploymentTab(event, 'signal-flow-simulate-read');" onclick="signalFlow.applyToSimulator();">Apply to simulator</button>
 					<button type="button" class="button pill outline" id="signal-flow-simulate-read" disabled onkeydown="signalFlow.deploymentTab(event, 'signal-flow-simulate-compare');" onclick="signalFlow.readSimulator();">Read back from simulator</button>
 					<button type="button" class="button pill outline" id="signal-flow-simulate-compare" disabled onkeydown="signalFlow.deploymentTab(event, 'signal-flow-simulate-clear');" onclick="signalFlow.compareSimulator();">Compare</button>
 					<button type="button" class="button pill outline" id="signal-flow-simulate-clear" disabled onclick="signalFlow.clearSimulator();">Clear simulated state</button>
 				</div>
 			</section>
+			</div>
 
 			<div class="signal-flow-summary" id="signal-flow-summary"></div>
 			<div class="signal-flow-message hidden" id="signal-flow-message" role="status" aria-live="polite"></div>

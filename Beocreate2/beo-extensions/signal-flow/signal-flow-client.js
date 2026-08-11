@@ -16,6 +16,10 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 			compareSimulator: function() {},
 			clearSimulator: function() {},
 			deploymentTab: function() {},
+			showWorkspace: function() {},
+			selectOutput: function() {},
+			toggleOutputSection: function() {},
+			useMeasurementFor: function() {},
 			route: function() {},
 			save: function() {},
 			discard: function() {},
@@ -53,6 +57,10 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 	var mergeEditingRecipe = null;
 	var mergeDraftValues = null;
 	var mergeOpen = false;
+	var currentWorkspace = 'design';
+	var selectedOutputID = null;
+	var openOutputSections = {};
+	var contextualMeasurementSelections = {eq: {}, alignment: {}, crossover: {}};
 
 	$(document).on('general', function(event, data) {
 		if (data.header === 'activatedExtension' && data.content.extension === 'signal-flow') {
@@ -148,6 +156,43 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 		return '<option value="' + escapeHTML(value) + '"' + (value === selected ? ' selected' : '') + '>' + escapeHTML(label) + '</option>';
 	}
 
+	function showWorkspace(workspace) {
+		if (['design', 'measurements', 'review'].indexOf(workspace) === -1) return;
+		currentWorkspace = workspace;
+		['design', 'measurements', 'review'].forEach(function(item) {
+			$('#signal-flow-tab-' + item).attr('aria-selected', item === workspace);
+			$('#signal-flow-view-' + item).toggleClass('hidden', item !== workspace);
+		});
+		if (workspace === 'measurements') renderMeasurements();
+		if (workspace === 'review') renderDesignReview();
+	}
+
+	function selectOutput(outputID, section) {
+		if (!state.draft || !state.draft.outputs.some(function(output) { return output.id === outputID; })) return;
+		selectedOutputID = outputID;
+		if (section) openOutputSections[outputID] = section;
+		currentWorkspace = 'design';
+		render('signal-flow-output-select-' + outputID);
+	}
+
+	function toggleOutputSection(outputID, section) {
+		openOutputSections[outputID] = openOutputSections[outputID] === section ? null : section;
+		render('signal-flow-section-' + section + '-' + outputID);
+	}
+
+	function useMeasurementFor(action, outputID) {
+		var section = action === 'eq' ? 'eq' : action === 'alignment' ? 'crossover' : 'crossover';
+		contextualMeasurementSelections[action][outputID] = selectedMeasurementId;
+		selectOutput(outputID, section);
+		if (action === 'eq') openEQSuggestionOutputs[outputID] = true;
+		if (action === 'alignment') openAlignmentOutputs[outputID] = true;
+		if (action === 'crossover') openCrossoverAssistanceOutputs[outputID] = true;
+		if (action === 'eq') beo.send({target: 'signal-flow', header: 'eligibleEQMeasurements', content: {configuration: state.draft, outputId: outputID}});
+		if (action === 'alignment') beo.send({target: 'signal-flow', header: 'eligibleAlignments', content: {configuration: state.draft, outputId: outputID}});
+		if (action === 'crossover') beo.send({target: 'signal-flow', header: 'eligibleCrossoverMeasurements', content: {configuration: state.draft, outputId: outputID}});
+		render();
+	}
+
 	function crossoverControls(output, crossover, filterType, title) {
 		var filter = crossover[filterType];
 		var families = state.capabilities.crossover.families.map(function(family) {
@@ -237,7 +282,7 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 		var eligibility = state.crossoverAssistanceEligibility[output.id], pairs = eligibility ? eligibility.pairs : [];
 		var first = {}, second = {};
 		pairs.filter(function(pair) { return pair.eligible; }).forEach(function(pair) { first[pair.measurementAId] = pair.measurementAName; second[pair.measurementBId] = pair.measurementBName + ' · ' + pair.outputBId; });
-		var sourceA = Object.keys(first).map(function(id) { return option(id, first[id], ''); }).join('');
+		var sourceA = Object.keys(first).map(function(id) { return option(id, first[id], contextualMeasurementSelections.crossover[output.id]); }).join('');
 		var sourceB = Object.keys(second).map(function(id) { return option(id, second[id], ''); }).join('');
 		var unavailable = pairs.filter(function(pair) { return !pair.eligible; }).map(function(pair) { return '<li>' + escapeHTML(pair.measurementAName + ' + ' + pair.measurementBName + ': ' + pair.errors.map(function(item) { return item.message; }).join(' ')) + '</li>'; }).join('');
 		var analysis = state.crossoverAssistanceAnalyses[output.id], selectedID = state.selectedCrossoverSuggestions[output.id], selected = analysis && analysis.suggestions.find(function(item) { return item.id === selectedID; });
@@ -317,7 +362,7 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 			second[pair.measurementBId] = pair.measurementBName + ' · ' + pair.outputBId + (pair.eligible ? '' : ' · unavailable');
 		});
 		var firstIDs = Object.keys(first), secondIDs = Object.keys(second);
-		var sourceA = firstIDs.map(function(id) { return option(id, first[id], ''); }).join('');
+		var sourceA = firstIDs.map(function(id) { return option(id, first[id], contextualMeasurementSelections.alignment[output.id]); }).join('');
 		var sourceB = secondIDs.map(function(id) { return option(id, second[id], ''); }).join('');
 		var unavailable = pairs.filter(function(pair) { return !pair.eligible; }).map(function(pair) { return '<li>' + escapeHTML(pair.measurementAName + ' + ' + pair.measurementBName + ': ' + pair.errors.map(function(problem) { return problem.message; }).join(' ')) + '</li>'; }).join('');
 		var analysis = state.alignmentAnalyses[output.id], draft = alignmentDraftOptions[output.id] || {minimumFrequencyHz: null, maximumFrequencyHz: null};
@@ -349,7 +394,7 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 		var eligibleMeasurements = measurements.filter(function(item) { return item.eligible; });
 		var measurementOptions = measurements.map(function(item) {
 			var label = item.name + ' · ' + item.type + (item.eligible ? '' : ' · unavailable');
-			return '<option value="' + escapeHTML(item.id) + '" ' + (item.eligible ? '' : 'disabled ') + '>' + escapeHTML(label) + '</option>';
+			return '<option value="' + escapeHTML(item.id) + '" ' + (item.id === contextualMeasurementSelections.eq[output.id] ? 'selected ' : '') + (item.eligible ? '' : 'disabled ') + '>' + escapeHTML(label) + '</option>';
 		}).join('');
 		var unavailable = measurements.filter(function(item) { return !item.eligible; }).map(function(item) { return '<li>' + escapeHTML(item.name + ': ' + item.errors.map(function(problem) { return problem.message; }).join(' ')) + '</li>'; }).join('');
 		var analysis = state.eqSuggestions[output.id];
@@ -404,7 +449,7 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 				'<button type="button" aria-label="Move ' + escapeHTML(name) + ' down" ' + (index < bands.length - 1 ? '' : 'disabled ') +
 				'onclick="signalFlow.moveEQBand(\'' + output.id + '\', \'' + band.id + '\', 1);">↓</button></li>';
 		}).join('');
-		var editor = '<p class="signal-flow-eq-empty">Add a band to begin equalisation.</p>';
+		var editor = '<p class="signal-flow-eq-empty">No EQ filters. Add one manually or use Suggest EQ.</p>';
 		if (selected) {
 			var selectedType = state.capabilities.parametricEQ.types.find(function(item) { return item.id === selected.type; });
 			var prefix = 'signal-flow-eq-' + output.id + '-' + selected.id;
@@ -460,9 +505,9 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 		if (unit === 'cm') displayValue = Math.round(processing.delay.valueMs / 1000 * speed * 10000) / 100;
 		if (unit === 'm') displayValue = Math.round(processing.delay.valueMs / 1000 * speed * 10000) / 10000;
 		var samples = Math.round(processing.delay.valueMs / 1000 * state.capabilities.channelProcessing.delay.sampleRateHz);
-		return '<section class="signal-flow-processing" aria-label="Level, delay and polarity for ' + escapeHTML(output.label) + '">' +
-			'<h3>Channel processing</h3><div class="signal-flow-processing-grid">' +
-			'<div class="signal-flow-field"><label for="signal-flow-gain-' + output.id + '">Gain</label><div class="signal-flow-unit-input">' +
+		return '<section class="signal-flow-processing" aria-label="Level and timing for ' + escapeHTML(output.label) + '">' +
+			'<h3>Level & timing</h3><div class="signal-flow-processing-grid">' +
+			'<div class="signal-flow-field"><label for="signal-flow-gain-' + output.id + '">Level</label><div class="signal-flow-unit-input">' +
 			'<input id="signal-flow-gain-' + output.id + '" type="number" step="0.1" min="' + state.capabilities.channelProcessing.gain.minimumDb +
 			'" max="' + state.capabilities.channelProcessing.gain.maximumDb + '" value="' + processing.gain.valueDb +
 			'" aria-describedby="signal-flow-validation" onkeydown="signalFlow.processingTab(event, \'signal-flow-delay-' + output.id + '\');" onchange="signalFlow.updateProcessing(\'' + output.id + '\', \'gain\', \'valueDb\', this.value, event.relatedTarget && event.relatedTarget.id);"><span>dB</span></div></div>' +
@@ -523,9 +568,10 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 					return '<li>Input ' + point.inputDbfs + ' dBFS for ' + point.durationMs + ' ms · gain reduction ' + point.gainReductionDb + ' dB · output ' + point.outputDbfs + ' dBFS</li>';
 				}).join('') + '</ol>';
 		}
-		return '<details class="signal-flow-protection" id="' + prefix + '" aria-label="Driver Protection for ' + escapeHTML(output.label) + '" ' +
-			(openProtectionOutputs[output.id] ? 'open ' : '') + 'ontoggle="signalFlow.setProtectionOpen(\'' + output.id + '\', this.open);"><summary>Driver Protection</summary>' +
+		return '<section class="signal-flow-protection" id="' + prefix + '" aria-label="Driver Protection for ' + escapeHTML(output.label) + '">' +
 			'<p id="' + prefix + '-notice"><strong>Protection configuration · Simulator first.</strong> These electrical estimates do not guarantee thermal, excursion, acoustic or damage protection.</p>' +
+			'<section class="signal-flow-protection-warnings" aria-label="Driver Protection warnings" aria-live="polite"><h4>Warnings</h4>' + warningHTML + '</section>' +
+			'<details class="signal-flow-advanced" ' + (openProtectionOutputs[output.id] ? 'open ' : '') + 'ontoggle="this.querySelector(\'summary\').setAttribute(\'aria-expanded\', this.open ? \'true\' : \'false\'); signalFlow.setProtectionOpen(\'' + output.id + '\', this.open);"><summary aria-expanded="' + !!openProtectionOutputs[output.id] + '">Advanced</summary>' +
 			'<section aria-label="Driver metadata"><h4>Driver</h4><div class="signal-flow-protection-grid">' +
 			field('driver', 'manufacturer', 'Manufacturer (optional)', '', {text: true}) + field('driver', 'model', 'Model (optional)', '', {text: true}) +
 			field('driver', 'nominalImpedanceOhms', 'Nominal impedance', 'Ω', {step: '0.1', min: 1, max: 64}) +
@@ -546,10 +592,9 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 			field('limiter', 'releaseMs', 'Release', 'ms', {step: '1', min: 10, max: 10000}) + '</div></section>' +
 			'<section class="signal-flow-protection-calculated" aria-label="Calculated electrical limits" aria-live="polite"><h4>Calculated limits</h4>' + calculationHTML +
 			'<p>Sine-wave conversion only. Music, amplifier impedance interaction and real driver behavior differ.</p></section>' +
-			'<section class="signal-flow-protection-warnings" aria-label="Driver Protection warnings" aria-live="polite"><h4>Warnings</h4>' + warningHTML + '</section>' +
 			'<section class="signal-flow-protection-simulator" aria-label="Limiter simulator summary" aria-live="polite"><h4>Simulator</h4>' + simulationHTML +
 			'<button type="button" class="button pill outline" onclick="signalFlow.simulateProtection(\'' + output.id + '\');">Run synthetic level sequence</button></section>' +
-			'<p><strong>Physical mapping:</strong> Unsupported and unverified. No physical Apply action is available.</p></details>';
+			'<p><strong>Physical mapping:</strong> Unsupported and unverified. No physical Apply action is available.</p></details></section>';
 	}
 
 	function formatDeploymentValue(value) {
@@ -619,19 +664,22 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 		);
 		var compilation = deployment.compilation;
 		var stale = !!(deployment.stale || state.dirty);
-		var overallStatus = stale ? 'Unknown · compilation is stale' :
-			deployment.comparison ? deployment.comparison.status :
-			compilation ? compilation.status : 'Not compiled';
-		if (deployment.simulator.transportStatus) overallStatus = deployment.simulator.transportStatus;
-		if (deployment.simulator.identityMismatch) overallStatus = 'Program identity mismatch · recompile required';
+		var overallStatus = 'Blocked · Preview not prepared';
+		if (compilation && compilation.errors.length) overallStatus = 'Blocked · Preview has errors';
+		else if (compilation && !stale) overallStatus = 'Simulated · Preview ready';
+		if (deployment.comparison && !stale) overallStatus = 'Simulated · Readback ' + deployment.comparison.status;
+		if (stale) overallStatus = 'Blocked · Preview is stale';
+		if (deployment.simulator.transportStatus) overallStatus = 'Blocked · ' + deployment.simulator.transportStatus;
+		if (!deployment.simulator.connected) overallStatus = 'Blocked · Simulator disconnected';
+		if (deployment.simulator.identityMismatch) overallStatus = 'Blocked · Program identity changed; preview again';
 		$('#signal-flow-deployment-status')
 			.attr('class', 'signal-flow-status-' + (deployment.comparison ? deployment.comparison.status : compilation ? compilation.status : 'unknown'))
-			.text(overallStatus + ' · Prepared only · ' + (deployment.simulator.connected ? 'Simulated' : 'Simulator disconnected') + ' · Not deployed to physical DSP');
+			.text(overallStatus + ' · Physical deployment unavailable');
 
 		var errors = compilation ? compilation.errors : [];
 		var warnings = compilation ? compilation.warnings : [];
 		$('#signal-flow-deployment-issues').html(
-			'<h3>Compilation summary</h3>' +
+			'<h3>Preview summary</h3>' +
 			(compilation ? '<p>Design revision ' + escapeHTML(compilation.sourceDesignRevision) + ' · ' +
 				compilation.operations.length + ' proposed operations · ' + errors.length + ' errors · ' + warnings.length + ' warnings</p>' :
 				'<p>Save the design, then compile to inspect a proposed plan.</p>') +
@@ -640,7 +688,7 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 		);
 		var comparisonByOperation = {};
 		if (deployment.comparison) deployment.comparison.items.forEach(function(item) { comparisonByOperation[item.operationIndex] = item; });
-		$('#signal-flow-deployment-outputs').html(compilation ? compilation.outputs.map(function(output) {
+		var detailedOutputs = compilation ? compilation.outputs.map(function(output) {
 			var operations = compilation.operations.filter(function(item) { return item.outputId === output.outputId; });
 			function row(label, operation) {
 				if (!operation) return '<dt>' + label + '</dt><dd>Unsupported</dd><dd>Not available</dd><dd>unsupported</dd>';
@@ -663,7 +711,15 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 					' · physical mapping ' + escapeHTML(output.protection.mappingConfidence) + ' · readback ' + escapeHTML(output.protection.readback) + '</p>' : '') +
 				'<dl><dt>Field</dt><dd>Requested</dd><dd>Compiled or actual</dd><dd>Verification status</dd>' +
 				row('Routing', routing) + row('Gain', gain) + row('Delay', delay) + row('Polarity', polarity) + row('Limiter simulator', protection) + '</dl></section>';
-		}).join('') : '');
+		}).join('') : '';
+		$('#signal-flow-deployment-comparison-detail').html(detailedOutputs);
+		$('#signal-flow-deployment-outputs').html(compilation ? compilation.outputs.map(function(output) {
+			var operations = compilation.operations.filter(function(item) { return item.outputId === output.outputId; });
+			var filters = operations.filter(function(item) { return item.group === 'filter-coefficients' && item.logicalField !== 'crossover.flat'; }).length;
+			var routing = operations.some(function(item) { return item.group === 'routing'; });
+			var levelTiming = operations.filter(function(item) { return ['gain', 'delay', 'polarity'].indexOf(item.group) !== -1; }).length;
+			return '<section class="signal-flow-deployment-output-summary"><h3>' + escapeHTML(output.label) + '</h3><p>' + (routing ? 'Routing included' : 'Routing unavailable') + ' · ' + filters + ' crossover/EQ sections · ' + levelTiming + ' level/timing values' + (output.protection && output.protection.enabled ? ' · Protection simulator context included' : '') + '</p></section>';
+		}).join('') : '<p>Save the design, then choose Preview deployment to see what would be applied.</p>');
 		$('#signal-flow-deployment-operations .signal-flow-operation-list').html(compilation ? compilation.operations.map(function(item) {
 			return '<div class="signal-flow-operation"><strong>' + (item.index + 1) + '. ' + escapeHTML(item.group) + '</strong> · ' +
 				escapeHTML(item.outputId || 'system') + ' · target ' + escapeHTML(item.target) + ' · ' +
@@ -680,20 +736,82 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 		$('#signal-flow-simulate-clear').prop('disabled', !hasApplied);
 	}
 
+	function filterSummary(filter, shortName) {
+		if (!filter.enabled) return null;
+		var family = filter.family === 'linkwitz-riley' ? 'LR' : 'Butterworth';
+		return shortName + ' ' + roundDisplay(filter.cutoffHz) + ' Hz ' + family + (filter.slopeDbPerOctave / 6);
+	}
+
+	function outputSummaries(output) {
+		var connection = state.draft.connections.find(function(item) { return item.destination === output.id && item.enabled; });
+		var crossover = state.draft.crossover.outputs.find(function(item) { return item.outputId === output.id; });
+		var filters = [filterSummary(crossover.highPass, 'HP'), filterSummary(crossover.lowPass, 'LP')].filter(Boolean);
+		var processing = state.draft.channelProcessing.outputs.find(function(item) { return item.outputId === output.id; });
+		var eq = state.draft.parametricEQ.outputs.find(function(item) { return item.outputId === output.id; });
+		var eqCount = eq.bands.filter(function(band) { return band.enabled; }).length;
+		var protection = state.draft.driverProtection.outputs.find(function(item) { return item.outputId === output.id; });
+		var protectionConfigured = protection.limiter.enabled || protection.driver.continuousPowerWatts !== null || protection.amplifier.maximumPeakVoltage !== null;
+		return {
+			routing: (output.enabled ? roleLabels[output.role] : 'Disabled') + ' · ' + (connection ? state.capabilities.inputs.find(function(input) { return input.id === connection.source; }).name : 'No input'),
+			crossover: filters.length ? filters.join(' · ') : 'No crossover set — edit filters or use Suggest setup',
+			processing: processing.gain.valueDb + ' dB · ' + processing.delay.valueMs + ' ms · ' + (processing.polarity.inverted ? 'Polarity inverted' : 'Polarity normal'),
+			eq: eqCount ? eqCount + ' enabled EQ band' + (eqCount === 1 ? '' : 's') : 'No EQ filters — add one or use Suggest EQ',
+			protection: protectionConfigured ? 'Protection assumptions configured' : 'Protection limits are not configured'
+		};
+	}
+
+	function workflowSection(output, id, title, summary, content) {
+		var open = openOutputSections[output.id] === id;
+		return '<section class="signal-flow-workflow-section' + (open ? ' open' : '') + '" aria-labelledby="signal-flow-section-' + id + '-' + output.id + '">' +
+			'<button type="button" class="signal-flow-workflow-summary" id="signal-flow-section-' + id + '-' + output.id + '" aria-expanded="' + open + '" aria-controls="signal-flow-panel-' + id + '-' + output.id + '" onclick="signalFlow.toggleOutputSection(\'' + output.id + '\', \'' + id + '\');"><span><strong>' + title + '</strong><small>' + escapeHTML(summary) + '</small></span><span aria-hidden="true">' + (open ? '−' : '+') + '</span></button>' +
+			'<div class="signal-flow-workflow-panel" id="signal-flow-panel-' + id + '-' + output.id + '" ' + (open ? '' : 'hidden ') + '>' + content + '</div></section>';
+	}
+
+	function renderDesignReview() {
+		if (!state.draft) return;
+		var review = signalFlowUIState.designReview(state);
+		function item(title, value, action, label) {
+			return '<div class="signal-flow-review-item"><div><strong>' + escapeHTML(title) + '</strong><span>' + escapeHTML(value) + '</span></div>' +
+				(action ? '<button type="button" class="button pill outline" onclick="' + action + '">' + escapeHTML(label) + '</button>' : '') + '</div>';
+		}
+		var statusClass = review.designState === 'Error' ? ' error' : review.designState === 'Unsaved' ? ' warning' : '';
+		$('#signal-flow-design-review').html('<p class="signal-flow-review-state' + statusClass + '" role="status"><strong>' + review.designState + '</strong> · ' + review.errors + ' errors · ' + review.warnings + ' warnings · Deployment ' + review.deploymentState + '</p>' +
+			item('Outputs', review.configuredOutputs + '/' + review.enabledOutputs + ' configured · ' + review.routedOutputs + ' routed', "signalFlow.showWorkspace('design');", 'Open Design') +
+			item('Crossover', review.crossoverOutputs + ' enabled outputs have crossover filters', "signalFlow.selectOutput('" + (selectedOutputID || 'output-a') + "', 'crossover');", 'Open Crossover') +
+			item('Level & timing', review.adjustedOutputs + ' enabled outputs use non-default values', "signalFlow.selectOutput('" + (selectedOutputID || 'output-a') + "', 'processing');", 'Open Level & timing') +
+			item('Parametric EQ', review.eqBands + ' enabled bands', "signalFlow.selectOutput('" + (selectedOutputID || 'output-a') + "', 'eq');", 'Open Parametric EQ') +
+			item('Driver Protection', review.protectedOutputs + '/' + review.enabledOutputs + ' enabled outputs configured', "signalFlow.selectOutput('" + (selectedOutputID || 'output-a') + "', 'protection');", 'Open Driver Protection') +
+			item('Measurements', review.measurements + ' available' + (review.staleMeasurements ? ' · ' + review.staleMeasurements + ' stale' : ''), "signalFlow.showWorkspace('measurements');", 'Open Measurements') +
+			item('Backup & restore', 'Available in System Tools; backup does not deploy the design', "beo.showExtension('hifiberry-system-tools');", 'Open System Tools'));
+	}
+
 	function render(preferredFocusId) {
 		var activeControlId = preferredFocusId || (document.activeElement && document.activeElement.id);
 		if (state.loading || !state.draft) {
 			$('#signal-flow-runtime-status').text('Loading routing design…');
 			return;
 		}
-		$('#signal-flow-runtime-status').text(state.runtime.statusLabel + (state.connected ? '' : ' · Disconnected'));
+		var quickReview = signalFlowUIState.designReview(state);
+		$('#signal-flow-runtime-status').text('Design: ' + quickReview.designState + ' · Deployment: Blocked · ' + quickReview.simulatorState + (state.connected ? '' : ' · Disconnected'));
 
 		$('#signal-flow-inputs').html(state.capabilities.inputs.map(function(input) {
 			return '<div class="signal-flow-input' + (input.available ? '' : ' disabled') + '" title="' + escapeHTML(input.description) + '">' +
 				escapeHTML(input.name) + '</div>';
 		}).join(''));
 
-		$('#signal-flow-outputs').html(state.draft.outputs.map(function(output) {
+		if (!selectedOutputID || !state.draft.outputs.some(function(output) { return output.id === selectedOutputID; })) {
+			var initialOutput = state.draft.outputs.find(function(output) { return output.enabled; }) || state.draft.outputs[0];
+			selectedOutputID = initialOutput.id;
+		}
+		if (openOutputSections[selectedOutputID] === undefined) openOutputSections[selectedOutputID] = 'routing';
+		$('#signal-flow-output-selector').html(state.draft.outputs.map(function(output) {
+			var connection = state.draft.connections.find(function(item) {
+				return item.destination === output.id && item.enabled;
+			});
+			return '<button type="button" role="tab" class="signal-flow-output-choice' + (output.id === selectedOutputID ? ' selected' : '') + '" id="signal-flow-output-select-' + output.id + '" aria-selected="' + (output.id === selectedOutputID) + '" aria-controls="signal-flow-output-editor" onclick="signalFlow.selectOutput(\'' + output.id + '\');"><strong>' + escapeHTML(output.dspChannel.toUpperCase() + ' · ' + output.label) + '</strong><span>' + escapeHTML((output.enabled ? roleLabels[output.role] : 'Disabled') + ' · ' + (connection ? connection.source : 'No input')) + '</span></button>';
+		}).join(''));
+		var selectedOutput = state.draft.outputs.find(function(output) { return output.id === selectedOutputID; });
+		$('#signal-flow-outputs').html([selectedOutput].map(function(output) {
 			var connection = state.draft.connections.find(function(item) {
 				return item.destination === output.id && item.enabled;
 			});
@@ -711,15 +829,15 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 			var copyOptions = state.draft.outputs.filter(function(item) { return item.id !== output.id; }).map(function(item) {
 				return option(item.id, item.label, '');
 			}).join('');
-			return '<article class="signal-flow-output" data-output-id="' + output.id + '" aria-label="' + escapeHTML(output.label) + ' output channel">' +
-				'<div class="signal-flow-output-header"><strong>' + escapeHTML(output.dspChannel.toUpperCase()) + ' · ' + escapeHTML(output.label) + '</strong>' +
-				"<label><input type=\"checkbox\" " + (output.enabled ? "checked " : "") + "onchange=\"signalFlow.update('" + output.id + "', 'enabled', this.checked);\"> Enabled</label></div>" +
-				'<div class="signal-flow-output-grid">' +
+			var summaries = outputSummaries(output);
+			var routingContent = '<div class="signal-flow-output-grid">' +
+				"<div class=\"signal-flow-field\"><label for=\"signal-flow-enabled-" + output.id + "\"><input id=\"signal-flow-enabled-" + output.id + "\" type=\"checkbox\" " + (output.enabled ? "checked " : "") + "onchange=\"signalFlow.update('" + output.id + "', 'enabled', this.checked);\"> Output enabled</label></div>" +
 				"<div class=\"signal-flow-field\"><label for=\"signal-flow-label-" + output.id + "\">Driver label</label><input id=\"signal-flow-label-" + output.id + "\" value=\"" + escapeHTML(output.label) + "\" onchange=\"signalFlow.update('" + output.id + "', 'label', this.value);\"></div>" +
 				"<div class=\"signal-flow-field\"><label for=\"signal-flow-role-" + output.id + "\">Driver role</label><select id=\"signal-flow-role-" + output.id + "\" onchange=\"signalFlow.update('" + output.id + "', 'role', this.value);\">" + roles + "</select></div>" +
 				"<div class=\"signal-flow-field\"><label for=\"signal-flow-side-" + output.id + "\">Side</label><select id=\"signal-flow-side-" + output.id + "\" onchange=\"signalFlow.update('" + output.id + "', 'side', this.value);\">" + sides + "</select></div>" +
-				"<div class=\"signal-flow-field\"><label for=\"signal-flow-source-" + output.id + "\">Input</label><select id=\"signal-flow-source-" + output.id + "\" onchange=\"signalFlow.route('" + output.id + "', this.value);\">" + inputOptions + "</select></div>" +
-				'</div><section class="signal-flow-crossover" aria-label="Crossover for ' + escapeHTML(output.label) + '">' +
+				"<div class=\"signal-flow-field\"><label for=\"signal-flow-source-" + output.id + "\">Routed input</label><select id=\"signal-flow-source-" + output.id + "\" onchange=\"signalFlow.route('" + output.id + "', this.value);\">" + inputOptions + "</select></div>" +
+				'</div>';
+			var crossoverContent = '<section class="signal-flow-crossover" aria-label="Crossover for ' + escapeHTML(output.label) + '">' +
 				'<h3>Crossover</h3><div class="signal-flow-crossover-grid">' +
 				crossoverControls(output, crossover, 'highPass', 'High-pass') +
 				crossoverControls(output, crossover, 'lowPass', 'Low-pass') + '</div>' +
@@ -728,7 +846,14 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 				'<label for="signal-flow-copy-' + output.id + '">Copy to</label><select id="signal-flow-copy-' + output.id + '">' +
 				option('', 'Choose output', '') + copyOptions + '</select><button type="button" class="button pill outline" ' +
 				"onclick=\"signalFlow.copyCrossover('" + output.id + "', document.getElementById('signal-flow-copy-" + output.id + "').value);\">Copy</button></div>" +
-				crossoverAssistanceControls(output) + '</section>' + alignmentControls(output) + parametricEQControls(output) + processingControls(output) + protectionControls(output) + '</article>';
+				crossoverAssistanceControls(output) + alignmentControls(output) + '</section>';
+			return '<article class="signal-flow-output" id="signal-flow-output-editor" data-output-id="' + output.id + '" role="tabpanel" aria-labelledby="signal-flow-output-select-' + output.id + '" aria-label="' + escapeHTML(output.label) + ' output channel">' +
+				'<div class="signal-flow-output-header"><div><strong>' + escapeHTML(output.dspChannel.toUpperCase()) + ' · ' + escapeHTML(output.label) + '</strong><span>' + escapeHTML(summaries.routing) + '</span></div></div>' +
+				workflowSection(output, 'routing', 'Output & routing', summaries.routing, routingContent) +
+				workflowSection(output, 'crossover', 'Crossover', summaries.crossover, crossoverContent) +
+				workflowSection(output, 'processing', 'Level & timing', summaries.processing, processingControls(output)) +
+				workflowSection(output, 'eq', 'Parametric EQ', summaries.eq, parametricEQControls(output)) +
+				workflowSection(output, 'protection', 'Driver Protection', summaries.protection, protectionControls(output)) + '</article>';
 		}).join(''));
 
 		var issues = state.validation.errors.concat(state.validation.warnings);
@@ -737,6 +862,8 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 		}).join('') + '</ul>' : '<p>No routing-model issues found.</p>');
 		renderMeasurements();
 		renderMeasurementMerge();
+		renderDesignReview();
+		showWorkspace(currentWorkspace);
 
 		var summary = signalFlowUIState.summary(state);
 		$('#signal-flow-summary').text(
@@ -764,12 +891,13 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 
 	function renderMeasurements() {
 		var measurements = state.draft.measurements ? state.draft.measurements.measurements : [];
+		$('#signal-flow-measurement-empty').toggleClass('hidden', measurements.length > 0 || !!measurementPreview);
 		if (selectedMeasurementId && !measurements.some(function(item) { return item.id === selectedMeasurementId; })) selectedMeasurementId = null;
 		var selected = measurements.find(function(item) { return item.id === selectedMeasurementId; }) || measurements[0];
 		if (selected) selectedMeasurementId = selected.id;
 		$('#signal-flow-measurement-preview').html(measurementPreview ? '<p><strong>Detected ' + escapeHTML(measurementPreview.detectedFormat) + '</strong> · ' + escapeHTML(measurementPreview.confidence) + ' confidence</p><p>' + measurementPreview.recognizedColumns.map(escapeHTML).join(', ') + ' · ' + measurementPreview.summary.pointCount + ' points · ' + measurementPreview.summary.minimumFrequencyHz + '–' + measurementPreview.summary.maximumFrequencyHz + ' Hz · Phase ' + (measurementPreview.summary.phaseAvailable ? 'available' : 'not available') + '</p>' + measurementPreview.warnings.map(function(item) { return '<p class="signal-flow-warning">' + escapeHTML(item.message) + '</p>'; }).join('') + '<button type="button" class="button pill black" onclick="signalFlow.confirmMeasurementImport();">Confirm import</button>' : '');
 		$('#signal-flow-measurement-list').html(measurements.length ? measurements.map(function(item) {
-			return '<button type="button" role="option" aria-selected="' + (selected && item.id === selected.id) + '" class="signal-flow-measurement-item' + (selected && item.id === selected.id ? ' selected' : '') + '" onclick="signalFlow.selectMeasurement(\'' + item.id + '\');"><strong>' + escapeHTML(item.name) + '</strong><span>' + (item.sourceFormat === 'derived-merge' ? 'Derived merged response' : escapeHTML(item.type)) + ' · ' + item.points.length + ' points · ' + item.points[0].frequencyHz + '–' + item.points[item.points.length - 1].frequencyHz + ' Hz · Phase ' + (item.units.phase ? 'available' : 'not available') + '</span></button>';
+			return '<button type="button" role="option" aria-selected="' + (selected && item.id === selected.id) + '" class="signal-flow-measurement-item' + (selected && item.id === selected.id ? ' selected' : '') + '" onclick="signalFlow.selectMeasurement(\'' + item.id + '\');"><strong>' + escapeHTML(item.name) + '</strong><span>' + (item.sourceFormat === 'derived-merge' ? 'Derived response' : escapeHTML(item.type)) + ' · ' + item.points.length + ' points · ' + item.points[0].frequencyHz + '–' + item.points[item.points.length - 1].frequencyHz + ' Hz · Phase ' + (item.units.phase ? 'available' : 'not available') + '</span></button>';
 		}).join('') : '<p>No imported measurements.</p>');
 		if (!selected) { $('#signal-flow-measurement-detail').empty(); return; }
 		var outputOptions = option('', 'Unassigned', selected.assignedOutputId || '') + state.draft.outputs.map(function(output) { return option(output.id, output.label + ' · ' + roleLabels[output.role], selected.assignedOutputId || ''); }).join('');
@@ -778,7 +906,9 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 		var timing = selected.conditions && selected.conditions.timingReference ? selected.conditions.timingReference : {kind: 'unknown', group: null};
 		var timingOptions = option('unknown', 'Unknown / unavailable', timing.kind) + option('shared', 'Shared absolute reference', timing.kind) + option('relative', 'Shared relative phase reference', timing.kind) + option('independent', 'Independent reference', timing.kind);
 		var staleSources = selected.mergeRecipe ? [{id: selected.mergeRecipe.lowSourceId, hash: selected.mergeRecipe.lowSourceHash, role: 'Nearfield'}, {id: selected.mergeRecipe.highSourceId, hash: selected.mergeRecipe.highSourceHash, role: 'Farfield'}].map(function(reference) { var source = measurements.find(function(item) { return item.id === reference.id; }); return !source || !source.integrity || source.integrity.hash !== reference.hash ? reference.role + ' source ' + (source ? '“' + source.name + '” changed' : 'is missing') : null; }).filter(Boolean) : [];
-		$('#signal-flow-measurement-detail').html('<h3>' + escapeHTML(selected.name) + '</h3>' + (selected.sourceFormat === 'derived-merge' ? '<p><strong>Derived merged response</strong> · Magnitude only · Source observations remain unchanged.</p>' : '') + '<div class="signal-flow-measurement-fields"><label>Name<input id="signal-flow-measurement-name" value="' + escapeHTML(selected.name) + '" ' + (selected.sourceFormat === 'derived-merge' ? 'disabled' : '') + '></label><label>Notes<textarea id="signal-flow-measurement-notes" ' + (selected.sourceFormat === 'derived-merge' ? 'disabled' : '') + '>' + escapeHTML(selected.description) + '</textarea></label><label>Measurement type<select id="signal-flow-measurement-type" ' + (selected.sourceFormat === 'derived-merge' ? 'disabled' : '') + '>' + typeOptions + '</select></label><label>Assigned output<select id="signal-flow-measurement-output">' + outputOptions + '</select></label><label>Timing reference<select id="signal-flow-measurement-timing-kind" ' + (selected.sourceFormat === 'derived-merge' ? 'disabled' : '') + '>' + timingOptions + '</select></label><label>Reference group<input id="signal-flow-measurement-timing-group" value="' + escapeHTML(timing.group || '') + '" placeholder="Same capture or clock ID" ' + (selected.sourceFormat === 'derived-merge' ? 'disabled' : '') + '></label></div><p>Use the same explicit reference group only when both phase measurements share that timing basis. Unknown or independent references cannot support predicted complex summation.</p>' + (selected.sourceFormat === 'derived-merge' ? '<button type="button" class="button pill black" onclick="signalFlow.editMeasurementMerge(\'' + selected.id + '\');">Edit merge recipe</button><button type="button" class="button pill outline" onclick="signalFlow.updateMeasurement();">Update assignment</button>' : '<button type="button" class="button pill black" onclick="signalFlow.updateMeasurement();">Update measurement</button>') + '<button type="button" class="button pill outline" onclick="signalFlow.confirmRemoveMeasurement();">Remove</button><p>Source: ' + escapeHTML(selected.sourceFilename || (selected.sourceFormat === 'derived-merge' ? 'derived from saved sources' : 'unnamed file')) + ' · ' + escapeHTML(selected.sourceFormat) + ' · Imported/generated ' + escapeHTML(selected.importedAt) + ' · Integrity ' + escapeHTML(selected.integrity.hash.slice(0, 12)) + '</p>' + graph + '<p><strong>' + (selected.sourceFormat === 'derived-merge' ? 'Derived response' : 'Measured response') + '</strong> is shown separately from crossover, EQ and combined electrical processing. This is not an acoustic prediction, calibration claim or automatic correction, and it is not an anechoic claim.</p>');
+		var contextualActions = selected.assignedOutputId ? '<div class="signal-flow-measurement-context-actions" aria-label="Use this measurement"><button type="button" class="button pill outline" onclick="signalFlow.useMeasurementFor(\'crossover\', \'' + selected.assignedOutputId + '\');">Use for Crossover</button><button type="button" class="button pill outline" onclick="signalFlow.useMeasurementFor(\'alignment\', \'' + selected.assignedOutputId + '\');">Use for Driver alignment</button><button type="button" class="button pill outline" onclick="signalFlow.useMeasurementFor(\'eq\', \'' + selected.assignedOutputId + '\');">Use for Parametric EQ</button></div>' : '';
+		var provenance = '<details class="signal-flow-advanced" ontoggle="this.querySelector(\'summary\').setAttribute(\'aria-expanded\', this.open ? \'true\' : \'false\');"><summary aria-expanded="false">Advanced</summary><div class="signal-flow-measurement-fields"><label>Timing reference<select id="signal-flow-measurement-timing-kind" ' + (selected.sourceFormat === 'derived-merge' ? 'disabled' : '') + '>' + timingOptions + '</select></label><label>Reference group<input id="signal-flow-measurement-timing-group" value="' + escapeHTML(timing.group || '') + '" placeholder="Same capture or clock ID" ' + (selected.sourceFormat === 'derived-merge' ? 'disabled' : '') + '></label></div><p>Use the same explicit reference group only when both phase measurements share that timing basis. Unknown or independent references cannot support predicted complex summation.</p><p>Source: ' + escapeHTML(selected.sourceFilename || (selected.sourceFormat === 'derived-merge' ? 'derived from saved sources' : 'unnamed file')) + ' · ' + escapeHTML(selected.sourceFormat) + ' · Imported/generated ' + escapeHTML(selected.importedAt) + ' · Integrity ' + escapeHTML(selected.integrity.hash.slice(0, 12)) + '</p></details>';
+		$('#signal-flow-measurement-detail').html('<h3>' + escapeHTML(selected.name) + '</h3>' + (selected.sourceFormat === 'derived-merge' ? '<p><strong>Derived response</strong> · Magnitude only · Source observations remain unchanged.</p>' : '') + '<div class="signal-flow-measurement-fields"><label>Name<input id="signal-flow-measurement-name" value="' + escapeHTML(selected.name) + '" ' + (selected.sourceFormat === 'derived-merge' ? 'disabled' : '') + '></label><label>Notes<textarea id="signal-flow-measurement-notes" ' + (selected.sourceFormat === 'derived-merge' ? 'disabled' : '') + '>' + escapeHTML(selected.description) + '</textarea></label><label>Measurement type<select id="signal-flow-measurement-type" ' + (selected.sourceFormat === 'derived-merge' ? 'disabled' : '') + '>' + typeOptions + '</select></label><label>Assigned output<select id="signal-flow-measurement-output">' + outputOptions + '</select></label></div>' + (selected.sourceFormat === 'derived-merge' ? '<button type="button" class="button pill black" onclick="signalFlow.editMeasurementMerge(\'' + selected.id + '\');">Edit merge recipe</button><button type="button" class="button pill outline" onclick="signalFlow.updateMeasurement();">Update assignment</button>' : '<button type="button" class="button pill black" onclick="signalFlow.updateMeasurement();">Update measurement</button>') + '<button type="button" class="button pill outline" onclick="signalFlow.confirmRemoveMeasurement();">Remove measurement</button>' + contextualActions + graph + '<p><strong>' + (selected.sourceFormat === 'derived-merge' ? 'Derived response' : 'Measured response') + '</strong> is shown separately from crossover, EQ and combined electrical processing. This is not an acoustic prediction, calibration claim or automatic correction, and it is not an anechoic claim.</p>' + provenance);
 		if (selected.sourceFormat === 'derived-merge') $('#signal-flow-measurement-detail h3').after(staleSources.length ? '<p class="signal-flow-error" role="alert">Stale derived response: ' + escapeHTML(staleSources.join('; ')) + '. Recompute the merge before treating it as current.</p>' : '<p class="signal-flow-status-matched" role="status">Derived response is current for its saved source hashes.</p>');
 	}
 
@@ -1255,6 +1385,10 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 		resetMeasurementMergeOffset: resetMeasurementMergeOffset,
 		saveMeasurementMerge: saveMeasurementMerge,
 		closeMeasurementMerge: closeMeasurementMerge,
+		showWorkspace: showWorkspace,
+		selectOutput: selectOutput,
+		toggleOutputSection: toggleOutputSection,
+		useMeasurementFor: useMeasurementFor,
 		updateDelay: updateDelay,
 		changeDelayUnit: changeDelayUnit,
 		processingTab: processingTab,
