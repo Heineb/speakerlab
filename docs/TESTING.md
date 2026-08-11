@@ -244,7 +244,7 @@ npm run test:ui-workflow
 npm run test:ui-workflow-acceptance
 ```
 
-The model/client suite protects derived Review semantics, one shared draft, the Design/Measurements/Review shell, canonical processing labels, Advanced disclosure and physical-deployment wording. Eight dedicated Chromium journeys cover a normal two-output design through crossover, Level & timing, EQ, Driver Protection, Review, Save and restart; an integrated import/merge/alignment/assisted-crossover/assisted-EQ workflow; clean default disclosure; mutation-free Advanced behavior; keyboard and semantic state; and desktop, tablet and narrow-mobile layout without horizontal overflow.
+The model/client suite protects derived Review semantics, one shared draft, the Design/Measurements/Review shell, canonical processing labels, Advanced disclosure and physical-deployment wording. Ten dedicated Chromium journeys cover a beginner two-way Save without Advanced; a normal two-output design through crossover, Level & timing, EQ, Driver Protection, Review, Save and restart; an integrated import/merge/alignment/assisted-crossover/assisted-EQ/protection workflow with semantic overlay readiness and focused-form preservation; tab-scoped restoration of selected output and design section; clean default disclosure; mutation-free Advanced behavior; keyboard and semantic state; and desktop, tablet and narrow-mobile layout without horizontal overflow.
 
 All existing specialist journeys remain in the full `test:ui-acceptance` run and were adapted to reach moved controls through the public workspace/output/section interaction. This proves consolidation did not remove capability. The tests remain hardware-free and distinguish Measured, Predicted, Simulated, Saved and physically Blocked state.
 

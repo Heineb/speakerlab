@@ -66,6 +66,7 @@ Start with [Getting Started](docs/GETTING_STARTED.md), then use the task-oriente
 - [Phase/Time Alignment](docs/PHASE_ALIGNMENT.md)
 - [Assisted Crossover](docs/ASSISTED_CROSSOVER.md) and [Assisted EQ](docs/ASSISTED_EQ.md)
 - [Driver Protection](docs/DRIVER_PROTECTION.md)
+- [Stop and Validate v1 report](docs/VALIDATION.md)
 - [Testing](docs/TESTING.md), [Architecture](docs/ARCHITECTURE.md) and [Current Status](docs/CURRENT_STATUS.md)
 - [UI Principles](docs/UI_PRINCIPLES.md), [Branding](docs/BRANDING.md) and [Upstream Relationship](docs/UPSTREAM.md)
 

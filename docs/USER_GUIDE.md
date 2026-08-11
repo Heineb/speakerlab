@@ -22,7 +22,7 @@ See [Design Workflow](DESIGN_WORKFLOW.md) for the canonical hierarchy and termin
 
 Open **Measurements** and choose **Import measurement**. Inspect detected columns, units, frequency range and phase availability before confirming. Name, classify and assign the response, then update the draft. Imported points are preserved and are never corrected automatically.
 
-The selected measurement keeps metadata, assignment, graph and contextual actions together. Timing reference, reference group, provenance and integrity are under **Advanced**; material validation and stale-state warnings remain visible.
+The selected measurement keeps metadata, assignment, timing reference, reference group, graph and contextual actions together. Declare a shared timing basis only when the captures genuinely share it. Source provenance and integrity are under **Advanced**; material validation and stale-state warnings remain visible.
 
 For compatible nearfield/farfield observations, choose **Merge measurements**, review overlap and the suggested level offset, preview the transition, then save a **derived response**. Sources remain unchanged. A derived merge is magnitude-only and cannot support phase/time alignment. See [Measurement Import](MEASUREMENT_IMPORT.md) and [Measurement Merge](MEASUREMENT_MERGE.md).
 

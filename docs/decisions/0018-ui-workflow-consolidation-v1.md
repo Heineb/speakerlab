@@ -16,6 +16,8 @@ Design shows a compact output selector and one selected output editor. Use a sin
 
 Measurements consolidates import, inspect, assign and merge. Detailed provenance/timing fields move under a standard collapsed Advanced disclosure while stale/quality warnings remain visible. Context actions return to the relevant selected-output editor without mutating settings.
 
+Stop and Validate v1 refined this placement after the assisted journey demonstrated that timing reference and reference group are required alignment inputs rather than diagnostics. Those two fields now remain in normal selected-measurement context; source provenance and integrity detail remain under Advanced.
+
 Review derives a concise whole-design summary with links to the relevant context. It owns the visible validation summary, Save/backup next steps and Deployment Preview. Deployment defaults to target, simulator state, important blockers and proposed output scope; mapping, evidence, operations, transport/readback and recovery diagnostics move under one Advanced disclosure.
 
 Standardise terminology and status semantics as recorded in `docs/DESIGN_WORKFLOW.md`. Keep existing data models, message contracts, persistence, backup and physical-deployment prohibition unchanged.

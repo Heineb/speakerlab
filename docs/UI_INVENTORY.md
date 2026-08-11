@@ -4,7 +4,7 @@ Status: completed before UI Workflow Consolidation v1 implementation.
 
 ## Current structure
 
-The assembled Beocreate-derived shell exposes Home, Sound, Sources, Network, General, Interact and Feedback. SpeakerLab's loudspeaker-design functionality is reached through **Sound → Adjustments → Signal Flow**. Setup is a separate guided first-run path. Configuration backup/restore remains under **General → System Tools**.
+The assembled Beocreate-derived shell exposes Home, Sound, Sources, Network, General, Interact and Feedback. SpeakerLab's loudspeaker-design functionality is reached through **Sound → Adjustments → Speaker Design**. Setup is a separate guided first-run path. Configuration backup/restore remains under **General → System Tools**.
 
 Signal Flow is one long page: runtime state, Inputs, four complete output cards, Design check, Measurements, Deployment Preview, Save/Discard/Reset. Each output card permanently renders output identity/routing, Crossover, Driver Alignment entry, Parametric EQ, Channel Processing and Driver Protection. This preserves reachability but creates repeated controls, simultaneous graphs and a weak sense of the normal sequence.
 
@@ -27,7 +27,7 @@ Signal Flow is one long page: runtime state, Inputs, four complete output cards,
 | Measurement import | Long Measurements section after all outputs | Common for measured workflows | Occasional | “response” and “measurement” sometimes overlap | Dedicated Measurements workspace; primary action **Import measurement** |
 | Measurement inspect / assign | Same Measurements section | Common after import | Occasional | Output assignment is consistent | Keep selected-measurement summary, graph and assignment together |
 | Measurement merge | Button and embedded form inside Measurements | Specialist contextual action | Rare | “Merge Measurements” title case differs | Use **Merge measurements**; keep contextual and collapsed until invoked |
-| Measurement alignment metadata | Timing reference controls in measurement detail | Specialist prerequisite | Rare | Can be confused with Driver alignment | Put provenance/timing metadata under Advanced, but keep incompatibility warnings visible |
+| Measurement alignment metadata | Timing reference controls in measurement detail | Required input for optional alignment | Rare | Can be confused with Driver alignment | Keep timing reference contextual in the normal measurement editor; keep source provenance under Advanced and incompatibility warnings visible |
 | Driver Protection | Large permanent panel per output | Important safety context | Occasional | “limiter”, “protection” and “safety” risk overclaim | Canonical **Driver Protection**; compact status, visible missing/critical warning, detailed assumptions and simulator under Advanced |
 | Design check | Separate list after output cards | Required feedback | Frequent | “validation”, “warning”, “ready” vary | Fold into Design Review and persistent concise status; errors/warnings remain live and linked |
 | Simulator | Controls inside Deployment Preview | Developer/review aid | Occasional | “Apply” can resemble physical deployment | Keep **Apply to simulator** explicitly simulated; group with Deployment Preview |

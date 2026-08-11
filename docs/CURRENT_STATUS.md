@@ -2,48 +2,38 @@
 
 ## Current milestone
 
-**M11D — UI Workflow Consolidation v1**
+**M11E — Stop and Validate v1**
 
 Current working branch: `develop`.
 
 ## Latest completed slice
 
-SpeakerLab now presents its established loudspeaker features as one **Speaker Design** workflow inside the inherited global shell. Three local views share one ordinary design draft:
+SpeakerLab has been validated as one hardware-free product workflow with a deterministic conventional two-way project: woofer/tweeter outputs, routing, 2.2 kHz crossover, level/delay/polarity, Parametric EQ, Driver Protection, synthetic phase-bearing woofer/tweeter measurements and a nearfield/farfield merge. Beginner, experienced and assisted paths proceed through Design, Measurements, Review, Save, backup/restore, restart/reload and Deployment Preview without physical DSP writes.
 
-- **Design** selects one output and exposes a single-open sequence of Output & routing, Crossover, Level & timing, Parametric EQ and Driver Protection.
-- **Measurements** keeps import, inspect and assign together, with merge and routes to Driver alignment, assisted crossover and assisted EQ as contextual actions.
-- **Review** derives a concise whole-speaker summary, links back to editing context and contains the simplified Deployment Preview.
+No Critical workflow blocker was demonstrated. Two High frictions were fixed: the active Feedback page no longer directs users to the historical Bang & Olufsen project, and required timing-reference inputs for Driver alignment no longer hide with provenance diagnostics under Advanced. Medium reload and measurement-form context issues were fixed by retaining only selected output/active section in tab-scoped session storage and preserving the focused measurement form through asynchronous overlay renders. Workspace, Advanced, assistant analyses and design data remain transient. “No routing-model issues” was simplified to “No design issues”.
 
-Assisted features remain transient until explicit acceptance converts their result to ordinary unsaved design fields. Contextual measurement actions now preserve the selected measurement as the assistant reference. One collapsed **Advanced** pattern contains provenance, algorithm metrics, mapping, compiler and transport/readback details; validation, stale state, protection limitations and physical-deployment blockers stay visible.
-
-Assisted EQ eligibility is contextual to the explicitly selected measurement. Selection is retained by stable ID while the assistant is open or closed, unrelated invalid measurements stay in Advanced detail, and a stale derived response receives one primary recompute blocker. Recomputing the merge updates its saved source-hash relationship and restores eligibility without weakening the 12-point source-quality minimum.
-
-Canonical terms distinguish Output/Driver, Level & timing, Measurement/derived response, Measured/Predicted/Simulated, Saved/Unsaved/Error and Simulated/Blocked deployment. The default view renders one selected output, one expanded section and no permanent multi-graph dashboard.
-
-README, Getting Started, Design Workflow, User Guide, UI principles, architecture, roadmap, testing and focused feature guides describe the consolidated paths. SpeakerLab remains the product identity; current-Beocreate references are retained only for supported hardware/DSP targets, inherited interfaces, history or attribution.
+The durable findings, interaction observations, placement recommendations and evidence limits are in `docs/VALIDATION.md`. README, Getting Started, Design Workflow, User Guide, UI inventory, architecture, testing and the consolidation decision record match the validated UI. SpeakerLab branding is consistent on the active shell, setup, About, metadata and Feedback surfaces; Beocreate references remain only for attribution, history, compatibility or the supported hardware/DSP target.
 
 ## Verification
 
-`npm run verify` passes locally. It validates links across 25 documentation files, runs the complete Node and contract suite, checks 247 JavaScript files for syntax and passes 93 real-browser journeys in 15.7 minutes. `git diff --check` also passes.
+`npm run verify` passes locally after the final fix. It validates links across 26 documentation files, passes the complete Node/model/contract suite, checks 247 JavaScript files and passes all 95 real-Chromium journeys in 15.1 minutes. The assisted path uses semantic overlay readiness rather than sleeps or retries and also passed three consecutive focused runs after its render-race fix. `git diff --check` passes.
 
-The dedicated browser coverage includes a complete two-output design through Review/Save/restart, a measurement import/merge/alignment/assisted-crossover/assisted-EQ flow, clean default disclosure, mutation-free Advanced behavior, keyboard/semantic state and desktop/tablet/mobile layouts. The in-app browser backend was unavailable for a separate manual walkthrough; Playwright screenshots and semantic snapshots provided the available visual evidence. Simulator results remain hardware-free and are not evidence of audible output or physical deployment.
-
-The most recent known remote `develop` GitHub Actions run before this local slice (`31433917583`, head `06290aa`) passed on Ubuntu and macOS. This local slice has not been pushed or run in CI.
+The in-app browser backend is unavailable, so a separate unscripted walkthrough could not be performed; repository Playwright/Chromium journeys provide the available real-browser evidence. GitHub Actions run `31487716136` is green on Ubuntu and macOS for the latest committed `develop` head `68f141b`. This uncommitted slice has not been pushed or run in CI.
 
 ## Active work
 
-No implementation slice is active. The consolidated workflow is ready for local review and user validation.
+No implementation slice is active. Stop and Validate v1 is ready for local review and external user testing.
 
 ## Known blockers and risks
 
 Physical DSP apply remains blocked by fresh hardware identity, GPIO mute confirmation, per-operation physical readback/tolerances, connection-loss invalidation and verified last-known-good rollback. No physical Apply control exists.
 
-The inherited global shell still contains legacy extension-oriented destinations outside Speaker Design. Output selection and accordion disclosure are intentionally transient across a full page reload. Backup/restore remains in System Tools rather than duplicated in Review. Measurement timing references remain user-declared; assisted results depend on source quality and are not acoustic, audible or safety guarantees. Driver Protection still has no thermal or excursion model.
+The inherited global shell still contains legacy extension-oriented destinations, and backup/restore remains in System Tools. Timing references are user-declared and cannot be acoustically verified. Driver Protection has no thermal or excursion model. Predictions, assisted results and simulator readback are not acoustic, audible, safety or physical-deployment evidence.
 
 ## Next recommended slice
 
-**Stop and Validate.** Put the consolidated workflow in front of real users before adding another feature or commissioning layer.
+**Stop Feature Development and Conduct External User Testing.** The demonstrated bounded internal frictions are fixed; remaining workflow questions require observation of real users more than additional capability.
 
 ## Deferred work
 
-Physical DSP writes, automatic optimization, FIR, directivity, cardioid tools, room correction, thermal/excursion models and speculative hardware abstractions remain excluded. UI refinements should wait for specific evidence from real-user testing.
+Broad global-navigation redesign, physical DSP writes, automatic optimization, FIR, directivity, cardioid tools, room correction, thermal/excursion models, speculative hardware abstractions and broad dependency upgrades remain excluded.

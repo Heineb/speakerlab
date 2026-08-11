@@ -26,7 +26,7 @@ One section is expanded at a time. Collapsed summaries state the current design 
 
 ## Measurements
 
-**Import measurement** is the primary action. The selected measurement keeps inspection, assignment and its graph together. **Merge measurements** appears as a contextual secondary action. Source integrity, stale state and material quality warnings remain visible; detailed provenance and timing metadata use `Advanced`.
+**Import measurement** is the primary action. The selected measurement keeps inspection, assignment, timing reference and its graph together. **Merge measurements** appears as a contextual secondary action. Source integrity, stale state and material quality warnings remain visible; detailed source provenance uses `Advanced`.
 
 Assigned measurements offer contextual routes back to Crossover, Driver alignment and Parametric EQ. These actions navigate and open the relevant editor; they do not apply suggestions or change the design.
 
