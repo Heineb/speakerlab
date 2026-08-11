@@ -2,7 +2,7 @@
 
 SpeakerLab imports REW frequency-response text and generic FRD-style frequency/magnitude text with optional phase. Supported authoritative units are hertz, decibels and degrees.
 
-Import is preview-first. Detection reports format, confidence, columns, point count, range, phase availability and warnings. Confirmation adds normalized data to the unsaved Signal Flow draft; Save uses the design revision and atomic readback boundary.
+Import is preview-first in **Speaker Design → Measurements**. Detection reports format, confidence, columns, point count, range, phase availability and warnings. Confirmation adds normalized data to the unsaved Speaker Design draft; Save uses the design revision and atomic readback boundary.
 
 Normalization removes a UTF-8 BOM, accepts LF/CRLF, parses locale-independent decimal/scientific notation, normalizes negative zero and sorts ascending. Duplicate points are preserved. No smoothing, interpolation, phase unwrapping, resampling, calibration, truncation or outlier removal occurs.
 

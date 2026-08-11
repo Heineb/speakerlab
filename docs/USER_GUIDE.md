@@ -1,58 +1,57 @@
 # SpeakerLab User Guide
 
-SpeakerLab keeps the normal loudspeaker-design workflow in **Signal Flow**. Changes remain drafts until **Save**. Saved means stored and verified in configuration; it does not mean physically deployed.
+SpeakerLab keeps loudspeaker work in **Speaker Design** with three local views: **Design**, **Measurements** and **Review**. All three operate on the same draft. **Save design** persists it; Save never means physical deployment.
 
-## Create a speaker design
+New users should begin with [Getting Started](GETTING_STARTED.md).
 
-1. Complete setup with a matching speaker preset or **Other Speaker**.
-2. Open **Signal Flow**.
-3. Enable an output, give it a useful driver name, choose its role and side, and route an input.
-4. Repeat for the remaining drivers, then save when validation has no errors.
+## Designing a speaker
 
-## Configure processing
+In **Design**, choose one of four outputs. Only the selected output and one expanded section are shown.
 
-- Set each driver’s high-pass and low-pass in **Crossover**. The graph is an electrical preview, not measured acoustic output.
-- Set channel gain, delay in milliseconds and Normal/Inverted polarity in **Channel Processing**.
-- Add ordinary peaking or shelf bands in **Parametric EQ**. Watch textual headroom warnings and use reset only deliberately.
+- **Output & routing** enables the path, names its driver, assigns role/side and routes an input.
+- **Crossover** edits high-pass and low-pass filters. **Suggest setup** and **Align drivers** are contextual, optional assistance.
+- **Level & timing** contains Level, Delay and Polarity. Phase and polarity are not synonyms.
+- **Parametric EQ** contains ordinary peaking and shelf bands. **Suggest EQ** remains contextual.
+- **Driver Protection** records sourced electrical assumptions. Required warnings remain visible; detailed limits and the normalized simulator are under **Advanced**.
 
-## Work with measurements
+Collapsed summaries show useful current values. Graphs answer the selected editing question and are electrical or predicted unless explicitly labelled measured.
 
-1. In **Measurements**, select an REW text or FRD file and inspect the detected columns, units, range and phase availability.
-2. Add a name, measurement type and output assignment, then import it into the draft.
-3. Save to persist it. Imported source points are never smoothed or corrected automatically.
+See [Design Workflow](DESIGN_WORKFLOW.md) for the canonical hierarchy and terminology.
 
-For nearfield/farfield work, choose **Merge Measurements**, inspect overlap and the suggested level offset, deliberately adopt or edit it, preview the transition, and save the derived magnitude response. Merged responses contain no derived phase and cannot support phase/time alignment.
+## Working with measurements
 
-## Align drivers around a crossover
+Open **Measurements** and choose **Import measurement**. Inspect detected columns, units, frequency range and phase availability before confirming. Name, classify and assign the response, then update the draft. Imported points are preserved and are never corrected automatically.
 
-1. Import phase-bearing measurements for two different outputs and assign an honest **Timing reference** and shared **Reference group** to each.
-2. Configure their crossover, then open **Align drivers** directly below Crossover on either output.
-3. Confirm both sources and the automatic crossover region, then choose **Analyse alignment**.
-4. Review the proposed resulting delay, polarity, confidence, cautions and predicted complex sum. Use **Advanced** only when you need fit diagnostics or a narrower analysis range.
-5. Choose **Apply suggestion to _output_** to create ordinary unsaved delay/polarity values, or close the suggestion to change nothing. Undo remains available before Save.
+The selected measurement keeps metadata, assignment, graph and contextual actions together. Timing reference, reference group, provenance and integrity are under **Advanced**; material validation and stale-state warnings remain visible.
 
-Unknown, independent or mismatched timing references, missing phase, magnitude-only/stale merges, weak fits and excessive delay are blocked. The result includes current crossover, EQ, gain, delay and polarity, but it is still a prediction rather than a new acoustic measurement. See [Phase/Time Alignment](PHASE_ALIGNMENT.md).
+For compatible nearfield/farfield observations, choose **Merge measurements**, review overlap and the suggested level offset, preview the transition, then save a **derived response**. Sources remain unchanged. A derived merge is magnitude-only and cannot support phase/time alignment. See [Measurement Import](MEASUREMENT_IMPORT.md) and [Measurement Merge](MEASUREMENT_MERGE.md).
 
-## Review assisted crossover setups
+## Crossover and driver alignment
 
-1. Assign valid measurements to two supported driver ways with useful overlap.
-2. Open **Suggest setup** inside either driver's Crossover section and confirm the named sources and candidate region.
-3. Generate and compare up to three alternatives against the visible current crossover baseline.
-4. Check whether the result is **Phase-aware** or **Magnitude-based**, read confidence and warnings, and use **Advanced** only for scores and timing diagnostics.
-5. Apply one alternative to create ordinary unsaved low-pass/high-pass and any explicitly shown polarity/delay values, or close it to change nothing. Review normally and choose **Save** separately.
+**Suggest setup** compares up to three conservative crossover alternatives for two supported neighboring ways. It shows the current crossover baseline and labels results as phase-aware or magnitude-based. Explicit Apply creates ordinary unsaved crossover and any shown timing values; it does not change measurements, EQ or protection. See [Assisted Crossover](ASSISTED_CROSSOVER.md).
 
-Magnitude-only suggestions use power summation and make no complex-sum, polarity or delay claim. Existing EQ, gain and protection settings are not changed; protection warnings are not safety guarantees. See [Assisted Crossover](ASSISTED_CROSSOVER.md).
+**Align drivers** requires phase-bearing measurements for different outputs, crossover overlap and an honest compatible timing-reference group. Review delay, polarity, confidence, warnings and the predicted complex sum. Apply creates ordinary unsaved Delay/Polarity values. Unknown timing, missing phase, stale derived responses and unsafe fits are blocked. See [Phase/Time Alignment](PHASE_ALIGNMENT.md).
 
-## Use assisted EQ
+## Parametric EQ and assisted design
 
-Open **Suggest EQ from measurement** inside an output’s Parametric EQ section. Choose an assigned response and target, review the measured/target/current/predicted curves and select only suitable suggestions. **Accept** creates ordinary unsaved EQ bands; **Reject** changes nothing. Save normally after manual review. This is bounded magnitude assistance, not automatic room correction.
+Parametric EQ bands remain normal editable design fields. Watch the textual headroom estimate and use reset deliberately.
 
-## Configure driver protection
+**Suggest EQ** uses an assigned response and a simple target to propose bounded peaking filters. Review Measured, Target, Current and Predicted curves, select suitable suggestions and choose **Accept selected suggestions**. Reject changes nothing. Accepted suggestions become ordinary unsaved bands. This is not room correction or a guarantee of audible improvement. See [Assisted EQ](ASSISTED_EQ.md).
 
-Open **Driver Protection**, enter only sourced driver/amplifier limits, inspect raw and margin-adjusted electrical estimates, and optionally run the normalized simulator. These values do not guarantee thermal, excursion or damage protection and are not mapped to a physical DSP limiter.
+## Driver Protection
 
-## Inspect deployment and protect the design
+Enter only manufacturer or measured driver/amplifier limits you can justify. SpeakerLab exposes conservative electrical estimates, headroom interactions and an optional normalized limiter sequence. It does not model excursion or thermal behavior, cannot guarantee protection, and does not map a limiter to physical hardware. See [Driver Protection](DRIVER_PROTECTION.md).
 
-After saving, use **Deployment Preview** to compile and inspect the current-Beocreate plan. Simulator apply/readback is explicitly simulated; no physical Apply action exists. Use **Configuration Backup & Restore** to export a portable backup, preview restore changes and confirm only after reviewing the plan.
+## Review, backup and Deployment Preview
 
-Advanced diagnostics are documented in the focused guides linked from [Current Status](CURRENT_STATUS.md) and [Testing](TESTING.md).
+**Review** derives a concise speaker-wide summary from the ordinary draft: configured/routed outputs, crossover coverage, non-default Level & timing, EQ, protection, measurements, errors, warnings and Saved/Unsaved/Error state. Its actions return to the relevant context; Review is not a separate stored model.
+
+Use **General → System Tools → Configuration Backup & Restore** to export the complete configuration. Restore always shows a preview before confirmation.
+
+**Preview deployment** compiles the current design for the current-Beocreate target. The primary view shows target, simulator state, blockers and what would be applied. **Advanced** contains mapping confidence, evidence provenance, compiler operations, transport/readback and recovery detail. Apply/read/compare actions affect only the simulator. No physical Apply action exists.
+
+## Advanced and diagnostics
+
+The standard **Advanced** disclosure starts collapsed and never changes the draft merely by opening. It holds algorithm options, confidence and raw metrics, provenance, mapping, compiler and transport detail. Validation errors, important safety warnings, stale measurements and physical-deployment blockers never depend on Advanced being open.
+
+For engineering details, see [Testing](TESTING.md), [Architecture](ARCHITECTURE.md), [Current DSP Mapping](CURRENT_BEOCREATE_DSP_MAPPING.md) and [Physical Apply Blockers](PHYSICAL_APPLY_BLOCKERS.md).

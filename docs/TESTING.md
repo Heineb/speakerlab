@@ -233,6 +233,19 @@ Pure numerical tests cover broad/narrow/absent overlap, role boundaries, existin
 
 Thirteen Chromium journeys cover accept/Save/refresh, bounded alternatives without draft mutation, magnitude-only labeling, phase-aware complex summation, user-declared timing confidence, poor-overlap blocking, current crossover baseline, existing EQ/gain/delay/polarity preservation, protection warnings, Advanced open/close, keyboard use, semantic status/graph meaning and desktop/tablet/mobile layouts. Fixtures are project-owned, deterministic and isolated; there is no network, audio, hardware, physical DSP write, arbitrary sleep or broad retry.
 
+## UI Workflow Consolidation v1
+
+Run:
+
+```sh
+npm run test:ui-workflow
+npm run test:ui-workflow-acceptance
+```
+
+The model/client suite protects derived Review semantics, one shared draft, the Design/Measurements/Review shell, canonical processing labels, Advanced disclosure and physical-deployment wording. Eight dedicated Chromium journeys cover a normal two-output design through crossover, Level & timing, EQ, Driver Protection, Review, Save and restart; an integrated import/merge/alignment/assisted-crossover/assisted-EQ workflow; clean default disclosure; mutation-free Advanced behavior; keyboard and semantic state; and desktop, tablet and narrow-mobile layout without horizontal overflow.
+
+All existing specialist journeys remain in the full `test:ui-acceptance` run and were adapted to reach moved controls through the public workspace/output/section interaction. This proves consolidation did not remove capability. The tests remain hardware-free and distinguish Measured, Predicted, Simulated, Saved and physically Blocked state.
+
 ## Limiter and Driver Protection Foundation v1
 
 Run:

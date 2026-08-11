@@ -18,7 +18,7 @@ Driver Protection assumptions add a warning, not a safety conclusion. Crossover 
 
 ## Accept, undo and Save
 
-Choose one alternative and use **Apply suggestion to _drivers_**. After source-integrity, unchanged-draft and saved-revision checks, the selected low-pass/high-pass and any explicitly shown polarity/delay proposal become ordinary unsaved Crossover and Channel Processing fields. You can edit them normally, undo before Save, discard them or save through the existing atomic configuration path.
+Choose one alternative and use **Apply suggestion to _drivers_**. After source-integrity, unchanged-draft and saved-revision checks, the selected low-pass/high-pass and any explicitly shown polarity/delay proposal become ordinary unsaved **Crossover** and **Level & timing** fields. You can edit them normally, undo before Save, discard them or save through the existing atomic configuration path.
 
 Suggestions and analyses are transient and are never backed up or deployed. There is no automatic Save, physical DSP write or physical Apply action. A saved result remains a simulated design until the separate physical deployment blockers are closed.
 

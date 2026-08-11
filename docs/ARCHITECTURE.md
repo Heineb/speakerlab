@@ -252,6 +252,12 @@ Derived nearfield/farfield responses use the same measurement collection but car
 
 `assisted-crossover-model.js` is the pure transient two-way crossover-design boundary. It reuses phase-alignment interpolation, unwrap and robust timing fit; evaluates only existing crossover-model filters; includes current PEQ/gain/delay/polarity; and produces no more than three deduplicated candidates. Complex phase-aware and magnitude-only power-sum modes are separate contracts. The service applies the same source-hash, unchanged-draft and saved-revision guards before converting an accepted candidate to ordinary crossover and optional processing draft fields. Nothing new is serialized or compiled for DSP. See ADR 0017 and `docs/ASSISTED_CROSSOVER.md`.
 
+## Speaker Design presentation boundary
+
+UI Workflow Consolidation v1 changes presentation, not the versioned Signal Flow storage or server contracts. The `signal-flow` extension is labelled **Speaker Design** and exposes local Design, Measurements and Review views over the same `routing-ui-state` draft. Output selection, accordion state, workspace selection and Advanced disclosure state are transient browser presentation state.
+
+`routing-ui-state.designReview` derives speaker-wide counts and Saved/Unsaved/Error, Simulated and Blocked labels from the ordinary draft, validation and runtime state. It is never serialized. Measurement contextual actions retain the selected measurement only as transient assistant input; accepted results continue to become ordinary crossover, channel-processing or PEQ fields through existing guarded service messages. See ADR 0018 and `docs/DESIGN_WORKFLOW.md`.
+
 ## Hardware- and OS-dependent modules
 
 Beyond DSP, direct dependencies include Raspberry Pi `/proc/cpuinfo`, `raspi-config`, hostname/hosts files, wireless-tools and `wpa_cli`, fixed `wlan0`/`eth0`, systemd services, ALSA tools, AudioControl, Bluetooth, serial ports, GPIO, MPD, Shairport, room-measurement helpers and various `/opt/hifiberry/bin` programs. These prevent whole-server execution on a development Mac unless extensions and filesystem/process dependencies are controlled.

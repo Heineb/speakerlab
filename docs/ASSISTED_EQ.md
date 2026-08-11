@@ -4,7 +4,7 @@
 
 Assisted EQ analyses one assigned imported or derived magnitude response against an explicit Flat or Gentle downward tilt target. It returns at most five human-reviewed peaking-EQ suggestions by default. It is not automatic room correction, acoustic optimisation or a guarantee of improved perceived sound.
 
-Suggestions are transient. Rejecting them changes nothing. Accepting selected suggestions creates ordinary enabled Parametric EQ bands in the existing unsaved Signal Flow draft; normal validation, stable IDs, band capacity, revision conflicts, Discard, optional pre-save undo and Save apply. The authoritative measurement points and integrity hash never change. No path writes physical DSP hardware.
+Suggestions are transient. Rejecting them changes nothing. Accepting selected suggestions creates ordinary enabled Parametric EQ bands in the existing unsaved Speaker Design draft; normal validation, stable IDs, band capacity, revision conflicts, Discard, optional pre-save undo and Save apply. The authoritative measurement points and integrity hash never change. No path writes physical DSP hardware.
 
 ## Eligibility and active range
 

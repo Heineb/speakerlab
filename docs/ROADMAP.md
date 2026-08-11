@@ -447,6 +447,12 @@ Completed v1 foundation: contextual comparison of two supported neighbouring aco
 
 ---
 
+## M11D — UI Workflow Consolidation v1
+
+Completed presentation foundation: the inherited global shell now presents loudspeaker work as **Speaker Design** with local **Design**, **Measurements** and **Review** views over one ordinary draft. One selected output and one expanded processing section reduce repeated controls and graphs. Measurement actions open contextual alignment/crossover/EQ assistance, Review derives speaker-wide state, and Deployment Preview keeps mapping/compiler/transport details under a standard collapsed Advanced disclosure. Canonical terminology, empty states, keyboard semantics and desktop/tablet/mobile journeys are protected. No DSP algorithm, storage format, physical write, dependency or global navigation was added.
+
+---
+
 ## M12 — Live meters and diagnostics
 
 ### Goals

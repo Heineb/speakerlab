@@ -1,56 +1,76 @@
 # SpeakerLab
 
-SpeakerLab is an independent open-source continuation of the Bang & Olufsen Beocreate software. It currently targets the existing Beocreate 4-Channel Amplifier and inherited software platform. SpeakerLab is not developed, endorsed or supported by Bang & Olufsen.
+SpeakerLab is a modern open-source loudspeaker DSP design environment derived from the original Bang & Olufsen Beocreate codebase. It is independently developed, is not an official Bang & Olufsen project, and is not developed, endorsed or supported by Bang & Olufsen.
 
-The project is under active development and is not yet a production-ready replacement image. Today the hardware-free design workflow can configure routing, crossover, gain, delay, polarity, Parametric EQ and driver-protection assumptions; import and merge measurements; review bounded assisted crossover, measurement-assisted EQ and phase/time-alignment suggestions; preview current-Beocreate DSP compilation in a simulator; and back up or restore the complete design. Physical DSP deployment remains deliberately blocked.
+SpeakerLab currently targets the existing Beocreate 4-Channel Amplifier and inherited software platform. The project is under active development and is not yet a production-ready replacement image.
 
-## Local development
+## What works today
 
-Use Node.js 24. The server lockfile was generated with npm 11.6.2.
+The hardware-free workflow can:
+
+- configure four outputs, driver roles and signal routing;
+- design crossover filters and adjust level, delay and polarity;
+- create ordinary Parametric EQ bands;
+- import and inspect REW text and FRD measurements;
+- derive magnitude-only nearfield/farfield merged responses;
+- review phase/time alignment, assisted crossover and bounded assisted EQ suggestions;
+- record Driver Protection assumptions and run a normalized limiter simulation;
+- save, back up, preview and restore the complete design; and
+- compile a current-Beocreate DSP plan, apply it to the local simulator and compare simulated readback.
+
+Physical DSP deployment is deliberately blocked. Saved, predicted and simulated state must not be interpreted as audible or physically deployed behavior.
+
+## Quick start
+
+Prerequisites: Node.js 24 and npm. The server lockfile was generated with npm 11.6.2.
 
 ```sh
 npm ci --prefix Beocreate2/beo-system
 npm run dev
 ```
 
-The development command prints a loopback URL and starts an isolated SpeakerLab instance with temporary or workspace-local state and a current-Beocreate DSP simulator. It does not write to real `/opt` or `/etc`, require root or communicate with physical hardware.
+Open the loopback URL printed by the command (normally `http://127.0.0.1:3000/`). The local runtime uses isolated state and a simulated current-Beocreate DSP; it does not write to real `/opt` or `/etc`, require root or contact physical hardware.
 
-Run all repository verification with:
+Run all documented hardware-free verification with:
 
 ```sh
 npm run verify
 ```
 
-Focused commands and known coverage gaps are documented in [Testing](docs/TESTING.md). The normal suite is hardware-free; simulation is not evidence of audible output, GPIO mute behaviour, physical DSP deployment or driver safety.
+## Typical workflow
 
-## Main design workflow
+1. Complete setup, then open **Speaker Design**.
+2. In **Design**, select each output and work through **Output & routing**, **Crossover**, **Level & timing**, **Parametric EQ** and **Driver Protection**.
+3. In **Measurements**, import, inspect and assign responses. Merge suitable nearfield/farfield observations when useful.
+4. Use contextual **Align drivers**, **Suggest setup** and **Suggest EQ** actions when measurement evidence supports them.
+5. In **Review**, resolve issues, save the design and inspect **Deployment Preview**.
+6. Use System Tools to download a backup before important changes.
 
-1. Complete the guided setup and open **Signal Flow**.
-2. Name and enable outputs, assign driver roles and route inputs.
-3. Configure crossover, gain, delay, polarity and Parametric EQ.
-4. Import measurements and optionally merge compatible nearfield/farfield magnitude responses.
-5. Review measurements, assisted crossover alternatives, assisted EQ, crossover-region phase/time-alignment suggestions and driver-protection estimates without automatic changes.
-6. Save the design, inspect **Deployment Preview**, and use backup/restore to protect working state.
+Start with [Getting Started](docs/GETTING_STARTED.md), then use the task-oriented [Design Workflow](docs/DESIGN_WORKFLOW.md) and [User Guide](docs/USER_GUIDE.md).
 
-See the concise [SpeakerLab User Guide](docs/USER_GUIDE.md) for task-oriented instructions and feature limitations.
+## Current limitations
 
-## Development workflow
-
-Routine work is performed on `develop`; `master` is the stable integration and release branch. Changes should be focused, tested, documented and committed locally for review. See [AGENTS.md](AGENTS.md), the [Project Charter](docs/PROJECT_CHARTER.md) and [Current Status](docs/CURRENT_STATUS.md) before contributing.
+- Physical DSP deployment and physical Apply controls remain blocked.
+- Timing references can be user-declared; that metadata is not acoustic verification.
+- Driver Protection has no thermal or excursion model and is not a safety guarantee.
+- Predictions depend on measurement calibration, gating, placement, phase quality, overlap and source integrity.
+- Assisted crossover, alignment and EQ are conservative suggestions, not automatic optimization or guarantees of audible improvement.
+- Simulator readback is not hardware evidence.
 
 ## Documentation
 
-- [User guide](docs/USER_GUIDE.md)
-- [Current status](docs/CURRENT_STATUS.md)
-- [Architecture](docs/ARCHITECTURE.md)
-- [Testing](docs/TESTING.md)
-- [Roadmap](docs/ROADMAP.md)
-- [UI principles](docs/UI_PRINCIPLES.md)
-- [Branding and attribution boundary](docs/BRANDING.md)
-- [Phase/time alignment](docs/PHASE_ALIGNMENT.md)
-- [Assisted crossover design](docs/ASSISTED_CROSSOVER.md)
-- [Upstream relationship](docs/UPSTREAM.md)
+- [Getting Started](docs/GETTING_STARTED.md)
+- [Designing a Speaker](docs/DESIGN_WORKFLOW.md)
+- [User Guide](docs/USER_GUIDE.md)
+- [Measurement Import](docs/MEASUREMENT_IMPORT.md) and [Measurement Merge](docs/MEASUREMENT_MERGE.md)
+- [Phase/Time Alignment](docs/PHASE_ALIGNMENT.md)
+- [Assisted Crossover](docs/ASSISTED_CROSSOVER.md) and [Assisted EQ](docs/ASSISTED_EQ.md)
+- [Driver Protection](docs/DRIVER_PROTECTION.md)
+- [Testing](docs/TESTING.md), [Architecture](docs/ARCHITECTURE.md) and [Current Status](docs/CURRENT_STATUS.md)
+- [UI Principles](docs/UI_PRINCIPLES.md), [Branding](docs/BRANDING.md) and [Upstream Relationship](docs/UPSTREAM.md)
 
-## Licence and upstream attribution
+## Development and upstream
 
-The repository is distributed under the [MIT License](LICENSE). It retains code, history, copyright and licence notices inherited from the original Beocreate project. SpeakerLab development belongs to `Heineb/speakerlab`; the original Bang & Olufsen repository is historical source material only.
+Routine work is performed on `develop`; `master` is the stable integration and release branch. See [AGENTS.md](AGENTS.md) and the [Project Charter](docs/PROJECT_CHARTER.md) before contributing.
+
+The repository is distributed under the [MIT License](LICENSE). It retains applicable source history, copyright, licence notices and attribution from the original Beocreate project. SpeakerLab development belongs to `Heineb/speakerlab`; `bang-olufsen/create` is historical source material only.
