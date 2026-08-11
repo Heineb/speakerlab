@@ -8,6 +8,7 @@ const shell = fs.readFileSync(path.join(root, 'Beocreate2/beo-views/default/inde
 const manifest = JSON.parse(fs.readFileSync(path.join(root, 'Beocreate2/beo-views/default/manifest.json'), 'utf8'));
 const setup = fs.readFileSync(path.join(root, 'Beocreate2/beo-extensions/setup/menu.html'), 'utf8');
 const home = fs.readFileSync(path.join(root, 'Beocreate2/beo-extensions/product-information/menu.html'), 'utf8');
+const feedback = fs.readFileSync(path.join(root, 'Beocreate2/beo-extensions/feedback/menu.html'), 'utf8');
 assert.ok(shell.includes('<title>SpeakerLab</title>'));
 assert.ok(shell.includes('speakerlab-mark.svg'));
 assert.ok(shell.includes('speakerlab-wait-animate.svg'));
@@ -17,6 +18,10 @@ assert.ok(manifest.icons.every(icon => icon.src.includes('speakerlab-mark.svg'))
 assert.ok(setup.includes('Welcome to SpeakerLab'));
 assert.ok(setup.includes('speakerlab-mark.svg'));
 assert.ok(home.includes('SpeakerLab is independent'));
+assert.ok(feedback.includes('https://github.com/Heineb/speakerlab/issues'));
+assert.ok(feedback.includes('independent project'));
+assert.ok(!feedback.includes('create@bang-olufsen.dk'));
+assert.ok(!feedback.includes('twitter.com/beocreate'));
 assert.ok(!shell.includes('<title>Beocreate</title>'));
 assert.ok(!setup.includes('create-round.svg'));
 assert.ok(!home.includes('mask-image: url(€/create.svg)'));
