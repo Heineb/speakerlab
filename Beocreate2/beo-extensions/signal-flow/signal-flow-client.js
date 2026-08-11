@@ -198,10 +198,12 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 
 	function captureMeasurementFormDraft() {
 		var detail = document.getElementById('signal-flow-measurement-detail');
-		if (currentWorkspace !== 'measurements' || !detail || !detail.contains(document.activeElement)) return null;
+		if (currentWorkspace !== 'measurements' || !detail) return null;
 		var measurementID = detail.getAttribute('data-measurement-id');
 		if (!measurementID || !document.getElementById('signal-flow-measurement-name')) return null;
-		return {
+		var measurement = state.draft && state.draft.measurements && state.draft.measurements.measurements.find(function(item) { return item.id === measurementID; });
+		if (!measurement) return null;
+		var draft = {
 			measurementID: measurementID,
 			name: $('#signal-flow-measurement-name').val(),
 			description: $('#signal-flow-measurement-notes').val(),
@@ -210,6 +212,14 @@ var signalFlow = (typeof window !== 'undefined' && window.signalFlow) ? window.s
 			timingKind: $('#signal-flow-measurement-timing-kind').val(),
 			timingGroup: $('#signal-flow-measurement-timing-group').val()
 		};
+		var timing = measurement.conditions && measurement.conditions.timingReference ? measurement.conditions.timingReference : {kind: 'unknown', group: null};
+		var unchanged = draft.name === measurement.name &&
+			draft.description === (measurement.description || '') &&
+			draft.type === measurement.type &&
+			draft.outputID === (measurement.assignedOutputId || '') &&
+			draft.timingKind === (timing.kind || 'unknown') &&
+			draft.timingGroup === (timing.group || '');
+		return unchanged ? null : draft;
 	}
 
 	function restoreMeasurementFormDraft(draft, measurementID) {

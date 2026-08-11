@@ -62,7 +62,7 @@ None demonstrated in the hardware-free normal workflow.
 | Finding | Classification | Resolution |
 | --- | --- | --- |
 | Full reload reset selected output and accordion section, causing context loss although saved design state remained correct | State persistence, navigation | Store only selected output and active section in tab-scoped session storage; validate it against current outputs/sections |
-| A late measurement-overlay response could re-render the selected measurement between field edits and discard unsubmitted text | Test fragility, product logic, accessibility | Preserve the focused form values across renders for the same measurement, expose overlay loading with `aria-busy` and remove duplicate workspace renders |
+| A late measurement-overlay response could re-render the selected measurement between field edits and discard unsubmitted text | Test fragility, product logic, accessibility | Preserve values that differ from the authoritative measurement across renders for the same stable ID, regardless of current focus; expose overlay loading with `aria-busy` and remove duplicate workspace renders |
 | The inherited global extension navigation still exposes legacy destinations and makes backup require two global navigation changes | Information architecture, navigation | Deferred; Review keeps a direct System Tools link and a broad shell rewrite is not justified by this slice |
 
 ### Low
@@ -120,7 +120,7 @@ Canonical Output, Driver, Measurement, derived response, Crossover, Level & timi
 
 ## Accessibility, responsive and performance findings
 
-Native buttons, tabs, fields and disclosures remain keyboard reachable; focus and active measurement form values survive reactive rendering, overlay loading exposes `aria-busy`, Advanced is not a focus trap and required timing fields no longer require opening a disclosure. Semantic status/error regions and disabled Save state remain covered. Desktop, tablet and narrow mobile journeys show readable content, reachable primary actions, visible safety status and no document-level horizontal overflow.
+Native buttons, tabs, fields and disclosures remain keyboard reachable; focus and edited measurement form values survive reactive rendering for the same stable measurement ID, overlay loading exposes `aria-busy`, Advanced is not a focus trap and required timing fields no longer require opening a disclosure. Semantic status/error regions and disabled Save state remain covered. Desktop, tablet and narrow mobile journeys show readable content, reachable primary actions, visible safety status and no document-level horizontal overflow.
 
 One duplicate Measurements/Review render on every workspace switch was removed while resolving the active-form race. No repeated request loop, duplicate listener registration, large redundant measurement transfer or panel-opening regression was otherwise demonstrated. Measurement graphs are scoped to the selected context, and this slice does not begin a broader optimization project.
 

@@ -60,7 +60,14 @@ function responseFile(role) {
   return lines.join('\n');
 }
 
+function measurementOption(page, name) {
+  const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return page.locator('#signal-flow-measurement-list').getByRole('option', {name: new RegExp('^' + escapedName + ' ')});
+}
+
 async function importResponse(page, name, role, output, timingGroup) {
+  const expectedType = role === 'nearfield' ? 'nearfield' : 'gated';
+  const beforeCount = await page.evaluate(function () { return signalFlow.getState().draft.measurements.measurements.length; });
   await openWorkspace(page, 'Measurements');
   await page.locator('#signal-flow-measurement-file').setInputFiles({
     name: name.toLowerCase().replace(/ /g, '-') + '.frd',
@@ -68,16 +75,38 @@ async function importResponse(page, name, role, output, timingGroup) {
     buffer: Buffer.from(responseFile(role))
   });
   await page.getByRole('button', {name: 'Confirm import'}).click();
+  await expect.poll(async function () {
+    return page.evaluate(function () { return signalFlow.getState().draft.measurements.measurements.length; });
+  }).toBe(beforeCount + 1);
+  const measurementId = await page.locator('#signal-flow-measurement-detail').getAttribute('data-measurement-id');
+  expect(measurementId).toBeTruthy();
   await expect(page.locator('#signal-flow-measurement-detail')).toHaveAttribute('aria-busy', 'false');
   await page.locator('#signal-flow-measurement-name').fill(name);
-  await page.locator('#signal-flow-measurement-type').selectOption(role === 'nearfield' ? 'nearfield' : 'gated');
+  await page.locator('#signal-flow-measurement-type').selectOption(expectedType);
   await page.locator('#signal-flow-measurement-output').selectOption(output);
   if (timingGroup) {
     await page.locator('#signal-flow-measurement-timing-kind').selectOption('shared');
     await page.locator('#signal-flow-measurement-timing-group').fill(timingGroup);
   }
+
+  // Re-selecting the same stable entry causes a real overlay render. Edited metadata must survive it.
+  await page.locator('#signal-flow-measurement-list').getByRole('option', {selected: true}).click();
+  await expect(page.locator('#signal-flow-measurement-detail')).toHaveAttribute('data-measurement-id', measurementId);
+  await expect(page.locator('#signal-flow-measurement-name')).toHaveValue(name);
+  await expect(page.locator('#signal-flow-measurement-type')).toHaveValue(expectedType);
+  await expect(page.locator('#signal-flow-measurement-output')).toHaveValue(output);
   await page.getByRole('button', {name: 'Update measurement'}).click();
-  await expect(page.getByRole('option', {name: new RegExp(name)})).toBeVisible();
+  const expected = {id: measurementId, name: name, type: expectedType, assignedOutputId: output, timingKind: timingGroup ? 'shared' : 'unknown', timingGroup: timingGroup || null};
+  await expect.poll(async function () {
+    return page.evaluate(function (id) {
+      const item = signalFlow.getState().draft.measurements.measurements.find(function (measurement) { return measurement.id === id; });
+      return item ? {id: item.id, name: item.name, type: item.type, assignedOutputId: item.assignedOutputId, timingKind: item.conditions.timingReference.kind, timingGroup: item.conditions.timingReference.group} : null;
+    }, measurementId);
+  }).toEqual(expected);
+  await expect(page.locator('#signal-flow-message')).toContainText('Measurement updated in this draft');
+  await expect(measurementOption(page, name)).toBeVisible();
+  await expect(page.locator('#signal-flow-measurement-detail')).toHaveAttribute('aria-busy', 'false');
+  return measurementId;
 }
 
 test('core design moves through two outputs, review, save and restart as one workflow', async function ({monitoredPage: page, speakerlab}) {
@@ -147,9 +176,20 @@ test('measurement assistance stays contextual and produces only ordinary design 
   await card.locator('#signal-flow-highPass-output-b-frequency').fill('2200');
   await card.locator('#signal-flow-highPass-output-b-frequency').blur();
 
-  await importResponse(page, 'Woofer nearfield', 'nearfield', 'output-a');
-  await importResponse(page, 'Woofer response', 'woofer', 'output-a', 'workflow-capture');
-  await importResponse(page, 'Tweeter response', 'tweeter', 'output-b', 'workflow-capture');
+  const measurementIds = [
+    await importResponse(page, 'Woofer nearfield', 'nearfield', 'output-a'),
+    await importResponse(page, 'Woofer response', 'woofer', 'output-a', 'workflow-capture'),
+    await importResponse(page, 'Tweeter response', 'tweeter', 'output-b', 'workflow-capture')
+  ];
+  expect(new Set(measurementIds).size).toBe(3);
+  for (const measurement of [
+    {id: measurementIds[0], name: 'Woofer nearfield'},
+    {id: measurementIds[1], name: 'Woofer response'},
+    {id: measurementIds[2], name: 'Tweeter response'}
+  ]) {
+    await measurementOption(page, measurement.name).click();
+    await expect(page.locator('#signal-flow-measurement-detail')).toHaveAttribute('data-measurement-id', measurement.id);
+  }
 
   await page.getByRole('button', {name: 'Merge measurements'}).click();
   const merge = page.locator('#signal-flow-measurement-merge');
