@@ -8,9 +8,11 @@ Comparison branch: `master`
 
 ## Outcome
 
-The repository is coherent, locally reproducible and ready for external review as a development preview. The exact integration verdict is **NOT READY FOR MASTER** because the complete candidate head has not run in GitHub Actions. The latest green cross-platform run covers the earlier published `develop` head, while Stop and Validate and this audit remain local commits.
+The repository is coherent, locally reproducible and ready for external review as a development preview. The previous release candidate `865db8542786255295faef8b6649d538108c97fb` was pushed to `develop`; GitHub Actions run `31547428307` completed successfully on that exact SHA, with both Ubuntu and macOS passing.
 
-No Critical product blocker, credential, private key, access token, tracked runtime state or generated browser-test output was found. Four historical PDF guides contained local authoring paths in catalog XMP metadata; those streams were removed, and all 79 pages rendered pixel-identically before and after cleanup.
+This documentation-only readiness correction creates a new HEAD after that verified candidate. The new documentation HEAD has not yet been pushed or evaluated by GitHub Actions, so the exact integration verdict remains **NOT READY FOR MASTER** until that new SHA receives green Ubuntu and macOS CI and the final readiness review is repeated.
+
+No unresolved Critical or High finding, credential, private key, access token, tracked runtime state or generated browser-test output was found. Four historical PDF guides contained local authoring paths in catalog XMP metadata; those streams were removed, and all 79 pages rendered pixel-identically before and after cleanup. The README review, documentation-link checks, branding checks and repository hygiene, secret and artifact scans all pass.
 
 ## Repository map and release boundary
 
@@ -89,11 +91,11 @@ Four PDFs under `Guides/` exposed historical local `/Users/...` authoring paths 
 | 11. Repository-local secret/privacy scan clean | Pass | PDF XMP paths removed; no credential pattern found |
 | 12. Physical DSP safety boundary unchanged | Pass | Physical Apply remains blocked |
 | 13. Focused tests green | Pass | Branding and documentation-link suites pass |
-| 14. Full hardware-free verification green | Pass | On `46cc136`, `npm run verify`: links across 27 docs, complete Node suite, 247-file syntax check and 95 Chromium journeys in 15.2 minutes |
-| 15. Candidate-head CI green on supported runners | **Fail** | Push/review is user-owned; obtain green Ubuntu and macOS checks for the final head |
+| 14. Full hardware-free verification green | Pass | On `865db8542786255295faef8b6649d538108c97fb`, GitHub Actions run `31547428307` passed the authoritative `npm run verify` step on Ubuntu and macOS |
+| 15. Candidate-head CI green on supported runners | **Pending for new documentation HEAD** | The previous candidate passed Ubuntu and macOS; push this documentation-only commit and obtain green checks on its exact new SHA |
 
-Criterion 15 keeps the formal verdict at **NOT READY FOR MASTER** until CI evaluates the exact candidate head.
+Criterion 15 keeps the formal verdict at **NOT READY FOR MASTER** until CI evaluates the exact new documentation HEAD. This does not reopen feature work or any resolved Critical or High finding.
 
 ## Safe integration path after the blocker clears
 
-Do not merge merely because an older CI run is green. First publish the reviewed `develop` commits using the user's normal authenticated workflow, wait for the required GitHub Actions checks on that exact SHA, and review the `develop...master` diff. If those checks pass without new changes, the repository can be reconsidered for a `develop` → `master` pull request. No push, pull request, merge, tag or release was performed by this audit.
+Do not treat the verified previous candidate as CI evidence for the new documentation commit. First publish the documentation-only `develop` commit using the user's normal authenticated workflow, wait for green Ubuntu and macOS GitHub Actions checks on that exact new SHA, and repeat the final `develop...master` readiness review. If those checks pass without new changes, the repository can be reconsidered for a `develop` → `master` pull request. No push, pull request, merge, tag or release was performed by this update.

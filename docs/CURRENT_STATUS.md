@@ -20,15 +20,23 @@ The previously failing journey passes once with trace, five consecutive focused 
 
 `npm run verify` passes locally: links across 27 documentation files, the complete Node/model/contract suite, syntax checks for 247 JavaScript files and all 95 Chromium journeys in 17.7 minutes. `npm run check:syntax` and `git diff --check` pass separately.
 
-GitHub Actions run `31537054127` for published `develop` head `c031dc4` passed completely on Ubuntu. Its macOS job passed every step and 94 browser journeys, failing only the reproduced measurement-assistance journey in the final repository-verification step. The local fix has not been pushed or run in CI.
+## Verified previous candidate
+
+The release candidate `865db8542786255295faef8b6649d538108c97fb` was pushed to `develop`. GitHub Actions run `31547428307` completed successfully on that exact SHA: both `Verify (ubuntu-latest)` and `Verify (macos-latest)` passed, including the authoritative `npm run verify` step.
+
+The final readiness review also confirmed that the README accurately describes SpeakerLab, links across all 27 Markdown documentation files pass, branding checks pass and the repository hygiene, secret and artifact scans pass. `develop` was 84 commits ahead and 0 behind `master`. No unresolved Critical or High finding remains.
+
+## New documentation HEAD
+
+This status correction creates a new documentation-only commit after the verified candidate. That new HEAD has not yet been pushed or evaluated by GitHub Actions. It must receive green Ubuntu and macOS CI on its own exact SHA before the final `develop` → `master` readiness decision.
 
 ## Active work
 
-No feature implementation slice is active. The focused CI fix is ready for local review and push, but the exact integration verdict remains **NOT READY FOR MASTER** until CI is green for the fixed candidate SHA.
+No feature implementation slice is active or required. Product work and the previous release candidate are verified; only this documentation-only readiness update and its fresh candidate-head CI gate remain active.
 
 ## Known blockers and risks
 
-Master integration is blocked by missing candidate-head CI evidence. The current published SHA has one macOS acceptance failure; the fix is local. Publishing, pull-request creation and integration remain user-owned actions.
+There are no unresolved Critical or High findings. Master integration is gated only by fresh candidate-head CI evidence after this documentation-only update is committed and pushed. Publishing, pull-request creation and integration remain user-owned actions.
 
 Physical DSP apply remains blocked by fresh hardware identity, GPIO mute confirmation, per-operation physical readback/tolerances, connection-loss invalidation and verified last-known-good rollback. No physical Apply control exists.
 
@@ -36,7 +44,7 @@ The inherited global shell still contains legacy extension-oriented destinations
 
 ## Next recommended slice
 
-Review and publish the focused CI-fix commit on `develop`, require green Ubuntu and macOS checks on that exact SHA, then reconsider a `develop` → `master` pull request. Do not begin external user testing or new product work before that gate is resolved.
+Commit and publish this documentation-only status update on `develop`, require green Ubuntu and macOS checks on its exact new SHA, then repeat the final `develop` → `master` readiness review. Do not begin external user testing or new product work before that gate is resolved.
 
 ## Deferred work
 
