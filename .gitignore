@@ -93,3 +93,7 @@ typings/
 
 # Workspace-local Beocreate deployment layout
 /.speakerlab-local/
+
+# Playwright UI acceptance artifacts
+/playwright-report/
+/test-results/

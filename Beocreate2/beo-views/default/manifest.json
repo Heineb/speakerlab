@@ -1,7 +1,7 @@
 {
-	"short_name": "Beocreate",
-	"name": "Beocreate",
-	"description": "Upcyle your old speakers.",
+	"short_name": "SpeakerLab",
+	"name": "SpeakerLab",
+	"description": "Design and configure active loudspeakers.",
 	"start_url": "/",
 	"background_color": "#222",
 	"display": "standalone",
@@ -10,15 +10,15 @@
 	"shortcuts": [],
 	"icons": [
 		{
-			"src": "maskable_icon.png",
-			"type": "image/png",
-			"sizes": "300x300",
+			"src": "../../common/speakerlab-mark.svg",
+			"type": "image/svg+xml",
+			"sizes": "any",
 			"purpose": "maskable"
 		},
 		{
-			"src": "apple-touch-icon.png?v=1",
-			"type": "image/png",
-			"sizes": "300x300",
+			"src": "../../common/speakerlab-mark.svg",
+			"type": "image/svg+xml",
+			"sizes": "any",
 			"purpose": "any"
 		}
 	],

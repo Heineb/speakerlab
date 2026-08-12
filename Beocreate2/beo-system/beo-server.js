@@ -18,8 +18,12 @@ SOFTWARE.*/
 // BEOCREATE 2
 
 
-// Set NODE_PATH first, so that the buildroot-installed modules are found:
-process.env.NODE_PATH = "/usr/lib/node_modules/";
+var localDevelopment = process.env.SPEAKERLAB_LOCAL_DEVELOPMENT == "1";
+
+// Set NODE_PATH first, so that the buildroot-installed modules are found.
+// The local launcher supplies its own module path and must not discard it.
+process.env.NODE_PATH = localDevelopment && process.env.NODE_PATH ?
+	process.env.NODE_PATH : "/usr/lib/node_modules/";
 require('module').Module._initPaths();
 
 process.on('warning', e => console.warn(e.stack));
@@ -35,9 +39,12 @@ var EventEmitter = require('eventemitter3');
 var aplay = require('aplay');
 var _ = require('underscore');
 var settingsStore = require('./settings-store');
+var uiExtensionLoader = require('./ui-extension-loader');
 
 // Beocreate Essentials
-var beoCom = require("../beocreate_essentials/communication")();
+var beoCom = localDevelopment ?
+	require("../beocreate_essentials/communication-local")() :
+	require("../beocreate_essentials/communication")();
 var piSystem = require('../beocreate_essentials/pi_system_tools');
 
 // END DEPENDENCIES
@@ -66,7 +73,9 @@ var systemStatus = "normal";
 var extensionsRequestingShutdownTime = [];
 
 systemDirectory = __dirname;
-dataDirectory = "/etc/beocreate"; // Data directory for settings, sound presets, product images, etc.
+dataDirectory = localDevelopment ?
+	process.env.SPEAKERLAB_DATA_DIRECTORY :
+	"/etc/beocreate"; // Data directory for settings, sound presets, product images, etc.
 
 var debugMode = false;
 var daemonMode = false;
@@ -89,6 +98,7 @@ if (cmdArgs.indexOf("beosounds") != -1) forceBeosounds = true;
 
 if (debugMode) console.log("Debug logging level: "+debugMode+".");
 if (developerMode) console.log("Developer mode, user interface will not be cached.");
+if (localDevelopment) console.log("SpeakerLab local development mode is active.");
 
 if (!fs.existsSync(dataDirectory)) {
 	fs.mkdirSync(dataDirectory);
@@ -182,8 +192,7 @@ beoBus.on('dsp', function(event) {
 
 // GET AND STORE SETTINGS
 
-settingsToBeSaved = {};
-settingsSaveTimeout = null;
+var settingsWriter = settingsStore.createSettingsWriter(dataDirectory, debugMode);
 
 beoBus.on("settings", function(event) {
 	// Handles the saving and retrieval of configuration files for extensions.
@@ -206,26 +215,11 @@ function getSettings(extension) {
 }
 
 function saveSettings(extension, settings, immediately) {
-	if (immediately) { // Save immediately.
-		fs.writeFileSync(dataDirectory+"/"+extension+".json", JSON.stringify(settings));
-		if (debugMode >= 2) console.log("Settings saved for '"+extension+"' (immediately).");
-	} else { // Add to the queue.
-		settingsToBeSaved[extension] = settings;
-		clearTimeout(settingsSaveTimeout);
-		settingsSaveTimeout = setTimeout(function() {
-			savePendingSettings();
-		}, 10000);
-	}
+	settingsWriter.saveSettings(extension, settings, immediately);
 }
 
 function savePendingSettings() {
-	for (var extension in settingsToBeSaved) {
-	    if (settingsToBeSaved.hasOwnProperty(extension)) {
-	        fs.writeFileSync(dataDirectory+"/"+extension+".json", JSON.stringify(settingsToBeSaved[extension]));
-			if (debugMode >= 2) console.log("Settings saved for '"+extension+"'.");
-	    }
-	}
-	settingsToBeSaved = {}; // Clear settings from the queue.
+	settingsWriter.savePendingSettings();
 }
 
 function getAllSettings() {
@@ -243,6 +237,16 @@ function getAllSettings() {
 // Contains sound card type, port to use, possibly disabled extensions.
 tempSystemConfiguration = getSettings('system');
 systemConfiguration = settingsStore.mergeSettings(systemConfiguration, tempSystemConfiguration);
+if (localDevelopment) {
+	if (process.env.SPEAKERLAB_PORT != undefined) {
+		systemConfiguration.port = parseInt(process.env.SPEAKERLAB_PORT, 10);
+	}
+	if (process.env.SPEAKERLAB_ENABLED_EXTENSIONS) {
+		systemConfiguration.enabledExtensions = process.env.SPEAKERLAB_ENABLED_EXTENSIONS.split(",");
+		delete systemConfiguration.disabledExtensions;
+	}
+	delete systemConfiguration.runAtStart;
+}
 
 
 // Load UI settings.
@@ -283,9 +287,40 @@ global.beo = {
 	addDownloadRoute: addDownloadRoute,
 	removeDownloadRoute: removeDownloadRoute,
 	underscore: _,
-	expressServer: expressServer
+	expressServer: expressServer,
+	express: express,
+	settingsCoordinator: settingsWriter
 };
+if (localDevelopment) {
+	global.beo.localDevelopment = {
+		active: true,
+		dspTransport: process.env.SPEAKERLAB_DSP_TRANSPORT,
+		dspState: process.env.SPEAKERLAB_DSP_STATE
+	};
+	if (process.env.SPEAKERLAB_DSP_TRANSPORT == "simulated") {
+		var dspModulePath = require.resolve("../beocreate_essentials/dsp");
+		var simulatedDSP = require("../beocreate_essentials/dsp-simulator");
+		require.cache[dspModulePath] = {
+			id: dspModulePath,
+			filename: dspModulePath,
+			loaded: true,
+			exports: simulatedDSP,
+			children: [],
+			paths: []
+		};
+	}
+}
 loadAllServerExtensions();
+if (localDevelopment && simulatedDSP && !extensions["dsp-programs"]) {
+	extensions["dsp-programs"] = {
+		getCurrentProgramInfo: function() {
+			return {name: "SpeakerLab simulated DSP"};
+		},
+		installDSPProgram: function(program, callback) {
+			if (callback) callback(simulatedDSP.isConnected());
+		}
+	};
+}
 var selectedExtension = null;
 var selectedDeepMenu = null;
 
@@ -305,7 +340,17 @@ beoServer.on("error", function(error) {
 	
 });
 
-beoServer.listen(systemConfiguration.port); // Create a HTTP server.
+if (localDevelopment) {
+	var listenAddress = process.env.SPEAKERLAB_BIND_ADDRESS || "127.0.0.1";
+	beoServer.listen(systemConfiguration.port, listenAddress, function() {
+		var address = beoServer.address();
+		console.log("HTTP server listening at http://"+address.address+":"+address.port+"/.");
+		console.log("Local runtime state: "+dataDirectory);
+		console.log("Local DSP mode: simulated ("+process.env.SPEAKERLAB_DSP_STATE+").");
+	});
+} else {
+	beoServer.listen(systemConfiguration.port); // Create the production HTTP server.
+}
 
 etags = (developerMode) ? false : true; // Disable etags (caching) when running with debug.
 expressServer.use("/common", express.static(systemDirectory+"/common", {etag: etags})); // For common system assets.
@@ -434,7 +479,7 @@ getAllSettings();
 
 beoBus.emit('general', {header: "startup", content: {debug: debugMode, systemVersion: systemVersion}});
 
-if (systemConfiguration.runAtStart) {
+if (systemConfiguration.runAtStart && !localDevelopment) {
 	try {
 		exec(systemConfiguration.runAtStart);
 	} catch (error) {
@@ -724,13 +769,24 @@ function loadAppearance(appearance) {
 			if (shouldLoad) {
 				extensionsListClient[extensionName] = {assetPath: "/extensions/"+extensionName};
 				
-				menus.push(fs.readFileSync(shouldLoad.path, "utf8").replace(/^<script.*€.*/gm, "").replace(/€\//g, "/extensions/"+extensionName+"/")); // Read the menu from file, remove legacy client scripts and replace asset path placeholder.
+				var extensionMarkup = fs.readFileSync(shouldLoad.path, "utf8");
+				var declaredClientScripts = uiExtensionLoader.declaredClientScripts(extensionMarkup);
+				menus.push(uiExtensionLoader.stripClientScriptTags(extensionMarkup).replace(/€\//g, "/extensions/"+extensionName+"/"));
 				// Read scripts and stylesheets.
 				if (manifest.extensionScriptFileName || manifest.extensionStylesheetFileName) {
 					files = fs.readdirSync(shouldLoad.directory);
 					
-					// € matches extension name, * is a wildcard.
-					if (manifest.extensionScriptFileName.match(/€|\*/g)) {
+					// Explicit menu script tags declare ordered extension-local dependencies.
+					if (declaredClientScripts.length) {
+						for (var declaredScript of declaredClientScripts) {
+							if (files.indexOf(declaredScript) == -1) {
+								console.error("Extension '"+extensionName+"' declares missing client script '"+declaredScript+"'.");
+							} else {
+								var scriptURL = "/extensions/"+extensionName+"/"+declaredScript;
+								if (scripts.indexOf(scriptURL) == -1) scripts.push(scriptURL);
+							}
+						}
+					} else if (manifest.extensionScriptFileName.match(/€|\*/g)) {
 						pattern = manifest.extensionScriptFileName.replace(/€/g, extensionName).replace(/\*/g, ".*")+"\\.js";
 						regex = new RegExp(pattern);
 						filtered = files.filter(fn => (fn.match(regex) ? true : false));
@@ -768,7 +824,13 @@ function loadAppearance(appearance) {
 		}
 		
 		bodyClass = (systemConfiguration.cardType && systemConfiguration.cardType.indexOf("Beocreate") == -1) ? '<body class="hifiberry-os ' : '<body class=" ';
-		completeUI = fs.readFileSync(appearancePath+'/index.html', "utf8").replace("<html>", '<html lang="'+systemConfiguration.language+'">').replace('<body class="', bodyClass).replace("</beo-dynamic-ui>", "").replace("<beo-dynamic-ui>", menus.join("\n\n")).replace("</beo-styles>", "").replace("<beo-styles>", stylesheetMarkup).replace("<beo-scripts>", "<script>extensions = "+JSON.stringify(extensionsListClient)+";\n navigationSets = "+JSON.stringify(navigationSets)+";\ndebug = "+debugMode+";\ndeveloperMode = "+(developerMode)+";</script>\n").replace("</beo-scripts>", scriptMarkup);
+		completeUI = fs.readFileSync(appearancePath+'/index.html', "utf8").replace("<html>", '<html lang="'+systemConfiguration.language+'">').replace('<body class="', bodyClass).replace("</beo-dynamic-ui>", "").replace("<beo-dynamic-ui>", menus.join("\n\n")).replace("</beo-styles>", "").replace("<beo-styles>", stylesheetMarkup).replace("<beo-scripts>", "<script>extensions = "+JSON.stringify(extensionsListClient)+";\n navigationSets = "+JSON.stringify(navigationSets)+";\ndebug = "+debugMode+";\ndeveloperMode = "+(developerMode)+";\nlocalDevelopment = "+JSON.stringify(localDevelopment ? global.beo.localDevelopment : {active: false})+";</script>\n").replace("</beo-scripts>", scriptMarkup);
+		if (localDevelopment) {
+			completeUI = completeUI.replace(
+				'<body class="',
+				'<body data-speakerlab-local="simulated-dsp" class="speakerlab-local '
+			);
+		}
 		
 		return completeUI;
 	} else {
@@ -785,6 +847,16 @@ function loadAppearance(appearance) {
 beoCom.on("open", function(connectionID, protocol) {
 	// Connection opens. Nothing actually needs to be done here. The client will request setup status, which will get processed by the "setup" extension.
 	beoBus.emit('general', {header: "connected"});
+	if (localDevelopment && simulatedDSP) {
+		beoCom.send({
+			target: "dsp-programs",
+			header: "status",
+			content: {
+				dspConnected: simulatedDSP.isConnected(),
+				dspResponding: simulatedDSP.isConnected()
+			}
+		}, connectionID);
+	}
 });
 
 
@@ -945,7 +1017,9 @@ function rebootSystem(extension, overrideUIActions) {
 function restartServer(extension) {
 	if (extension) {
 		if (debugMode) console.log("Server restart requested by '"+extension+"'.");
-		if (daemonMode) {
+		if (localDevelopment) {
+			console.log("Ignoring server restart request in local development mode.");
+		} else if (daemonMode) {
 			beoCom.send({header: "powerStatus", target: "general", content: {status: "serverRestart"}});
 			restarter = exec('systemctl restart beocreate2'); //, { detached: true });
 			//restarter.unref();
@@ -1009,10 +1083,19 @@ function completeShutdown() {
 		if (debugMode) console.log("Saving pending settings...");
 		savePendingSettings();
 		if (debugMode) console.log("Stopped WebSocket communication.");
+		if (localDevelopment) {
+			if (beoServer.closeAllConnections) beoServer.closeAllConnections();
+			beoServer.close();
+			if (debugMode) console.log("Stopped HTTP server. Shutdown complete.");
+			shutdownDone = true;
+			console.log("Exiting Beocreate 2.");
+			process.exit(0);
+			return;
+		}
 		beoServer.close(function() {
 			if (debugMode) console.log("Stopped HTTP server. Shutdown complete.");
 			shutdownDone = true;
-		    if (powerCommand) {
+		    if (powerCommand && !localDevelopment) {
 		    	if (debugMode) console.log("Executing Raspberry Pi "+powerCommand+". It will trigger process exit.");
 		    	piSystem.power(powerCommand);
 		    } else {

@@ -1,0 +1,406 @@
+'use strict';
+
+const assert = require('assert');
+const childProcess = require('child_process');
+const fs = require('fs');
+const http = require('http');
+const os = require('os');
+const path = require('path');
+const runtime = require('../scripts/local-development-runtime');
+const layout = require('../scripts/prepare-local-beocreate-layout');
+const websocketClient = require('./websocket-test-client');
+const routingModel = require('../Beocreate2/beo-extensions/signal-flow/routing-model');
+
+const repositoryRoot = path.resolve(__dirname, '..');
+const tests = [];
+function test(name, fn) { tests.push({name, fn}); }
+
+function temporaryDirectory(label) {
+  return fs.mkdtempSync(path.join(os.tmpdir(), 'speakerlab-' + label + '-'));
+}
+
+function request(url) {
+  return new Promise(function (resolve, reject) {
+    http.get(url, function (response) {
+      let body = '';
+      response.setEncoding('utf8');
+      response.on('data', function (chunk) { body += chunk; });
+      response.on('end', function () {
+        resolve({status: response.statusCode, body: body});
+      });
+    }).on('error', reject);
+  });
+}
+
+function scriptSources(html) {
+  return Array.from(html.matchAll(/<script[^>]+src=["']([^"']+)["']/g), function (match) {
+    return match[1];
+  });
+}
+
+function assertOrderedOnce(sources, dependency, client) {
+  assert.strictEqual(sources.filter(function (source) { return source === dependency; }).length, 1);
+  assert.strictEqual(sources.filter(function (source) { return source === client; }).length, 1);
+  assert.ok(sources.indexOf(dependency) < sources.indexOf(client),
+    dependency + ' must load before ' + client);
+}
+
+async function waitForMessage(client, predicate, label) {
+  for (let index = 0; index < 20; index += 1) {
+    let message;
+    try {
+      message = await client.nextJSON();
+    } catch (error) {
+      throw new Error((label ? label + ': ' : '') + error.message);
+    }
+    if (predicate(message)) return message;
+  }
+  throw new Error((label ? label + ': ' : '') + 'Expected WebSocket message was not received.');
+}
+
+function startServer(dspState) {
+  return new Promise(function (resolve, reject) {
+    const root = temporaryDirectory('server with spaces ');
+    const child = childProcess.spawn(
+      process.execPath,
+      [path.join(repositoryRoot, 'scripts', 'start-local-server.js'),
+        '--runtime-root', root, '--port', '0', '--dsp-state', dspState],
+      {cwd: repositoryRoot, stdio: ['ignore', 'pipe', 'pipe']}
+    );
+    let output = '';
+    let settled = false;
+    const timeout = setTimeout(function () {
+      child.kill('SIGKILL');
+      reject(new Error('Local server did not start.\n' + output));
+    }, 10000);
+    function collect(chunk) {
+      output += chunk.toString();
+      const match = output.match(/HTTP server listening at http:\/\/127\.0\.0\.1:(\d+)\//);
+      if (!settled && match) {
+        settled = true;
+        clearTimeout(timeout);
+        resolve({child: child, root: root, port: Number(match[1]), output: function () { return output; }});
+      }
+    }
+    child.stdout.on('data', collect);
+    child.stderr.on('data', collect);
+    child.on('exit', function (code) {
+      if (!settled) {
+        settled = true;
+        clearTimeout(timeout);
+        reject(new Error('Local server exited with ' + code + '.\n' + output));
+      }
+    });
+  });
+}
+
+function stopServer(server) {
+  return new Promise(function (resolve, reject) {
+    const timeout = setTimeout(function () {
+      server.child.kill('SIGKILL');
+      reject(new Error('Local server did not shut down cleanly.\n' + server.output()));
+    }, 7000);
+    server.child.once('exit', function (code) {
+      clearTimeout(timeout);
+      if (code === 0) resolve();
+      else reject(new Error('Local server exited with ' + code + '.\n' + server.output()));
+    });
+    server.child.kill('SIGTERM');
+  });
+}
+
+test('prepares isolated runtime paths with spaces and deterministic environment', function () {
+  const root = temporaryDirectory('runtime with spaces ');
+  const prepared = runtime.prepareRuntime({
+    repositoryRoot: repositoryRoot,
+    runtimeRoot: root,
+    prepareLayout: layout.prepareLayout
+  });
+  const environment = runtime.environmentFor(prepared, {port: 0, dspState: 'connected'});
+  assert.strictEqual(environment.SPEAKERLAB_BIND_ADDRESS, '127.0.0.1');
+  assert.strictEqual(environment.SPEAKERLAB_DSP_TRANSPORT, 'simulated');
+  assert.ok(prepared.dataDirectory.startsWith(root));
+  assert.ok(fs.statSync(prepared.serverEntry).isFile());
+  assert.ok(!prepared.dataDirectory.startsWith('/etc'));
+  runtime.prepareRuntime({
+    repositoryRoot: repositoryRoot,
+    runtimeRoot: root,
+    prepareLayout: layout.prepareLayout
+  });
+});
+
+test('classifies every server extension as enabled or disabled', function () {
+  const extensionNames = fs.readdirSync(path.join(repositoryRoot, 'Beocreate2', 'beo-extensions'))
+    .filter(function (name) { return name.charAt(0) !== '.'; });
+  extensionNames.forEach(function (name) {
+    assert.ok(
+      runtime.DEFAULT_EXTENSIONS.includes(name) ||
+      runtime.DISABLED_EXTENSION_REASONS[name],
+      'missing local startup classification for ' + name
+    );
+  });
+});
+
+test('rejects unsafe port and DSP-state input', function () {
+  assert.throws(function () {
+    runtime.environmentFor({}, {port: 70000, dspState: 'connected'});
+  }, /port must be/);
+  assert.throws(function () {
+    runtime.environmentFor({}, {port: 0, dspState: 'hardware'});
+  }, /DSP state/);
+});
+
+test('starts existing UI with connected simulator and shuts down cleanly', async function () {
+  const server = await startServer('connected');
+  try {
+    const response = await request('http://127.0.0.1:' + server.port + '/');
+    assert.strictEqual(response.status, 200);
+    assert.match(response.body, /speakerlab-local/);
+    assert.match(response.body, /"dspState":"connected"/);
+    assert.match(response.body, /hifiberry-system-tools/);
+    assert.match(response.body, /signal-flow/);
+    assert.match(response.body, /class="menu-screen[^"]*" id="setup"/);
+    assert.match(response.body, /class="menu-screen[^"]*" id="speaker-preset"/);
+    assert.match(response.body, /class="menu-screen[^"]*" id="product-information"/);
+    assert.match(response.body, /class="menu-screen[^"]*" id="signal-flow"/);
+    assert.match(response.body, /id="signal-flow-outputs"/);
+    const sources = scriptSources(response.body);
+    assertOrderedOnce(
+      sources,
+      '/extensions/hifiberry-system-tools/configuration-backup-ui.js',
+      '/extensions/hifiberry-system-tools/hifiberry-system-tools-client.js'
+    );
+    assertOrderedOnce(
+      sources,
+      '/extensions/signal-flow/routing-ui-state.js',
+      '/extensions/signal-flow/signal-flow-client.js'
+    );
+    assertOrderedOnce(
+      sources,
+      '/extensions/product-information/product-information-client.js',
+      '/extensions/speaker-preset/speaker-preset-client.js'
+    );
+    const repeatedResponse = await request('http://127.0.0.1:' + server.port + '/');
+    assert.strictEqual(repeatedResponse.status, 200);
+    assert.deepStrictEqual(scriptSources(repeatedResponse.body), sources);
+    assert.doesNotMatch(server.output(), /127\\.0\\.1\\.1:8086|systemctl|dsptoolkit|pigs/);
+    const socket = await websocketClient.connect({port: server.port});
+    const dspStatus = await waitForMessage(socket, function (message) {
+      return message.target === 'dsp-programs' && message.header === 'status';
+    });
+    assert.deepStrictEqual(dspStatus.content, {dspConnected: true, dspResponding: true});
+
+    socket.sendJSON({target: 'setup', header: 'getSetupStatus'});
+    const setupStatus = await waitForMessage(socket, function (message) {
+      return message.target === 'setup' && message.header === 'setupStatus';
+    });
+    assert.strictEqual(setupStatus.content.selectedExtension, 'setup');
+    assert.ok(setupStatus.content.setupFlow.some(function (step) {
+      return step.extension === 'speaker-preset';
+    }));
+    socket.sendJSON({target: 'setup', header: 'nextStep'});
+    const nextSetupStep = await waitForMessage(socket, function (message) {
+      return message.target === 'setup' && message.header === 'showExtension';
+    });
+    assert.strictEqual(nextSetupStep.content.extension, 'speaker-preset');
+    socket.sendJSON({
+      target: 'general',
+      header: 'activatedExtension',
+      content: {extension: 'speaker-preset', deepMenu: null}
+    });
+    const presetList = await waitForMessage(socket, function (message) {
+      return message.target === 'speaker-preset' && message.header === 'presets';
+    }, 'speaker preset list');
+    assert.ok(presetList.content.compactPresetList['other-speaker']);
+    assert.ok(presetList.content.compactPresetList['beovox-cx50']);
+
+    socket.sendJSON({target: 'product-information', header: 'getBasicProductInformation'});
+    const productInformation = await waitForMessage(socket, function (message) {
+      return message.target === 'product-information' && message.header === 'basicProductInformation';
+    }, 'local product information');
+    assert.strictEqual(productInformation.content.systemName, 'SpeakerLab Local Simulator');
+    assert.strictEqual(productInformation.content.systemID, 'speakerlab-local');
+    assert.strictEqual(productInformation.content.localDevelopment, true);
+
+    socket.sendJSON({
+      target: 'speaker-preset',
+      header: 'selectSpeakerPreset',
+      content: {presetID: 'beovox-cx50'}
+    });
+    const namedPreview = await waitForMessage(socket, function (message) {
+      return message.target === 'speaker-preset' && message.header === 'presetPreview';
+    }, 'named speaker preview');
+    assert.strictEqual(namedPreview.content.preset.presetName, 'Beovox CX 50');
+    assert.strictEqual(namedPreview.content.preset.content['product-information'].status, 0);
+    assert.strictEqual(
+      namedPreview.content.preset.content['product-information'].report.previewProcessor,
+      'product_information.generateSettingsPreview'
+    );
+
+    socket.sendJSON({
+      target: 'speaker-preset',
+      header: 'selectSpeakerPreset',
+      content: {presetID: 'other-speaker'}
+    });
+    const otherPreview = await waitForMessage(socket, function (message) {
+      return message.target === 'speaker-preset' && message.header === 'presetPreview';
+    }, 'Other Speaker preview');
+    assert.strictEqual(otherPreview.content.preset.presetName, 'Other Speaker');
+    socket.sendJSON({
+      target: 'speaker-preset',
+      header: 'applySpeakerPreset',
+      content: {
+        presetID: 'other-speaker',
+        excludedSettings: [],
+        installDefault: false
+      }
+    });
+    const presetApplied = await waitForMessage(socket, function (message) {
+      return message.target === 'speaker-preset' && message.header === 'presetApplied';
+    }, 'speaker preset application');
+    assert.strictEqual(presetApplied.content.presetID, 'other-speaker');
+    socket.sendJSON({target: 'setup', header: 'nextStep'});
+    const setupFinish = await waitForMessage(socket, function (message) {
+      return message.target === 'setup' && message.header === 'showExtension';
+    }, 'setup finish transition');
+    assert.strictEqual(setupFinish.content.extension, 'setup-finish');
+
+    const refreshedResponse = await request('http://127.0.0.1:' + server.port + '/');
+    assert.strictEqual(refreshedResponse.status, 200);
+    socket.sendJSON({
+      target: 'general',
+      header: 'activatedExtension',
+      content: {extension: 'speaker-preset', deepMenu: null}
+    });
+    const refreshedPresets = await waitForMessage(socket, function (message) {
+      return message.target === 'speaker-preset' && message.header === 'presets';
+    }, 'speaker preset state after page refresh');
+    assert.strictEqual(refreshedPresets.content.currentSpeakerPreset, 'other-speaker');
+
+    socket.sendJSON({target: 'channels', header: 'getSettings'});
+    const channels = await waitForMessage(socket, function (message) {
+      return message.target === 'channels' && message.header === 'channelSettings';
+    });
+    assert.strictEqual(channels.content.settings.balance, 0);
+
+    socket.sendJSON({target: 'signal-flow', header: 'getState'});
+    const routingState = await waitForMessage(socket, function (message) {
+      return message.target === 'signal-flow' && message.header === 'state';
+    });
+    assert.strictEqual(routingState.content.capabilities.outputs.length, 4);
+    assert.strictEqual(routingState.content.capabilities.crossover.sampleRateHz, 48000);
+    assert.strictEqual(routingState.content.runtime.deploymentStatus, 'not-deployed');
+    assert.strictEqual(routingState.content.runtime.simulated, true);
+    const routingDraft = routingModel.clone(routingState.content.configuration);
+    Object.assign(routingDraft.outputs[0], {enabled: true, role: 'woofer', side: 'left', label: 'Left bass'});
+    routingDraft.connections.push({source: 'left', destination: 'output-a', enabled: true});
+    Object.assign(routingDraft.crossover.outputs[0].lowPass, {
+      enabled: true, family: 'linkwitz-riley', slopeDbPerOctave: 24, cutoffHz: 1800
+    });
+    socket.sendJSON({
+      target: 'signal-flow',
+      header: 'calculateCrossoverResponse',
+      content: {configuration: routingDraft, outputId: 'output-a'}
+    });
+    const responsePreview = await waitForMessage(socket, function (message) {
+      return message.target === 'signal-flow' && message.header === 'crossoverResponse';
+    });
+    assert.strictEqual(responsePreview.content.outputId, 'output-a');
+    assert.strictEqual(responsePreview.content.response.lowPassCutoffHz, 1800);
+    socket.sendJSON({
+      target: 'signal-flow',
+      header: 'save',
+      content: {configuration: routingDraft, revision: routingState.content.revision}
+    });
+    const routingSaved = await waitForMessage(socket, function (message) {
+      return message.target === 'signal-flow' && message.header === 'saveResult';
+    });
+    assert.strictEqual(routingSaved.content.success, true);
+    assert.strictEqual(routingSaved.content.verified, true);
+    assert.strictEqual(routingSaved.content.deploymentStatus, 'not-deployed');
+    const routingPath = path.join(server.root, 'state', 'signal-flow.json');
+    assert.strictEqual(JSON.parse(fs.readFileSync(routingPath)).outputs[0].label, 'Left bass');
+    assert.strictEqual(JSON.parse(fs.readFileSync(routingPath)).crossover.outputs[0].lowPass.cutoffHz, 1800);
+    socket.sendJSON({target: 'signal-flow', header: 'getState'});
+    const reloadedRouting = await waitForMessage(socket, function (message) {
+      return message.target === 'signal-flow' && message.header === 'state';
+    });
+    assert.strictEqual(reloadedRouting.content.configuration.outputs[0].label, 'Left bass');
+    assert.strictEqual(reloadedRouting.content.revision, routingSaved.content.revision);
+
+    socket.sendJSON({
+      target: 'general',
+      header: 'activatedExtension',
+      content: {extension: 'hifiberry-system-tools', deepMenu: null}
+    });
+    const capabilities = await waitForMessage(socket, function (message) {
+      return message.target === 'hifiberry-system-tools' &&
+        message.header === 'configurationBackupCapabilities';
+    });
+    assert.strictEqual(capabilities.content.format, 'org.speakerlab.configuration-backup');
+
+    socket.sendJSON({target: 'unknown-extension', header: 'unknown-header'});
+    socket.sendText('{');
+    socket.sendJSON({target: 'channels', header: 'getSettings'});
+    await waitForMessage(socket, function (message) {
+      return message.target === 'channels' && message.header === 'channelSettings';
+    });
+    socket.close();
+    await socket.waitForClose();
+  } finally {
+    await stopServer(server);
+    fs.rmSync(server.root, {recursive: true, force: true});
+  }
+});
+
+test('starts disconnected simulator without contacting hardware', async function () {
+  const server = await startServer('disconnected');
+  try {
+    const response = await request('http://127.0.0.1:' + server.port + '/');
+    assert.strictEqual(response.status, 200);
+    assert.match(response.body, /"dspState":"disconnected"/);
+    assert.doesNotMatch(server.output(), /127\\.0\\.1\\.1:8086/);
+    const first = await websocketClient.connect({port: server.port});
+    const firstStatus = await waitForMessage(first, function (message) {
+      return message.target === 'dsp-programs' && message.header === 'status';
+    });
+    assert.deepStrictEqual(firstStatus.content, {dspConnected: false, dspResponding: false});
+    first.sendJSON({target: 'signal-flow', header: 'getState'});
+    const disconnectedRouting = await waitForMessage(first, function (message) {
+      return message.target === 'signal-flow' && message.header === 'state';
+    });
+    assert.strictEqual(disconnectedRouting.content.runtime.connected, false);
+    assert.strictEqual(disconnectedRouting.content.runtime.deploymentStatus, 'not-deployed');
+    first.destroy();
+    await first.waitForClose();
+
+    const second = await websocketClient.connect({port: server.port});
+    const secondStatus = await waitForMessage(second, function (message) {
+      return message.target === 'dsp-programs' && message.header === 'status';
+    });
+    assert.deepStrictEqual(secondStatus.content, firstStatus.content);
+    const closeFrame = second.nextFrame();
+    await stopServer(server);
+    assert.strictEqual((await closeFrame).opcode, 0x8);
+    server.stopped = true;
+  } finally {
+    if (!server.stopped) await stopServer(server);
+    fs.rmSync(server.root, {recursive: true, force: true});
+  }
+});
+
+(async function run() {
+  let failures = 0;
+  for (const item of tests) {
+    try {
+      await item.fn();
+      console.log('ok - ' + item.name);
+    } catch (error) {
+      failures += 1;
+      console.error('not ok - ' + item.name);
+      console.error(error.stack);
+    }
+  }
+  console.log('\n' + (tests.length - failures) + ' passed, ' + failures + ' failed');
+  if (failures) process.exitCode = 1;
+}());

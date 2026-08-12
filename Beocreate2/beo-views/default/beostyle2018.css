@@ -4725,3 +4725,18 @@ p.setup-prompt {
 }
 
 /* @end */
+body.speakerlab-local::after {
+	content: "Local development · simulated DSP";
+	position: fixed;
+	right: 10px;
+	bottom: 10px;
+	z-index: 10000;
+	padding: 5px 9px;
+	border-radius: 12px;
+	background: rgba(0, 0, 0, 0.72);
+	color: white;
+	font-size: 10px;
+	font-weight: 500;
+	letter-spacing: 0.02em;
+	pointer-events: none;
+}

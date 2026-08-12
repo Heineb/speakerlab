@@ -18,7 +18,9 @@ SOFTWARE.*/
 // BEOCREATE PRODUCT INFORMATION
 
 var piSystem = require("../../beocreate_essentials/pi_system_tools");
-var beoCom = require("../../beocreate_essentials/communication")();
+var beoCom = beo.localDevelopment ?
+	require("../../beocreate_essentials/communication-local")() :
+	require("../../beocreate_essentials/communication")();
 var fs = require("fs");
 
 	var extensions = beo.extensions;
@@ -67,6 +69,17 @@ var fs = require("fs");
 			"systemNameApprovedByUser": false,
 		};
 	}
+	if (beo.localDevelopment) {
+		defaultSettings = {
+			"modelID": "speakerlab-local-simulator",
+			"modelName": "SpeakerLab Local Simulator",
+			"productImage": false,
+			"bonjourEnabled": false,
+			"systemNameApprovedByUser": true
+		};
+		systemID = "speakerlab-local";
+		systemName = {ui: "SpeakerLab Local Simulator", static: "speakerlab-local"};
+	}
 	var settings = JSON.parse(JSON.stringify(defaultSettings));
 	
 	var currentProductImage = (!settings.productImage) ? genericProductImage : settings.productImage;
@@ -87,7 +100,19 @@ var fs = require("fs");
 		if (event.header == "startup") {
 			systemVersion = event.content.systemVersion;
 			systemVersionReadable = event.content.systemVersionReadable;
-			
+			if (beo.localDevelopment) {
+				updateProductIdentities();
+				beo.bus.emit('product-information', {header: "productIdentity", content: {
+					systemName: systemName.ui,
+					modelID: settings.modelID,
+					modelName: settings.modelName,
+					productImage: currentProductImage,
+					systemID: systemID,
+					localDevelopment: true
+				}});
+				return;
+			}
+
 			if (fs.existsSync("/etc/hifiberry.version")) {
 				hifiberryVersion = fs.readFileSync("/etc/hifiberry.version", "utf8").trim();
 			}
@@ -174,7 +199,7 @@ var fs = require("fs");
 		if (event.header == "settings") {
 			
 			if (event.content.settings) {
-				settings = Object.assign(settings, event.content.settings);
+				if (!beo.localDevelopment) settings = Object.assign(settings, event.content.settings);
 				currentProductImage = getProductImage(settings.productImage, true)[1];
 			}
 			
@@ -182,6 +207,10 @@ var fs = require("fs");
 		
 		if (event.header == "setSystemName") {
 			if (event.content.newSystemName) {
+				if (beo.localDevelopment) {
+					console.error("Product Information ignored setSystemName in local development; the simulator identity is fixed.");
+					return;
+				}
 				if (debug) console.log("Setting system name...");
 				piSystem.setHostname(event.content.newSystemName, function(success, response) {
 					if (success == true) { 
@@ -205,7 +234,7 @@ var fs = require("fs");
 		
 		if (event.header == "getBasicProductInformation") {
 			if (systemName.ui) {
-				beo.bus.emit("ui", {target: "product-information", header: "basicProductInformation", content: {systemName: systemName.ui, staticName: systemName.static, systemVersion: systemVersion, hifiberryVersion: hifiberryVersion, systemID: systemID, hifiberryOS: hifiberryOS, systemConfiguration: beo.systemConfiguration}});
+				beo.bus.emit("ui", {target: "product-information", header: "basicProductInformation", content: {systemName: systemName.ui, staticName: systemName.static, systemVersion: systemVersion, hifiberryVersion: hifiberryVersion, systemID: systemID, hifiberryOS: hifiberryOS, systemConfiguration: beo.systemConfiguration, localDevelopment: !!beo.localDevelopment}});
 				systemNameSent = true;
 			}
 		}
@@ -320,6 +349,10 @@ var fs = require("fs");
 	
 	
 	function setProductModel(modelID) {
+		if (beo.localDevelopment) {
+			if (debug) console.log("Product Information retained the local simulator identity while previewing speaker profile '"+modelID+"'.");
+			return;
+		}
 		if (productIdentities[modelID]) {
 			settings.modelID = modelID;
 			settings.modelName = productIdentities[modelID].modelName;
@@ -616,7 +649,3 @@ module.exports = {
 	version: version,
 	interact: interact
 };
-
-
-
-

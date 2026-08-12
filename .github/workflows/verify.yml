@@ -4,9 +4,11 @@ on:
   push:
     branches:
       - master
+      - develop
   pull_request:
     branches:
       - master
+      - develop
 
 permissions:
   contents: read
@@ -18,21 +20,110 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os:
-          - ubuntu-latest
-          - macos-latest
+        include:
+          - os: ubuntu-latest
+            browser_install: npx playwright install --with-deps chromium
+          - os: macos-latest
+            browser_install: npx playwright install chromium
 
     steps:
       - name: Check out SpeakerLab
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Use Node.js 24
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
-          node-version: 24
+          node-version-file: .nvmrc
+          package-manager-cache: false
 
-      - name: Run focused tests
-        run: npm test
+      - name: Install locked Beocreate server dependencies
+        run: npm ci --prefix Beocreate2/beo-system
+
+      - name: Install locked UI acceptance dependencies
+        run: npm ci
+
+      - name: Install Chromium for UI acceptance
+        run: ${{ matrix.browser_install }}
+
+      - name: Test WebSocket contracts
+        run: |
+          npm run test:websocket-contract
+          npm run test:websocket-lifecycle
+          npm run test:websocket-client
+
+      - name: Test signal-flow and routing contracts
+        run: |
+          npm run test:signal-flow
+          npm run test:crossover-model
+          npm run test:crossover-response
+          npm run test:parametric-eq
+          npm run test:eq-response
+          npm run test:channel-routing
+          npm run test:routing-contract
+          npm run test:routing-ui
+          npm run test:crossover-ui
+          npm run test:eq-ui
+          npm run test:channel-processing
+          npm run test:gain-delay-polarity-ui
+
+      - name: Test channel gain, delay and polarity in Chromium
+        run: npm run test:channel-processing-acceptance
+
+      - name: Test parametric EQ journeys in Chromium
+        run: npm run test:eq-acceptance
+
+      - name: Test measurement-assisted EQ suggestions
+        run: |
+          npm run test:eq-suggestions
+          npm run test:eq-suggestion-ui
+          npm run test:eq-suggestion-acceptance
+
+      - name: Test phase and time alignment foundation
+        run: |
+          npm run test:branding
+          npm run test:phase-alignment
+          npm run test:phase-alignment-ui
+          npm run test:phase-alignment-acceptance
+
+      - name: Test assisted crossover design foundation
+        run: |
+          npm run test:assisted-crossover
+          npm run test:assisted-crossover-ui
+          npm run test:assisted-crossover-acceptance
+
+      - name: Test DSP compilation and simulated readback
+        run: |
+          npm run test:sigmatcp-framing
+          npm run test:dsp-read-queue
+          npm run test:dsp-reconnect
+          npm run test:readonly-capture
+          npm run test:hardware-evidence
+          npm run test:beocreate-mapping
+          npm run test:dsp-recovery
+          npm run test:dsp-compilation
+          npm run test:dsp-readback
+          npm run test:dsp-deployment-preview
+
+      - name: Test DSP compilation journeys in Chromium
+        run: npm run test:dsp-compilation-acceptance
+
+      - name: Test configuration backup and restore
+        run: |
+          npm run test:configuration-backup
+          npm run test:configuration-restore
+
+      - name: Test isolated local server
+        run: npm run test:local-server
 
       - name: Run repository verification
         run: npm run verify
+
+      - name: Upload failed UI acceptance artifacts
+        if: failure()
+        uses: actions/upload-artifact@v6
+        with:
+          name: ui-acceptance-${{ matrix.os }}
+          path: |
+            playwright-report/
+            test-results/
+          if-no-files-found: ignore

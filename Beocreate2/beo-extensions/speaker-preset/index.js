@@ -18,8 +18,8 @@ SOFTWARE.*/
 // SOUND PRESETS
 
 var fs = require('fs');
-var path = require('path');
 var beoDSP = require('../../beocreate_essentials/dsp');
+var presetDiscovery = require('./preset-discovery');
 
 	var extensions = beo.extensions;
 	var presetDirectory = beo.dataDirectory+"/beo-speaker-presets"; // Sound presets directory.
@@ -294,24 +294,7 @@ var beoDSP = require('../../beocreate_essentials/dsp');
 	}
 	
 	function readLocalPresets() {
-		// Read presets from system directory and then from user directory
-		presetFiles = fs.readdirSync(systemPresetDirectory);
-		for (var i = 0; i < presetFiles.length; i++) {
-			preset = readPresetFromFile(systemPresetDirectory+"/"+presetFiles[i], true);
-			if (preset.presetName && !compactPresetList[preset.presetName]) {
-				compactPresetList[preset.presetName] = preset.presetCompact;
-				fullPresetList[preset.presetName] = preset.presetFull;
-			}
-		}
-		
-		presetFiles = fs.readdirSync(presetDirectory);
-		for (var i = 0; i < presetFiles.length; i++) {
-			preset = readPresetFromFile(presetDirectory+"/"+presetFiles[i], false);
-			if (preset.presetName && !compactPresetList[preset.presetName]) {
-				compactPresetList[preset.presetName] = preset.presetCompact;
-				fullPresetList[preset.presetName] = preset.presetFull;
-			}
-		}
+		presetDiscovery.discoverPresets(systemPresetDirectory, presetDirectory, fullPresetList, compactPresetList, debug);
 		//beo.bus.emit("product-information", {header: "addProductIdentities", content: {identities: productIdentities}});
 	}
 	
@@ -344,41 +327,7 @@ var beoDSP = require('../../beocreate_essentials/dsp');
 	}
 	
 	function readPresetFromFile(presetPath, systemPreset) {
-		presetFileName = path.basename(presetPath, path.extname(presetPath));
-		
-		try {
-			preset = JSON.parse(fs.readFileSync(presetPath, "utf8"));
-			
-			presetName = null;
-			if (preset['product-information'] != undefined && 
-				preset['product-information'].modelName) {
-				// Product identity record contains a model name.
-				presetName = preset['product-information'].modelName;
-			}
-			if (preset['speaker-preset'] != undefined) { 
-				if (preset['speaker-preset'].presetName) {
-					// Preset information record contains a preset name.
-					presetName = preset['speaker-preset'].presetName;
-				}
-			}
-			
-			readOnly = (systemPreset) ? true : false;
-			
-			if (presetName != null && preset["speaker-preset"]) {
-				// If the preset has a name, it qualifies.
-				
-				presetCompact = {presetName: presetName, fileName: presetFileName, productImage: "/common/beocreate-generic.png", bangOlufsenProduct: false, identityChecked: false, readOnly: readOnly};
-				return {presetFull: preset, presetCompact: presetCompact, presetName: presetFileName, error: null};
-				
-			} else {
-				if (debug) console.log("Speaker preset '"+presetFileName+"' did not include a preset name or product model name. Skipping.");
-				return {presetName: null, error: null};
-			}
-			
-		} catch (error) {
-			if (debug) console.error("Error loading preset '"+presetFileName+"' from '"+presetPath+"':", error);
-			return {presetName: null, error: error};
-		}
+		return presetDiscovery.readPresetFromFile(presetPath, systemPreset, debug);
 	}
 	
 	function deleteSpeakerPreset(preset) {
@@ -498,4 +447,3 @@ module.exports = {
 	processUpload: processUpload,
 	getCurrentSpeakerPreset: getCurrentSpeakerPreset
 };
-

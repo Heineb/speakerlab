@@ -135,10 +135,14 @@ function connectProduct() {
 	
 	// RECEIVING A MESSAGE
 	productConnection.onmessage = function(message) {
-		if (message != "reload") {
-			processReceivedData(JSON.parse(message.data));
-		} else {
-			window.location.reload(); // Remote reload function.
+		try {
+			if (message.data != "reload") {
+				processReceivedData(JSON.parse(message.data));
+			} else {
+				window.location.reload(); // Remote reload function.
+			}
+		} catch (error) {
+			console.error("Error in processing received data:", error);
 		}
 	};
 }

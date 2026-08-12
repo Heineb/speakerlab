@@ -1,0 +1,27 @@
+{
+  "source": {
+    "metadata": "Beocreate2/beo-dsp-programs/beocreate-universal-10.xml lines 3-48",
+    "coefficientOrder": "Beocreate2/beo-extensions/equaliser/index.js applyFilterFromSettings",
+    "numericEncoding": "beocreate_essentials/dsp.js writeValue"
+  },
+  "identity": {
+    "programID": "beocreate-universal",
+    "profileVersion": 10,
+    "checksum": "40FB6C92F57ABB70177CE053C73F54DC",
+    "sampleRateHz": 48000
+  },
+  "outputA": {
+    "routing": 4860,
+    "polarity": 4866,
+    "filters": 691,
+    "gain": 781,
+    "delay": 786
+  },
+  "coefficientWordOrder": ["b2", "b1", "b0", "-a2", "-a1"],
+  "encodingExamples": {
+    "positiveUnity5_23": "01000000",
+    "negativeHalfLegacy5_23": "FF800001",
+    "twentyIntegerSamples": "00000014",
+    "invertedPolarity": "00000001"
+  }
+}

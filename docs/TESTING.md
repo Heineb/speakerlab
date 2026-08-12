@@ -1,5 +1,39 @@
 # SpeakerLab Testing Baseline
 
+## Real-browser UI acceptance
+
+The repository uses `@playwright/test` 1.62 with Chromium for a narrow real-browser acceptance layer. The package requires Node.js 20 or newer; SpeakerLab develops and runs CI on the repository-pinned Node.js 24. Install the committed root dependencies and browser once:
+
+```sh
+npm ci
+npx playwright install chromium
+```
+
+Linux CI uses `npx playwright install --with-deps chromium`. Run all journeys or a focused group with:
+
+```sh
+npm run test:ui-acceptance
+npm run test:setup-acceptance
+npm run test:signal-flow-acceptance
+npm run test:crossover-acceptance
+npm run test:channel-processing-acceptance
+npm run test:accessibility-smoke
+npm run test:dsp-compilation-acceptance
+npm run test:dsp-deployment-accessibility
+npm run test:backup-restore-acceptance
+npm run test:reconnect-acceptance
+npm run test:eq-suggestion-acceptance
+npm run test:phase-alignment-acceptance
+```
+
+`npm run verify` includes the complete browser suite after the existing Node tests and syntax check. Each test starts the existing local server on an isolated loopback port with a fresh temporary runtime and simulated current-Beocreate DSP; no real configuration, external network, root privilege, HiFiBerryOS service or hardware is used.
+
+The journeys cover first-run `Other Speaker` and named Beovox setup, configured refresh/restart, responsive setup at desktop/tablet/mobile widths, all locally enabled menu screens, two-way stereo routing, validation, Crossover filter editing/copy/preview/persistence, gain/delay/polarity editing/copy/reset/persistence, explicit disconnected state, clean and conflicting reconnect, configuration download/preview/restore and visible rollback-success feedback. Unexpected page exceptions, console errors, request failures, HTTP 5xx and non-favicon 404s fail tests. Expected WebSocket/static-loader interruption during a deliberate restart and Chromium's successful-download `ERR_ABORTED` are narrowly classified.
+
+Playwright retains a screenshot, trace and video on failure. The fixture additionally attaches the viewport and document width, focused element, Deployment Preview ARIA snapshot, browser diagnostics when present, and local-server stdout/stderr. These diagnostic attachments and server logs are retained only on failure. CI uploads `playwright-report/` and `test-results/` on failure.
+
+Deployment workflow keyboard tests activate the real buttons with Enter and use Tab between controls. If an asynchronous action has not yet enabled its next control, the UI retains the requested focus destination and transfers focus when that control becomes available; tests assert the observable accessible button focus instead of relying on fixed tab counts or CSS hierarchy. This suite does not cover every production extension, Electron, real DSP deployment, acoustic or audible results, GPIO, systemd, SigmaTCP framing, or hardware recovery. Complete keyboard-only traversal, manual screen-reader testing and comprehensive visual-regression snapshots remain future focused work.
+
 ## Current state
 
 The repository now has zero-dependency automated tests for the workspace-local Beocreate deployment layout, central settings-file loading/default merging and portable repository-wide JavaScript syntax verification. A minimal GitHub Actions workflow runs these checks on Ubuntu and macOS. There is still no general application test framework, linter, formatter, type checker or coverage configuration.
@@ -34,6 +68,320 @@ The ten tests cover fresh creation, expected links, deployed-relative `beocreate
 
 The local-layout command does not start the server, load extensions, access `/etc` or `/opt`, contact SigmaTCP/DSP hardware, validate HiFiBerryOS services, test application behaviour, lint the repository or package Electron.
 
+## Isolated local server and DSP simulator
+
+Start local mode with:
+
+```sh
+npm run dev
+```
+
+On a clean checkout, the launcher detects missing server modules and runs `npm ci --prefix Beocreate2/beo-system` against the existing committed lockfile. No dependency version or lockfile update is performed. The first clean run needs registry access unless npm already has the packages cached; subsequent startup itself has no external-network requirement.
+
+The default selects an ephemeral loopback port and connected simulated DSP. Options are:
+
+```sh
+npm run dev -- --runtime-root "/tmp/SpeakerLab state" --port 8080 --dsp-state connected
+npm run dev -- --dsp-state disconnected
+```
+
+The launcher logs the runtime root, isolated state directory, linked deployed layout, DSP mode, enabled extensions, disabled extensions and final HTTP URL. `SIGINT` and `SIGTERM` are forwarded to the server's existing graceful shutdown sequence.
+
+Run the focused suites:
+
+```sh
+npm run test:local-server
+npm run test:dsp-simulator
+```
+
+The local-server tests use Node built-ins plus the already installed locked server runtime dependencies. They prepare temporary directories (including spaces), validate loopback and input policy, require an explicit classification for every extension, start the existing server/UI in connected and disconnected modes, fetch the assembled UI, assert the local-mode marker and terminate cleanly. They do not access real `/etc`, `/opt`, SigmaTCP, hardware, systemd, GPIO or external networks.
+
+The DSP suite calls the same method names and callback shapes currently consumed from `dsp.js`. It covers single/multi register reads, parameter/register writes, safeload, checksum/XML present and unavailable, profile/store/reset success, deterministic errors, non-callback timeouts, malformed data, disconnect/reconnect, restart and mute state. The simulator does not validate SigmaTCP byte framing, timing accuracy, GPIO behavior or audible output.
+
+Local mode does not load the deployed global `websocket`/`dnssd2` packages or advertise Bonjour. It now provides the existing browser WebSocket application contract through a zero-dependency loopback transport.
+
+## Client extension initialization and setup navigation
+
+Run:
+
+```sh
+npm run test:client-initialization
+npm run test:setup-navigation
+npm run test:local-server
+```
+
+The System Tools menu declares `configuration-backup-ui.js` before `hifiberry-system-tools-client.js`; the first script defines `window.speakerlabConfigurationUI`. The Signal Flow menu likewise declares `routing-ui-state.js` before `signal-flow-client.js`; the first defines the authoritative `window.signalFlowUIState`. Previously, UI assembly removed every `src="€/..."` tag and selected only the single manifest-matching `€-client` file. Both helpers were therefore absent from the generated page even though isolated tests loaded them manually.
+
+The initialization suite parses the real menu declarations and executes the actual helper and client files in that order in a built-in `vm` browser-like harness. It catches top-level exceptions, proves each required state exists before first use, checks repeated evaluation does not duplicate document handlers, and verifies that absent optional configuration support degrades visibly. A missing Signal Flow state produces an explicit unavailable client instead of an uncaught `ReferenceError`.
+
+The setup-navigation suite executes the existing `beo-ui.js` with a minimal DOM/jQuery harness. It covers unknown extensions, missing parent metadata, repeat attempts after a rejected navigation, the active-navigation diagnostic, and real destination checks during menu registration. The live local-server suite additionally proves:
+
+* setup, speaker-preset and Signal Flow menu screens exist in assembled HTML;
+* helper scripts occur exactly once and before their consumers;
+* repeated HTTP UI generation returns the same script list without duplication;
+* the setup WebSocket flow advances from `setup` to the locally available `speaker-preset` destination;
+* Signal Flow state, crossover preview/save and reconnect remain operational in simulation.
+
+`speaker-preset` and `signal-flow` retain their deployed `sound/...` contexts, while the local allow-list excludes the hardware-dependent `sound` extension. Menu preparation now assigns a parent only when that destination exists; otherwise those selected local screens remain top-level and navigable. This is a local composition consequence, not a new production navigation hierarchy.
+
+No new browser framework or dependency was added. A manual connected-mode server startup and clean shutdown were completed, but the requested clean-session click-through and disconnected visual pass could not be performed because no controllable browser session was available in the execution environment. Visual layout, real pointer interaction, browser-specific console behavior and manual refresh behavior therefore remain unverified.
+
+## Product information and speaker-profile setup
+
+Run:
+
+```sh
+npm run test:product-information-client
+npm run test:client-initialization
+npm run test:setup-navigation
+npm run test:local-server
+```
+
+`product_information` is owned by `product-information-client.js`. Speaker Preset uses `clearPresetPreview` before rendering every preview and uses `product_information.generateSettingsPreview` for named profiles whose server-side identity report declares that processor. Local mode previously excluded the complete Product Information extension because its deployed server startup reads Raspberry Pi/HiFiBerryOS identity and manages host naming and Bonjour. The client object was therefore absent, and the bare identifier at the start of `speaker-preset/presetPreview` raised a `ReferenceError` before any preview could open.
+
+Local mode now loads the existing Product Information extension with a truthful fixed identity:
+
+| Field | Local value |
+| --- | --- |
+| System/model name | `SpeakerLab Local Simulator` |
+| Model ID | `speakerlab-local-simulator` |
+| System ID/static name | `speakerlab-local` |
+| Product image | existing generic Beocreate image |
+
+The local branch never queries or renames the host, reads deployed identity files under `/etc`, starts Bonjour, changes the fixed simulator identity after applying a profile, or claims physical DSP application. It still reads the shipped repository product identities so named speaker profiles receive their established manufacturer/model preview metadata. Production startup and identity behavior are unchanged.
+
+The Product Information client initializes that local state before messages arrive, updates the same object when valid server state arrives, retains existing values when optional fields are absent, and re-requests state on reconnect without clearing valid state. Malformed state is ignored with one target/header diagnostic per failure type. Repeated script evaluation reuses the client object and handlers.
+
+Speaker Preset receives Product Information explicitly at initialization. If it is unavailable or a preset message arrives first, the preview continues with minimal metadata and emits one diagnostic instead of throwing. A preview without preset content produces a visible unavailable notification. This removes the valid-message-order assumption while preserving identity enrichment when Product Information is available.
+
+The seven focused client cases cover local initialization, valid and optional server state, idempotence, product-before-preset and preset-before-product delivery, setup-before-both delivery, reconnect refresh, missing Product Information, malformed repeated state, named/minimal previews, selection, confirmation and invalid-preview feedback. The browser-like harness executes the actual client files and event handlers without predefining `product_information`.
+
+The live local-server test additionally proves that Product Information loads before Speaker Preset in generated HTML, reports the fixed local identity, supplies repository identity metadata for a named Beovox profile, previews and applies `Other Speaker`, enables the next setup transition, retains the selected preset across another page fetch, and keeps Signal Flow/Crossover and connected/disconnected simulation operational.
+
+A connected local server was started and stopped cleanly. The requested clean/incognito browser clicks, visual preview inspection, console inspection and disconnected manual repeat remain unverified because no controllable browser session was available.
+
+## WebSocket contract and lifecycle
+
+Run:
+
+```sh
+npm run test:websocket-contract
+npm run test:websocket-lifecycle
+npm run test:websocket-client
+npm run test:local-server
+```
+
+The contract is the root URL on the same HTTP host, WebSocket subprotocol `beocreate`, and JSON `{target, header, content?}` envelopes. There is no request correlation or application acknowledgement. Missing/wrong envelope fields are transported unchanged and are later ignored by the server router when they cannot form an event. Unknown extension/header pairs have no listener and produce no response.
+
+The contract tests use a small raw RFC 6455 test client built from Node's `net` and `crypto` modules. They cover handshake, valid client/server envelopes, content preservation, malformed JSON, repeated-invalid log limiting, synchronous handler failure, unsupported binary data and the 1 MiB assembled-message limit. Rejection checks wait for both the client's close and the matching server-side communication `close` event before inspecting connection state; a client-side close alone does not imply that server cleanup has run. They assert status 1003 for binary data, status 1009 for oversized messages, exactly-once removal of each rejected connection, no application dispatch for rejected input, continued service to an existing client and a valid replacement connection.
+
+Lifecycle tests cover clean and abrupt close, repeated reconnect with fresh IDs, simultaneous clients, broadcast, connection-targeted messages, ordered delivery, protocol ping/pong and shutdown with active clients. The server has no application heartbeat, request timeout or pending-request replay.
+
+The client test executes the existing `beo-comms.js` in a built-in `vm` harness with deterministic DOM, jQuery-event and WebSocket fakes. It verifies URL/protocol selection, envelope construction, extension dispatch, visible connection state, malformed-server-message recovery and one replacement socket after connection loss. No browser framework was added.
+
+The live local-server test additionally verifies:
+
+* connected and disconnected `dsp-programs/status` state on initial connection and reconnect;
+* `channels/getSettings` routing and `channels/channelSettings` response;
+* `general/activatedExtension` routing and System Tools backup capability response;
+* continued availability after malformed JSON and unknown extension/header messages; and
+* socket closure during graceful local shutdown.
+
+Backup export, preview, confirmed restore, validation failure, rollback success and critical rollback-failure results remain covered by the configuration API and UI-state suites because those payloads use HTTP, not WebSocket. The live WebSocket test protects the connection/activation/capabilities coordination that enables that UI workflow.
+
+## Measurement-Assisted EQ Suggestions v1
+
+Run:
+
+```sh
+npm run test:eq-suggestions
+npm run test:eq-suggestion-ui
+npm run test:eq-suggestion-acceptance
+```
+
+The pure suite covers log interpolation boundaries/no extrapolation, sparse data, all supported smoothing values and source immutability; Flat/downward targets and reference levels; broad peaks/dips, flat response, noisy data and deep-null restraint; frequency/gain/Q/crossover/headroom bounds; explicit objective penalties, deterministic stop behavior and stable IDs. Integration covers capabilities, eligibility, named analyse/accept envelopes, prediction, additive ordinary PEQ conversion, band capacity, source integrity, stale analyses and saved-revision conflicts.
+
+UI-state and simplicity tests prove that analysis/reject do not dirty the design, acceptance can be undone before Save, disconnect retains review state, diagnostics and numerical controls start hidden, the feature remains contextual to Parametric EQ and no navigation/dashboard was added. Semantic labels, textual headroom/prediction and narrow stacking are protected.
+
+Eleven Chromium journeys cover two-filter accept/save/refresh, reject/source immutability, existing EQ, null avoidance, boost/headroom/protection warnings, crossover-aware range, stale/recomputed merge eligibility, Advanced disclosure, keyboard-only operation, semantic accessibility and desktop/tablet/mobile layouts. The shared fixture supplies traces, screenshots, video, console/request monitoring and isolated server logs on failure. Tests use project-owned synthetic fixtures, no network, hardware, audio, physical DSP write, arbitrary sleep or broad retry.
+
+The stale/recomputed merge journey deliberately uses sparse 8- and 10-point source fixtures that are valid merge inputs but independently below Assisted EQ's 12-point minimum. Their derived frequency union has 13 points. The test selects the derived response by stable measurement ID, waits for the authoritative assignment response, changes a persisted source with a matching integrity hash, and recomputes through the visible merge workflow. This prevents source ordering, stale status text or asynchronous draft replacement from masking the provenance contract.
+
+## Measurement Phase/Time Alignment Foundation v1
+
+Run:
+
+```sh
+npm run test:phase-alignment
+npm run test:phase-alignment-ui
+npm run test:phase-alignment-acceptance
+```
+
+Pure tests cover phase unwrap across crossings and multiple wraps, noise/invalid input, robust positive/negative/zero delay fit, range and point limits, complex in-phase/inverted/delayed/cancelling sums, timing-reference compatibility, deterministic bounded analysis, ordinary acceptance and source immutability. Integration covers capabilities and eligibility, named analyse/accept envelopes, source hashes, unchanged draft, saved revision and non-persistent analysis state. UI-state tests protect preview-only/reject behavior, ordinary acceptance/undo, stale Assisted EQ clearing, disconnect, contextual placement, collapsed Advanced diagnostics, semantic labels and narrow stacking.
+
+Eleven Chromium journeys cover accept/save/refresh, polarity preview then apply, incompatible timing references, missing phase, existing-delay no-double-apply, current crossover/EQ context, stale magnitude-only merge blocking, Advanced disclosure, keyboard-only use, semantic graph/status and desktop/tablet/mobile layouts. Synthetic measurements are project-owned, deterministic and isolated. No journey uses external network, audio, hardware or a physical DSP write.
+
+## Assisted Crossover Design Foundation v1
+
+Run:
+
+```sh
+npm run test:assisted-crossover
+npm run test:assisted-crossover-ui
+npm run test:assisted-crossover-acceptance
+```
+
+Pure numerical tests cover broad/narrow/absent overlap, role boundaries, existing filter families, deterministic complex responses, in-phase/cancelling and magnitude-only sums, timing compatibility, ranking components, deduplication, current EQ/processing/protection context, invalid/stale integrity and ordinary bounded acceptance. Integration covers capabilities and eligible pairs, named analyse/accept envelopes, phase-aware and magnitude-only results, transient state, source hashes, unchanged draft, selected ID and saved-revision conflicts. UI-state tests protect preview/reject immutability, alternative selection, ordinary acceptance/undo, invalidation after design edits, disconnected review, Discard, contextual placement, collapsed Advanced, semantics and narrow stacking.
+
+Thirteen Chromium journeys cover accept/Save/refresh, bounded alternatives without draft mutation, magnitude-only labeling, phase-aware complex summation, user-declared timing confidence, poor-overlap blocking, current crossover baseline, existing EQ/gain/delay/polarity preservation, protection warnings, Advanced open/close, keyboard use, semantic status/graph meaning and desktop/tablet/mobile layouts. Fixtures are project-owned, deterministic and isolated; there is no network, audio, hardware, physical DSP write, arbitrary sleep or broad retry.
+
+## UI Workflow Consolidation v1
+
+Run:
+
+```sh
+npm run test:ui-workflow
+npm run test:ui-workflow-acceptance
+```
+
+The model/client suite protects derived Review semantics, one shared draft, the Design/Measurements/Review shell, canonical processing labels, Advanced disclosure and physical-deployment wording. Ten dedicated Chromium journeys cover a beginner two-way Save without Advanced; a normal two-output design through crossover, Level & timing, EQ, Driver Protection, Review, Save and restart; an integrated import/merge/alignment/assisted-crossover/assisted-EQ/protection workflow with semantic overlay readiness and focused-form preservation; tab-scoped restoration of selected output and design section; clean default disclosure; mutation-free Advanced behavior; keyboard and semantic state; and desktop, tablet and narrow-mobile layout without horizontal overflow.
+
+All existing specialist journeys remain in the full `test:ui-acceptance` run and were adapted to reach moved controls through the public workspace/output/section interaction. This proves consolidation did not remove capability. The tests remain hardware-free and distinguish Measured, Predicted, Simulated, Saved and physically Blocked state.
+
+## Limiter and Driver Protection Foundation v1
+
+Run:
+
+```sh
+npm run test:driver-protection
+npm run test:limiter-model
+npm run test:protection-ui
+npm run test:protection-acceptance
+```
+
+Pure tests cover 4/8-ohm power/RMS/peak conversions, voltage dB relationships, visible safety margin, invalid/non-finite fields, version/default migration, crossover/EQ/gain headroom, limiting-factor selection and deterministic first-order attack/release behavior. Service/contract tests cover complete-design validation, atomic persistence/readback, rollback preservation, named preview/simulator messages and prior-design migration. Compiler/simulator tests prove an explicit simulator-only operation, unknown physical mapping, unavailable readback, missing amplifier-reference diagnostics, exact simulated readback and injected mismatch.
+
+The 12 Chromium journeys cover save/refresh/restart, EQ and channel-gain headroom, amplifier conflict, invalid fields/no partial save, tweeter crossover risk, synthetic limiter behavior, backup/restore and stale draft conflict, Deployment Preview/mismatch, disconnect/reconnect conflict, keyboard-only editing, semantic units/status and desktop/tablet/mobile layout. The monitored fixture fails unexpected page exceptions, console errors, request failures and relevant HTTP errors and retains traces, screenshots, video and server logs on failure.
+
+The simulator accepts normalized level/duration steps and generates no audio. It is not evidence for a real SigmaDSP limiter. The existing source `volume-limit` extension is characterized as distinct. No automated path opens SigmaTCP, writes a physical limiter, predicts temperature/excursion/SPL or claims guaranteed protection. See `DRIVER_PROTECTION.md`.
+
+## Signal-flow and channel-routing editor
+
+Run the focused suites:
+
+```sh
+npm run test:signal-flow
+npm run test:channel-routing
+npm run test:routing-contract
+npm run test:routing-ui
+npm run test:local-server
+```
+
+The model suite covers the conservative default, stereo, two-way and three-way examples, disabled outputs, custom labels, all supported roles, deterministic serialization/revisions, unknown optional properties, unsupported versions, malformed identifiers/roles, duplicate outputs, invalid connections, the one-source policy, unavailable capabilities, blocking errors and non-blocking warnings.
+
+The service suite uses temporary directories, including paths with spaces. It covers first startup without a file, atomic save and readback, repeated deterministic save, validation rejection, controlled write failure, readback corruption and rollback, malformed saved JSON, revision conflict and verified reset. Tests never touch real `/etc`, `/opt`, hardware or the network.
+
+The contract suite exercises existing WebSocket-style headers for capabilities, state, validation, save and reset; valid and invalid drafts; verified not-deployed results; save failure; revision conflict and unknown messages.
+
+The UI-state suite covers loading, four populated output cards, add/remove routing, label/role editing, validation rendering state, Save eligibility, unsaved state, success/failure, discard, disconnection, clean reconnect and conflicting-draft preservation. Markup/CSS checks require labelled ordinary form controls, live status regions, a narrow-width one-column card layout and no canvas dependency.
+
+The live local-server suite assembles the editor into the existing navigation, requests current state over a real loopback WebSocket, saves and reads back a representative route, verifies the isolated `signal-flow.json`, and confirms `not-deployed` status in connected and disconnected simulation. It also retains the existing UI, channels, backup-capability and shutdown checks.
+
+Configuration backup tests prove exact `signal-flow.json` inclusion and checksum, and reject invalid or unsupported routing during export/import validation. Restore tests prove file restoration and last-known-good capture. Existing transaction/rollback failure coverage applies to every central-settings item, including routing.
+
+The feature does not test or change real DSP activation, SigmaTCP, limiter safety, summing/headroom, acoustic results, physical output or hardware restart behavior.
+
+## Crossover Editor Foundation v1
+
+Run the focused suites:
+
+```sh
+npm run test:crossover-model
+npm run test:crossover-response
+npm run test:crossover-ui
+npm run test:channel-routing
+npm run test:routing-contract
+npm run test:configuration-backup
+npm run test:configuration-restore
+npm run test:local-server
+```
+
+The nested `org.speakerlab.crossover` version 1 model records one optional high-pass and low-pass per current output. Butterworth supports 6, 12, 18 and 24 dB/octave. Linkwitz–Riley supports 12 and 24 dB/octave only. The design capability is 48 kHz, derived from the shipped Beocreate universal DSP metadata; the application range is 10–20,000 Hz and remains below Nyquist.
+
+The numeric suites use explicit tolerances rather than snapshots. They verify section count and coefficient finiteness, Butterworth −3.0103 dB and Linkwitz–Riley −6.0206 dB cutoff magnitude, matching Linkwitz–Riley phase relationships, disabled flat response, combined band-pass response, deterministic logarithmic points and finite response values.
+
+Validation tests cover version/format, known outputs, families, slopes, cutoff types/range/Nyquist, reversed filters, narrow passbands and role/disabled-output warnings. Warnings allow save; errors block the complete routing-and-crossover save.
+
+Service and contract tests cover atomic persistence without authoritative coefficients, readback derivation, revision conflicts, preview calculation, draft copy/reset and not-deployed results. UI-state/markup tests cover labelled ordinary inputs, invalid drafts, warnings, save/conflict/discard/disconnect behavior, accessible SVG/text summaries and narrow stacking.
+
+Backup tests prove exact crossover inclusion and reject unsupported crossover versions. Restore and last-known-good tests prove filter round-trip and prior-filter capture. The isolated server test requests a real WebSocket preview, saves a Linkwitz–Riley low-pass, reads it back and retains the simulated/not-deployed state.
+
+No test or implementation applies these settings to `equaliser.json`, speaker presets, DSP filter banks, SigmaTCP or physical hardware. The preview is electrical only and excludes driver, enclosure, impedance, directivity and multi-driver acoustic summation. Browser click-through and visual viewport inspection remain manual verification items.
+
+## Channel Gain, Delay and Polarity v1
+
+```sh
+npm run test:channel-processing
+npm run test:gain-delay-polarity-ui
+npm run test:channel-processing-acceptance
+npm run test:accessibility-smoke
+```
+
+The zero-dependency model tests cover neutral defaults, −60 to +6 dB boundaries, non-finite and malformed values, 48 kHz sample conversion, the 2,000-sample/41.666667 ms limit, centimetre/metre conversion at 343 m/s, polarity, canonical round-trip and design warnings. Service, WebSocket and UI-state suites cover draft copy/reset, validation, revision-safe atomic save and explicit `not-deployed` status.
+
+Playwright covers mouse and keyboard edits, ordinary labelled controls, unit switching, visible equivalent values, warning/error feedback, disabled Save semantics, narrow/tablet layouts, refresh and server-restart persistence. Existing reconnect and backup/restore journeys now carry representative gain, delay and polarity values. All automated paths use isolated temporary state and the current-Beocreate simulator; they require no network, root, HiFiBerryOS service or physical hardware.
+
+These tests do not prove DSP-register mapping, applied/read-back state, output headroom, audible timing, polarity at terminals or hardware recovery.
+
+## Safe DSP Design Compilation Foundation
+
+```sh
+npm run test:dsp-compilation
+npm run test:dsp-readback
+npm run test:dsp-deployment-preview
+npm run test:dsp-compilation-acceptance
+npm run test:dsp-deployment-accessibility
+```
+
+Capability/compiler tests cover compatible/incompatible/unknown/missing identity, A–D mappings, deterministic two-way LR24 compilation, legacy coefficient order/sign and signed-5.23 golden values, routing, attenuation gain, whole-sample delay, polarity, disabled output, stale revision, protection, unsupported gain and missing mappings.
+
+Readback tests cover exact match, mismatch, unavailable/invalid or partial state, connection loss, stale comparison, process-restart clearing and mute-until-verified behavior. Service/contract tests prove named WebSocket actions, optimistic concurrency, production preview-only behavior and absence of arbitrary browser register writes.
+
+Five real-browser journeys cover full compilation, unsupported mapping, simulator application/readback/comparison, mismatch diagnostics, stale editing, reconnect/restart, desktop and 390 px layouts, keyboard actions and semantic target/status/per-output comparison groups. They use isolated temporary state and never access physical hardware.
+
+## Complete Remaining Current-Beocreate Mapping
+
+```sh
+npm run test:sigmatcp-framing
+npm run test:dsp-read-queue
+npm run test:dsp-reconnect
+npm run test:beocreate-mapping
+npm run test:dsp-recovery
+npm run test:dsp-readiness-acceptance
+```
+
+Framing fixtures distinguish source-derived request bytes from synthetic decoder-compatible responses and deliberately invalid input. Tests cover complete, split, coalesced, malformed, oversized and unknown frames; deterministic reset; serialized/repeated reads; timeout; malformed/wrong-size response; disconnect/reconnect generation; stale response; exactly-once callback cleanup; shutdown; and transported-but-unacknowledged writes.
+
+Mapping tests require evidence and classification for every compiled operation, prohibit unverified mappings from being labelled verified, block unknown/unreadable safety fields and make recovery output deterministic. High-level simulation covers timeout, malformed response, stale response, unavailable readback and identity mismatch without false verification.
+
+Real Chromium journeys expose confidence/readback status, exact blockers, identity mismatch, transport failures, recovery requirements, simulator availability, absence of physical Apply, keyboard semantics and desktop/tablet/390 px layouts. Tests remain loopback-only, deterministic and hardware-free.
+
+## Read-only hardware evidence
+
+```sh
+npm run capture:beocreate-readonly -- --dry-run
+npm run test:readonly-capture
+npm run test:hardware-evidence
+npm run test:evidence-review
+npm run test:dsp-readiness-acceptance
+```
+
+The zero-dependency command tests prove dry-run isolation, exact checksum/parameter read allowlisting, rejection of write/unknown/ambiguous frames, two-read repetition, zero write/unknown transcript counts, request/payload/timeout limits, malformed response handling, cleanup and omission of the target host. Format/review tests cover schema, deterministic sanitized parsing, integrity corruption, missing or mismatched identity, contradictory observations, private-data rejection and the prohibition on promoting repository evidence or safe-state readback into write safety.
+
+The real-browser provenance journey opens the disclosure by keyboard, checks its meaningful region label, source/schema/identity/readback/write-side text, privacy statement and continued absence of physical Apply. Existing journeys continue to cover retained blockers, identity mismatch, readback failure, recovery, desktop/tablet/mobile layout and monitored console/page errors. CI runs fixtures only and never invokes the live capture command.
+
+No physical capture was performed. These tests do not establish physical parameter semantics, tolerances, GPIO mute state, successful writes, rollback, audible behavior or restart persistence.
+
 ## Settings loading characterization
 
 The selected boundary is the central settings reader used by `Beocreate2/beo-system/beo-server.js` for system, UI and extension JSON files. The deployed server stores these as `/etc/beocreate/<extension>.json`; system and UI defaults are declared in `beo-server.js`, while extensions generally declare and merge their own defaults after receiving settings over the shared bus. The command-line `configure.js` editor reads and writes the same directory independently. Preset storage is separate: speaker presets use `Beocreate2/beo-speaker-presets` and `/etc/beocreate/beo-speaker-presets`, and Beosonic listening modes use `Beocreate2/beo-listening-modes` and `/etc/beocreate/beo-listening-modes`.
@@ -56,11 +404,143 @@ The characterized behavior is:
 
 Directly requiring `beo-server.js` is unsafe in an ordinary development test because module evaluation creates the production data directory when absent, loads extensions, starts the HTTP/WebSocket server and imports OS/hardware-dependent modules. A small `settings-store.js` seam therefore contains the existing read and shallow-merge operations; the server calls it with the same production directory, defaults, debug level and console logger. No file format, default, path, error outcome or merge behavior was intentionally changed.
 
-The tests do not characterize writes, the ten-second shared save queue, shutdown flushing, path traversal through an untrusted extension name, extension-specific validation/merging, speaker-preset or listening-mode discovery, preset application, atomicity, recovery, or concurrent access. Settings writes remain synchronous, unversioned and non-atomic.
+The settings-loading suite does not itself characterize writes, the ten-second shared save queue, shutdown flushing, path traversal through an untrusted extension name, extension-specific validation/merging or resource application. Central writes, atomicity and configuration recovery are covered by the focused suites below. Speaker-preset and listening-mode discovery are covered separately.
 
-## Provisional development-tooling runtime
+## Configuration read characterization
 
-Node.js 24 is the provisional baseline only for root repository scripts, the local layout harness, current zero-dependency tests, the syntax verifier and GitHub Actions. `.nvmrc` and `.node-version` both select major version 24.
+The configuration-read suite exercises the discovery logic extracted from the existing `speaker-preset` and `beosonic` extensions. It uses only Node built-ins and isolated temporary system/user directories. It does not import either complete extension, start the server, use the process working directory, access deployed `/opt` or `/etc` paths, save fixture data outside the temporary tree, contact hardware or apply any resource.
+
+Run the focused commands:
+
+```sh
+npm run test:speaker-presets
+npm run test:listening-modes
+npm run test:configuration-read
+```
+
+Production resolves the directories as follows:
+
+| Resource | System directory | User directory |
+| --- | --- | --- |
+| Speaker presets | `<beo.systemDirectory>/beo-speaker-presets` (normally `/opt/beocreate/beo-speaker-presets`) | `<beo.dataDirectory>/beo-speaker-presets` (normally `/etc/beocreate/beo-speaker-presets`) |
+| Listening modes | `<beo.systemDirectory>/beo-listening-modes` (normally `/opt/beocreate/beo-listening-modes`) | `<beo.dataDirectory>/beo-listening-modes` (normally `/etc/beocreate/beo-listening-modes`) |
+
+Both extensions create the user directory during module evaluation if it is missing, then discover resources on the `general/startup` event. The extracted seams preserve the discovery functions only; startup creation, event handling, settings saving and application remain in the original extensions.
+
+### Speaker-preset behavior
+
+- Every entry returned by `fs.readdirSync` is attempted; files are not filtered by extension.
+- Identity is the filename with only its final extension removed. The display name is `speaker-preset.presetName`, falling back to `product-information.modelName`, but a truthy `speaker-preset` object is still required.
+- System resources are read before user resources. The first accepted filename identity wins, so a user file cannot override a system file with the same filename. Different identities may share a display name.
+- Compact/full objects retain insertion order derived from the platform's `readdirSync` results: accepted system entries followed by new user entries. The code performs no explicit sort.
+- Missing system or user directories throw synchronously. A missing user directory can therefore leave system entries added before the throw.
+- Read errors, empty/whitespace files, malformed JSON and JSON `null` are caught per file. Arrays and primitive JSON values are parsed but do not qualify. Errors and skips are logged only when extension debug logging is enabled.
+- Unknown properties are retained in the full object without schema validation.
+- Module-level lists are not cleared. Repeated discovery does not refresh an existing identity and does not remove stale entries whose files disappeared.
+
+### Listening-mode behavior
+
+- Identity is likewise the filename without its final extension. A truthy `beosonic.presetName` is required; other top-level adjustments and unknown properties are retained.
+- System resources are read before user resources, but every accepted resource is assigned unconditionally. A user file with the same filename therefore overwrites the system value and becomes writable. Different identities may share a display name.
+- Object insertion order follows first insertion from `readdirSync`; overwriting a duplicate does not move its key. Newly seen identities are appended to `settings.presetOrder` in discovery order and trigger the existing settings-save callback.
+- Missing directories throw synchronously. Per-file malformed, empty, whitespace, JSON `null`, array and primitive handling matches the speaker loader's broad parse/skip behavior.
+- Repeated discovery refreshes identities whose files still exist, but module-level full/compact lists retain identities for files that were removed. Missing entries in `presetOrder` are deleted and the existing settings-save callback runs.
+
+The seams are `Beocreate2/beo-extensions/speaker-preset/preset-discovery.js` and `Beocreate2/beo-extensions/beosonic/preset-discovery.js`. They are extension-specific and intentionally do not define a generic configuration API, schema, storage format or hardware abstraction.
+
+The 27 focused cases cover valid system/user resources, missing and empty directories, unreadable entries, malformed/empty/whitespace files, JSON `null`, arrays and primitives, required names, unknown properties, duplicate identities and display names, precedence, observed filesystem order, repeated discovery, stale state and paths containing spaces.
+
+Still untested are speaker-preset/listening-mode upload, rename, delete and save paths; migration from old sound presets; product-identity enrichment; `presetOrder` interactions beyond discovery cleanup; concurrent filesystem changes; permissions on the target HiFiBerryOS image; and all preview/application/DSP behavior.
+
+## Configuration write characterization
+
+The focused write suite exercises the central settings writer used by `beo-server.js`. The writer is isolated in `settings-store.js` because importing the complete server starts network services and hardware/OS-dependent extensions. Production supplies `/etc/beocreate`, the global console and real timers; tests supply an isolated temporary directory and controllable built-in-only timers.
+
+Run:
+
+```sh
+npm run test:settings-write
+npm run test:atomic-settings
+npm run test:configuration-write
+```
+
+### Write entry points found
+
+| Owner | Target and behavior |
+| --- | --- |
+| Central settings broker | `/etc/beocreate/<extension>.json`; direct `beo.saveSettings` calls and `settings/saveSettings` bus events from system/UI and extensions including sound, channels, equaliser, Beosonic, speaker preset, sources, network, setup, privacy, DSP programs and others |
+| `configure.js` | Directly reads and synchronously rewrites `/etc/beocreate/<extension>.json`; catches read/write errors but always exits with status 0 |
+| Beosonic | Direct synchronous compact JSON writes for new/renamed user listening modes under `/etc/beocreate/beo-listening-modes`, in addition to central Beosonic settings saves |
+| Speaker preset | Uploaded presets are moved into `/etc/beocreate/beo-speaker-presets`; legacy sound-preset migration rewrites files synchronously and saves selected-preset settings through the central broker |
+| Room compensation | Direct compact JSON writes for measurements and generated compensation presets under `/etc/beocreate/beo-room-compensation` |
+| ALSA loop and Squeezelite | Direct compact rewrites of `/etc/alsaloop.json` and `/etc/squeezelite.json`, followed by `statSync` |
+| MPD | Direct compact rewrites of `beo-cache.json` below the active music library |
+| Other platform configuration | Several extensions synchronously rewrite non-JSON `/etc` service/configuration files; these are configuration sources but are outside the JSON writer seam |
+
+### Central atomic writes
+
+- The target is constructed by direct string concatenation: `<dataDirectory>/<extension>.json`. Extension names are not validated, so path traversal is possible.
+- `JSON.stringify` is called without a replacer, indentation or trailing newline. Property insertion order is used. Serialization completes before a filesystem replacement is attempted.
+- Nested `undefined`, functions and symbols are omitted from objects and become `null` in arrays. Top-level `undefined`, BigInt and circular structures fail according to native `JSON.stringify`/`writeFileSync` behavior.
+- A unique temporary file is opened exclusively in the target directory as `.<target-name>.speakerlab-<process-id>-<counter>.tmp`. Complete bytes are written in a loop, permissions are applied, the file is synced and closed, then renamed over the target. The directory is synced where supported. No target is deleted or truncated first.
+- Existing permission bits are copied to the replacement. A new file uses `0666` filtered by the current process `umask`. Because rename installs a new inode, ownership becomes the writer's identity; this matches the normal root-owned deployed-service case but may differ for an unusually owned pre-existing file. Tests require no ownership changes, root or `sudo`.
+- Immediate serialization observes state at the call and does not mutate the object. Errors propagate synchronously with their native code plus `atomicWriteStage` and `atomicWriteTarget`; a cleanup error is attached as `atomicWriteCleanupError`. Success is logged only at debug level 2 or higher and only after the write returns.
+- Every failure before rename preserves the previous target and attempts to remove only the current write's temporary file. A directory-sync failure is reported after the complete replacement is visible and cannot be rolled back safely. Known unsupported directory-sync errors are tolerated.
+- Stale temporary files are ignored, left untouched and never treated as authoritative. A new write uses another exclusive name. Automatic restoration and broad stale-file cleanup belong to later recovery work.
+
+### Delayed and coalesced writes
+
+- Non-immediate calls store the supplied object reference in one process-global pending object keyed by extension and reset one global 10,000 ms timer.
+- A later save for the same extension replaces its queued reference. Saves for different extensions accumulate, but every call cancels and replaces the shared timer; activity from any extension postpones all pending writes.
+- Because references are retained, mutation after scheduling changes the eventual serialized data. An immediate save does not remove an older queued value, so the queued value can later overwrite the immediate file.
+- On timer expiry, pending extensions are synchronously serialized/written in object-property order. The queue is cleared only after the complete loop succeeds. A serialization or write failure aborts the loop, produces no broker error log, leaves the complete queue available in memory for a later retry, and escapes the timer callback as an uncaught exception.
+
+### Shutdown and flush behavior
+
+`SIGINT`/`SIGTERM` start the server's graceful shutdown sequence. Extensions may delay it for at most five seconds. After WebSocket shutdown completes, `completeShutdown` calls the same synchronous pending-write flush before closing HTTP and exiting or invoking the power command. The process waits for every file sync, close, rename and supported directory sync reached by that synchronous flush.
+
+Manual/graceful flushing does not cancel the existing ten-second timer; it empties the queue after a successful loop, so the later timer normally performs an empty flush. Repeated flushes are otherwise harmless. A flush failure prevents the remaining shutdown callback steps from running and may terminate the process through an uncaught exception. Abrupt exit, kill, crash, power loss, a second unhandled signal or failure before the WebSocket callback can lose pending state.
+
+The 18 scheduling/compatibility tests cover exact compact output, nested data, `null`, unsupported values, overwrite behavior, missing files/directories, controlled write failure, spaces, unsafe filename construction, repeated writes, immediate/delayed mutation, one and multiple extensions, timer replacement, success logging, queued-versus-immediate ordering, synchronous flush, repeated flush and failure/retry behavior.
+
+The 20 atomic-persistence tests cover same-directory temporary placement, compact output, existing/new modes and `umask`, existing and stale files, spaces, serialization, exclusive creation/permission denial, complete and short writes, zero-progress writes, `chmod`, file sync, close, rename, directory sync, unsupported directory sync, cleanup, missing directories and delayed-flush failure/retry. Failures are injected through the module's narrow filesystem test seam. Tests use isolated operating-system temporary directories and never access real `/etc`, `/opt`, hardware or network services.
+
+Still untested are the independent extension/CLI writers listed above, real ten-second timing under load, real signals and complete-server shutdown, true disk-full behavior, deployed filesystem and power-loss behavior, cross-process writers and unusual ownership. Those independent paths remain non-atomic.
+
+## Configuration backup and restore
+
+The configuration-portability slice uses the existing zero-dependency Node test style and isolated temporary directories. It does not load the complete server or contact hardware, SigmaTCP, HiFiBerryOS services or the network.
+
+Run the focused suites:
+
+```sh
+npm run test:configuration-backup
+npm run test:configuration-restore
+npm run test:configuration-api
+npm run test:configuration-ui
+```
+
+The v1 backup format is `org.speakerlab.configuration-backup`, schema version 1. It is a formatted JSON document with source/creation metadata, explicit included and excluded categories, opaque legacy JSON payloads, deterministic filename ordering, and SHA-256 checksums for items, sections and overall integrity.
+
+Included configuration:
+
+- safe top-level central settings files;
+- user speaker presets under `beo-speaker-presets`; and
+- user listening modes under `beo-listening-modes`.
+
+Explicit exclusions include network/device identity, authentication-bearing services, DSP program state, first-run/update state, operating-system configuration, packages, logs, caches, uploads and temporary files. Files with sensitive key names are excluded as complete units and reported in backup metadata. `system.json` is included unless `runAtStart` is present. Malformed or unreadable in-scope files fail export.
+
+Restore validation covers the 5 MiB input limit, JSON parsing, format and schema versions, required metadata/sections, safe `.json` basenames, duplicate items, per-item/section/overall checksums, unknown required sections and optional-section warnings. Preview classifies created, replaced, unchanged, absent and unsupported content. Absent active items are left unchanged.
+
+The restore tests cover multi-file success, overwrite/create, validation and staging failures, first/later replacement failures, readback failure, reverse rollback, rollback verification/failure reporting, last-known-good verification, pending-save flush/cancellation, ordinary-write locking, concurrent/repeated restore, paths containing spaces and full export/change/restore semantic round trip. Measurement-merge coverage additionally proves source/derived/recipe export, source and derived hash preservation, change-plan reporting, missing-source and corrupt-derived rejection, and restoration of the complete dependency graph.
+
+API contract tests exercise capabilities, download, preview, confirmation, invalid/unsupported/oversized input and rollback results. Client-state tests cover selection/validation, summary rendering, explicit confirmation, double-submit prevention, verified success, disconnected state, successful rollback and critical rollback failure.
+
+The UI-state tests exercise the pure state/rendering seam in `configuration-backup-ui.js`, while `test:backup-restore-acceptance` and the merge acceptance journey cover real browser download, preview, confirmation, restart and restored-state inspection. The API tests still call route handlers directly rather than starting Express. HiFiBerryOS filesystem permissions, cross-process writers and physical power-loss recovery remain unverified.
+
+## Supported server development runtime
+
+Node.js 24 is the supported baseline for root repository scripts and the isolated Beocreate server. `.nvmrc` and `.node-version` both select major version 24. The server manifest records npm 11.6.2, which generated its lockfile version 3.
 
 With nvm:
 
@@ -69,9 +549,23 @@ nvm install
 nvm use
 ```
 
-Other version managers that understand `.node-version` can select the same baseline from that file. The root manifest intentionally has no `engines` field because Node.js 24 support has not been established for every legacy application nested in the repository.
+Other version managers that understand `.node-version` can select the same baseline from that file. Install the locked server tree with:
 
-Node.js 24 is not a verified production runtime for the deployed Beocreate server, HiFiBerryOS, Beocreate Connect, Electron packaging or physical Beocreate hardware. Those runtime questions remain separate and unresolved. The tooling was most recently run locally on Node.js 26.4.0; Node.js 24 execution is configured in CI and must still be confirmed by a hosted workflow run.
+```sh
+npm ci --prefix Beocreate2/beo-system
+```
+
+Node.js 24.18.0 and npm 11.6.2 were verified on Apple Silicon for clean install and the complete isolated suite. CI selects Node.js 24 on current Ubuntu and macOS runners. The clean tree contains no native binding or install lifecycle script.
+
+Node.js 24 is not a verified production runtime for HiFiBerryOS, Beocreate Connect, Electron packaging or physical Beocreate hardware. The deployed service invokes an unversioned `/usr/bin/node`; its actual appliance version remains unresolved. The root manifest intentionally has no `engines` field because the supported claim does not extend to every legacy nested application.
+
+### Server dependency wave 1
+
+The controlled pure-JavaScript wave updates EventEmitter3 3.1.2 to 5.0.4, Express 4.17.1 to 4.22.2 and Underscore 1.9.1 to 1.13.8. Express stays on major 4. `aplay` stays at 1.2.0 because it invokes platform audio; production-global modules, extension platform dependencies, DSPToolkit, SigmaTCP and Electron remain deferred.
+
+Before the wave, npm audit reported eight findings: three low, four high and one critical. The modern locked tree reports zero findings. No `npm audit fix` was used. This covers only server-owned packages at the assessment date and does not establish application or production-image security.
+
+The clean install grows from 53 to 71 packages. The material additions are Express transitive call/prototype and side-channel helpers (`call-bind-apply-helpers`, `call-bound`, `dunder-proto`, `es-*`, `function-bind`, `get-*`, `gopd`, `has-*`, `math-intrinsics`, `object-inspect` and `side-channel*`) plus Express's nested `ms`; no direct dependency was added or removed.
 
 ## Repository verification
 
@@ -93,25 +587,34 @@ Run the current repository-level verification:
 npm run verify
 ```
 
-`npm run verify` runs the 25 focused tests and then checks every repository `.js` file selected by `scripts/verify-javascript-syntax.js`. Selection is deterministic; `.git`, `node_modules`, `.speakerlab-local` and symbolic-link directories are not traversed. Each file is passed as a separate argument to the active Node executable's `--check` mode, so paths containing spaces are safe and failures identify the affected relative path.
+`npm run verify` runs the focused tests and then checks every repository `.js` file selected by `scripts/verify-javascript-syntax.js`. Selection is deterministic; `.git`, `node_modules`, `.speakerlab-local` and symbolic-link directories are not traversed. Each file is passed as a separate argument to the active Node executable's `--check` mode, so paths containing spaces are safe and failures identify the affected relative path.
 
-This is not complete application verification. It does not run legacy placeholder test commands, install nested application dependencies, start the Beocreate server, access hardware or HiFiBerryOS, communicate with SigmaTCP, package Electron, test the UI, lint, type-check or audit dependencies.
+This is not complete application verification. It covers isolated HTTP/UI startup, the browser WebSocket contract, configuration paths, connected/disconnected simulation and graceful shutdown, but it does not access hardware or HiFiBerryOS, validate SigmaTCP framing/read queues/reconnect limits, package Electron, lint, type-check or assess production-global dependencies.
 
 ## Continuous integration
 
-`.github/workflows/verify.yml` runs on pushes to `master` and pull requests targeting `master`. Its matrix uses `ubuntu-latest` and `macos-latest`, checks out SpeakerLab, selects Node.js 24, runs `npm test`, and runs `npm run verify`.
+`.github/workflows/verify.yml` runs on pushes to `master` and `develop`, and on pull requests targeting either branch. Its matrix uses `ubuntu-latest` and `macos-latest`. The workflow uses `actions/checkout@v6` and `actions/setup-node@v6`, selects the version from `.nvmrc`, explicitly disables setup-node's automatic package-manager cache, and performs a clean server `npm ci`.
 
-The root tooling has no dependencies, so CI does not run an installation step or use a dependency cache. The workflow does not write to `/opt`, use sudo or secrets, start services, contact physical hardware, install Beocreate Connect dependencies, package Electron or remediate npm audit findings.
+WebSocket, signal-flow/routing, configuration backup/restore and isolated-server commands run in named focused steps so their failures are visible directly. The final `npm run verify` remains authoritative and runs the complete focused suite plus the repository-wide syntax sweep once; CI no longer runs the complete `npm test` suite a second time as a separate step.
+
+The WebSocket contract tests synchronize on the characterized application events instead of assuming that Ubuntu and macOS will process multiple frames within a fixed 20–30 ms delay. A two-second timeout remains only as a clear failure bound; the assertions and malformed-message/handler-failure coverage are unchanged.
+
+The root tooling has no dependencies. CI installs only the modern server lockfile; it does not use a dependency cache. The workflow does not write to `/opt`, use sudo or secrets, start host services, contact physical hardware, install Beocreate Connect dependencies, package Electron or remediate npm audit findings.
 
 ## Commands found
 
 | Area | Install | Start | Build/package | Test/lint |
 | --- | --- | --- | --- | --- |
-| Beocreate server | `cd Beocreate2/beo-system && npm ci` | deployed: systemd unit; source attempt: `node beo-server.js` | none; HiFiBerryOS/Buildroot is external | placeholder `npm test`; no lint |
+| Beocreate server | `cd Beocreate2/beo-system && npm ci` | local: `npm run dev`; deployed: systemd unit | none; HiFiBerryOS/Buildroot is external | local lifecycle: `npm run test:local-server`; nested package test remains a placeholder |
 | Beocreate Essentials | no lockfile; historically installed as part of image | library only | none | placeholder `npm test`; no lint |
 | Beocreate Connect | `cd BeocreateConnect && npm ci` | `npm start` | `npm run pack`, `npm run dist` | no test or lint |
 | Repository layout harness | none | `node scripts/prepare-local-beocreate-layout.js <destination>` | none | `npm test` or `npm run test:local-layout` |
 | Settings loading characterization | none | library seam only | none | `npm run test:settings-store` |
+| Configuration read characterization | none | extension-specific discovery seams only | none | `npm run test:configuration-read`; focused: `test:speaker-presets`, `test:listening-modes` |
+| Configuration write and atomic persistence | none | central settings writer seam only | none | `npm run test:configuration-write`; focused: `test:settings-write`, `test:atomic-settings` |
+| Configuration backup and restore | none | service, REST-handler and client-state seams | none | focused: `test:configuration-backup`, `test:configuration-restore`, `test:configuration-api`, `test:configuration-ui` |
+| Signal flow and channel routing | none | `npm run dev`, then open Signal Flow | none | focused: `test:signal-flow`, `test:channel-routing`, `test:routing-contract`, `test:routing-ui`, `test:local-server` |
+| Parametric EQ v1 | root locked Playwright only for browser journeys | Signal Flow in isolated local mode | none | focused: `test:parametric-eq`, `test:eq-response`, `test:eq-ui`, `test:eq-acceptance` |
 | Repository verification | none | not applicable | none | `npm run verify`; syntax only: `npm run check:syntax` |
 
 `npm install` is documented for Beocreate Connect in the upstream README; `npm ci` is the reproducibility check where a committed lockfile exists.
@@ -163,9 +666,11 @@ No command failed in this change. The checks did not install dependencies, use t
 
 ## What can run without hardware today
 
-The central settings reader/default merge, static JavaScript syntax checks, local deployed-layout tests and pure exported DSP calculations can run without hardware. The root verification command needs no dependency installation or external network. JSON fixtures can be parsed. The server dependency install can run on the audited Mac with registry access.
+Parametric EQ mathematics, validation, draft operations, atomic complete-design persistence, compiler output, simulator readback and browser workflows run without hardware. They use temporary state, the isolated local server and no network after locked dependencies are installed. They do not exercise legacy preset application, SigmaTCP writes, GPIO mute, audible output or acoustic behavior.
 
-No supported whole-application automated test currently runs without hardware/HiFiBerryOS because extension loading eagerly imports OS-dependent modules. The local layout fixes path reproduction only; it does not isolate extension side effects or system paths. Beocreate Connect discovery/UI logic could theoretically run locally after dependencies install, but its current clean install does not succeed on the audited Apple Silicon runtime.
+The central settings/default, configuration, syntax, deployed-layout and simulated DSP suites run without hardware. The local-server suite starts the existing server and HTTP UI assembly with an audited extension subset, isolated temporary state and no HiFiBerryOS services. Once the existing locked server modules are installed, tests perform no external network access. A clean `npm run dev` may use registry access to install those locked modules automatically.
+
+Live WebSocket UI interaction, disabled hardware-dependent extensions and Beocreate Connect are not part of this local whole-server boundary. Beocreate Connect's current clean install still fails on the audited Apple Silicon runtime.
 
 ## What currently requires hardware or its OS image
 
@@ -173,6 +678,18 @@ No supported whole-application automated test currently runs without hardware/Hi
 - ALSA playback/mixer paths and source services.
 - Wi-Fi/Ethernet mutation, Raspberry Pi identity/power/storage operations and systemd service control.
 - Serial, Bluetooth, room-measurement and HiFiBerry helper workflows.
+
+## Measurement Import Foundation
+
+`npm run test:measurement-import` covers deterministic REW/FRD detection, parsing, normalization, malformed/binary rejection, path safety and integrity validation. `npm run test:measurement-storage` covers preview confirmation, atomic Signal Flow persistence, reload, assignment, overlay labelling and removal. `npm run test:measurement-ui` protects semantic controls and safety wording.
+
+`npm run test:measurement-acceptance` runs isolated real-browser REW, no-phase FRD, malformed-input and narrow-responsive workflows with the shared console/page-error monitor. Fixtures are small synthetic project-owned text files; oversized inputs are generated in tests rather than committed.
+
+The consolidated workflow acceptance helper imports sequential measurements by stable ID, deliberately re-selects the current listbox option to exercise an asynchronous overlay render, then waits for authoritative client draft metadata before checking the visible entry. This protects product state synchronization without sleeps or a role-specific timeout increase.
+
+`npm run test:measurement-alignment` covers overlap, log interpolation without extrapolation, robust median alignment, complementary raised-cosine weights, phase wrapping and deterministic magnitude-only output. `npm run test:measurement-merge` covers service/controller preview and save, source immutability, dependencies, edit/regeneration, atomic persistence and backup/restore. `npm run test:measurement-merge-ui` protects workflow semantics and safety wording.
+
+`npm run test:measurement-merge-acceptance` covers a complete nearfield/farfield merge across refresh and restart, exact source immutability, recipe/transition editing, derived electrical overlays, source/hash backup and restore, one-sided missing-phase disclosure, narrow-overlap and large-offset warnings, deliberate warning acceptance, invalid transition/frequency rejection, named stale-source detection and recomputation, dependent-source removal, desktop/tablet/mobile layouts, keyboard-only save/reopen, semantic status/units and the shared browser-error monitor.
 - End-to-end verification of startup mute, audible gain/routing/filter behaviour, EEPROM persistence and restart recovery.
 
 Many of these require the HiFiBerryOS image rather than physical DSP hardware specifically. Tests must distinguish simulated, image integration and hardware-in-the-loop suites.

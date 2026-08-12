@@ -18,6 +18,7 @@ SOFTWARE.*/
 'use strict';
 
 var fs = require('fs');
+var atomicJSONFile = require('./atomic-json-file');
 
 function getSettings(dataDirectory, extension, debugMode, logger) {
 	var file;
@@ -53,7 +54,72 @@ function mergeSettings(defaultSettings, loadedSettings) {
 	return defaultSettings;
 }
 
+function createSettingsWriter(dataDirectory, debugMode, logger, timers, persistence) {
+	var settingsToBeSaved = {};
+	var settingsSaveTimeout = null;
+	var restoreInProgress = false;
+	logger = logger || console;
+	persistence = persistence || atomicJSONFile;
+	timers = timers || {
+		setTimeout: setTimeout,
+		clearTimeout: clearTimeout
+	};
+
+	function saveSettings(extension, settings, immediately) {
+		if (restoreInProgress) {
+			var error = new Error("Settings cannot be saved while a configuration restore is in progress.");
+			error.code = "SETTINGS_RESTORE_IN_PROGRESS";
+			throw error;
+		}
+		if (immediately) {
+			persistence.writeJSONAtomic(dataDirectory+"/"+extension+".json", settings);
+			if (debugMode >= 2) logger.log("Settings saved for '"+extension+"' (immediately).");
+		} else {
+			settingsToBeSaved[extension] = settings;
+			timers.clearTimeout(settingsSaveTimeout);
+			settingsSaveTimeout = timers.setTimeout(function() {
+				savePendingSettings();
+			}, 10000);
+		}
+	}
+
+	function savePendingSettings() {
+		for (var extension in settingsToBeSaved) {
+			if (settingsToBeSaved.hasOwnProperty(extension)) {
+				persistence.writeJSONAtomic(dataDirectory+"/"+extension+".json", settingsToBeSaved[extension]);
+				if (debugMode >= 2) logger.log("Settings saved for '"+extension+"'.");
+			}
+		}
+		settingsToBeSaved = {};
+	}
+
+	function beginRestore() {
+		if (restoreInProgress) {
+			var error = new Error("A configuration restore is already in progress.");
+			error.code = "SETTINGS_RESTORE_IN_PROGRESS";
+			throw error;
+		}
+		savePendingSettings();
+		timers.clearTimeout(settingsSaveTimeout);
+		settingsSaveTimeout = null;
+		restoreInProgress = true;
+	}
+
+	function endRestore() {
+		restoreInProgress = false;
+	}
+
+	return {
+		saveSettings: saveSettings,
+		savePendingSettings: savePendingSettings,
+		beginRestore: beginRestore,
+		endRestore: endRestore,
+		isRestoreInProgress: function() { return restoreInProgress; }
+	};
+}
+
 module.exports = {
 	getSettings: getSettings,
-	mergeSettings: mergeSettings
+	mergeSettings: mergeSettings,
+	createSettingsWriter: createSettingsWriter
 };

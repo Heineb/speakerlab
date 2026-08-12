@@ -66,7 +66,7 @@ $( document ).ready(function() {
 	
 	// Preload animated wait icons:
 	if (!hifiberryOS) {
-		attentionIcon.src = "common/create-wait-animate.svg";
+		attentionIcon.src = "common/speakerlab-wait-animate.svg";
 	} else {
 		attentionIcon.src = "common/hifiberry-wait-animate.svg";
 	}
@@ -266,13 +266,13 @@ function prepareMenus() {
 			}
 			if (!theExtension.attributes["data-hidden"]) {
 				if (context[1]) {
-					if ($(".menu-screen#"+context[0]+" .beo-dynamic-menu."+context[1])) {
+					if ($(".menu-screen#"+context[0]+" .beo-dynamic-menu."+context[1]).length) {
 						$(".menu-screen#"+context[0]+" .beo-dynamic-menu."+context[1]).append(createMenuItem(menuOptions));
 						extensionPlaced = true;
 					}
 				}
 				if (!extensionPlaced && 
-					$(".menu-screen#"+context[0]+" .beo-dynamic-menu")) {
+					$(".menu-screen#"+context[0]+" .beo-dynamic-menu").length) {
 					$(".menu-screen#"+context[0]+" .beo-dynamic-menu").append(createMenuItem(menuOptions));
 					extensionPlaced = true;
 				}
@@ -282,12 +282,14 @@ function prepareMenus() {
 					
 			extensions[extensionName] = Object.assign(extensions[extensionName], {
 				id: extensionName, 
-				parentMenu: context[0], 
 				icon: iconName,
 				title: menuOptions.label,
 				deepMenu: [],
 				namespace: (theExtension.attributes["data-namespace"]) ? theExtension.attributes["data-namespace"].value : null
 			});
+			if (extensionPlaced && extensions[context[0]] && document.querySelector(".menu-screen#"+context[0])) {
+				extensions[extensionName].parentMenu = context[0];
+			}
 			if (theExtension.attributes["data-menu-title-short"]) extensions[extensionName].shortTitle = theExtension.attributes["data-menu-title-short"].value;
 			
 			$(".menu-screen#"+extensionName+" .scroll-area").first().prepend('<h1 class="large-title">'+$(".menu-screen#"+extensionName+" header h1").first().text()+'</h1>'); // Duplicate title for views that use a large title.
@@ -631,15 +633,32 @@ var navigating = false;
 var extensionAnimations = 0;
 
 function showExtension(extension, direction = null, fromBackButton = false, invisibly = false, fromNavBar = false) {
-	if (navigating) console.error("Navigation is already in progress.");
+	if (navigating) {
+		console.error("Cannot show extension '"+extension+"': navigation is already in progress.");
+		return false;
+	}
 	
 	if (isNaN(extension)) { // Selecting tab with name (from a menu item).
 		newExtension = extension;
 	} else { // Selecting tab with index number (from favourites bar).
 		newExtension = configuredTabs[extension];
 	}
+	if (!newExtension || !extensions[newExtension]) {
+		console.error("Cannot show extension '"+newExtension+"': it is not registered in the assembled interface.");
+		return false;
+	}
+	if (!document.querySelector(".menu-screen#"+newExtension)) {
+		console.error("Cannot show extension '"+newExtension+"': its menu metadata is missing from the assembled interface.");
+		return false;
+	}
+	if (extensions[newExtension].parentMenu &&
+		(!extensions[extensions[newExtension].parentMenu] ||
+		 !document.querySelector(".menu-screen#"+extensions[newExtension].parentMenu))) {
+		console.error("Cannot show extension '"+newExtension+"': parent menu '"+extensions[newExtension].parentMenu+"' is not registered.");
+		return false;
+	}
 	
-	if (!navigating && extensions[newExtension] && newExtension != selectedExtension) {
+	if (newExtension != selectedExtension) {
 		navigating = true;
 		oldExtension = selectedExtension;
 		
@@ -902,6 +921,7 @@ function showExtension(extension, direction = null, fromBackButton = false, invi
 			showDeepMenu(selectedExtension, selectedExtension);
 		}
 	}
+	return true;
 	
 }
 
@@ -1443,7 +1463,7 @@ function notify(options, dismissWithID = currentNotificationID) { // Display a s
 			if (notificationIcon != "attention") {
 				//icon = "common/symbols-black/wait-star.svg"
 				/*if (!hifiberryOS) {
-					icon = "common/create-wait-animate.svg";
+					icon = "common/speakerlab-wait-animate.svg";
 				} else {
 					icon = "common/hifiberry-wait-animate.svg";
 				}*/

@@ -1,88 +1,94 @@
-![CreateLogo](https://image.ibb.co/nfT01G/create_logo_two.png)
+# SpeakerLab
 
-***Create*** *is an explorative movement within Bang & Olufsen. Our mission is to inspire and be inspired by the global creative community.*
+<p align="center">
+  <img src="Beocreate2/beo-system/common/speakerlab-mark.svg" alt="SpeakerLab speaker mark" width="96">
+</p>
 
-# Beocreate 2
+SpeakerLab is an approachable open-source environment for designing and validating loudspeaker DSP configurations. It brings routing, crossover, timing, equalisation, measurements, protection assumptions, backup and simulated deployment into one guided browser workflow.
 
-***Beocreate 2*** is the software suite for *Beocreate 4-Channel Amplifier*. It replaces the old setup tool and system software shipped with the *ReCreate* project in 2018. It has been redesigned from the ground up to be more flexible, more reliable and future-proof. 
+The current development preview is hardware-free by default and intentionally conservative: designs can be saved, inspected and exercised against a simulator, while physical DSP deployment remains blocked until its safety prerequisites are verified.
 
-***Beocreate Connect*** is a new companion application (for Mac + Windows) that automatically and instantly discovers all Beocreate 2 sound systems on the network, without typing a single IP address.
+## Capabilities
 
-Beocreate 2 is bundled with [HiFiBerryOS](https://github.com/hifiberry/hifiberry-os) as its official user interface. On systems that use other HiFiBerry sound cards, the user interface carries HiFiBerry branding.
+The hardware-free workflow can:
 
-## Main Features
+- configure four outputs, driver roles and signal routing;
+- design crossover filters and adjust level, delay and polarity;
+- create ordinary Parametric EQ bands;
+- import and inspect REW text and FRD measurements;
+- derive magnitude-only nearfield/farfield merged responses;
+- review phase/time alignment, assisted crossover and bounded assisted EQ suggestions;
+- record Driver Protection assumptions and run a normalized limiter simulation;
+- save, back up, preview and restore the complete design; and
+- compile a current-Beocreate DSP plan, apply it to the local simulator and compare simulated readback.
 
-- A flexible front-end for Beocreate 4-Channel Amplifier and other HiFiBerry sound cards.
-- Upcycle vintage Bang & Olufsen speakers or build your own, custom sound system.
-- Beautifully crafted, responsive, browser-based user interface that works within the local network. Dark mode is supported.
-- See what's playing, control playback and volume.
-- Supports multiple sources/streaming protocols that can be set up in one place (powered by [HiFiBerry AudioControl](https://github.com/hifiberry/audiocontrol2)).
-- Speaker presets designed by Bang & Olufsen acousticians specifically for select loudspeaker models.
-- Quickly customise the sound with Beosonic and listening modes.
-- Parametric equaliser for general sound design and each output channel – ideal for crossovers and tuning custom loudspeakers.
-- Manage Wi-Fi and Ethernet connections.
-- Extension architecture for easy expandability and future-proofing.
-- Based on Node.js.
+## Typical workflow
 
-## Getting Started
+1. Complete setup, then open **Speaker Design**.
+2. In **Design**, select each output and work through **Output & routing**, **Crossover**, **Level & timing**, **Parametric EQ** and **Driver Protection**.
+3. In **Measurements**, import, inspect and assign responses. Merge suitable nearfield/farfield observations when useful.
+4. Use contextual **Align drivers**, **Suggest setup** and **Suggest EQ** actions when measurement evidence supports them.
+5. In **Review**, resolve issues, save the design and inspect **Deployment Preview**.
+6. Use System Tools to download a backup before important changes.
 
-### Beocreate 2
+Start with [Getting Started](docs/GETTING_STARTED.md), then use the task-oriented [Design Workflow](docs/DESIGN_WORKFLOW.md) and [User Guide](docs/USER_GUIDE.md).
 
-As Beocreate 2 is part of HiFiBerryOS, the recommended way is to download the latest image of HiFiBerryOS for your Raspberry Pi generation and write it to a microSD card. [Get HiFiBerryOS](https://www.hifiberry.com/hifiberryos/)
+## Quick start
 
-Alternatively, you can use the Buildroot system to build HiFiBerryOS yourself. [Building HiFiBerryOS](https://github.com/hifiberry/hifiberry-os/blob/master/doc/building.md)
+Prerequisites: Node.js 24 and npm. The server lockfile was generated with npm 11.6.2.
 
-Once installed, you can follow instructions in Beocreate Connect set up the sound system.
+```sh
+npm ci --prefix Beocreate2/beo-system
+npm run dev
+```
 
-### Beocreate Connect
+Open the loopback URL printed by the command (normally `http://127.0.0.1:3000/`). The local runtime uses isolated state and a simulated DSP target. It does not write to real `/opt` or `/etc`, require root or contact physical hardware.
 
-Beocreate Connect is based on Electron, and you can run it using the following instructions:
+Run all documented hardware-free verification with:
 
-1. [Install Node.js](https://nodejs.org/en/) on your Mac or Windows computer.
-2. Clone or download the *bang-olufsen/create* repository.
-3. In your terminal application, navigate to the *BeocreateConnect* folder and run `npm install` to download and install Electron and other dependencies.
-4. Once installed, type `npm start` to start Beocreate Connect.
-
-## Help
-
-[Visit the wiki](https://github.com/bang-olufsen/create/wiki) for help.
+```sh
+npm run verify
+```
 
 ## Documentation
 
-We're working to add documentation for Beocreate 2 to make it easier to tap into its expandability.
+For users:
 
-### Extensions
+- [Getting Started](docs/GETTING_STARTED.md)
+- [Designing a Speaker](docs/DESIGN_WORKFLOW.md)
+- [User Guide](docs/USER_GUIDE.md)
+- [Measurement Import](docs/MEASUREMENT_IMPORT.md), [Measurement Merge](docs/MEASUREMENT_MERGE.md) and [Phase/Time Alignment](docs/PHASE_ALIGNMENT.md)
+- [Assisted Crossover](docs/ASSISTED_CROSSOVER.md), [Assisted EQ](docs/ASSISTED_EQ.md) and [Driver Protection](docs/DRIVER_PROTECTION.md)
 
-Design and develop extensions to expand the functionality of the system.
+For contributors and maintainers:
 
-- [Introduction to Extensions](Documentation/ExtensionsIntroduction.md)
-- [Implementing Server-side Code](Documentation/ExtensionsServer.md)
-- Implementing User Interface
+- [Project Charter](docs/PROJECT_CHARTER.md), [Roadmap](docs/ROADMAP.md) and [Current Status](docs/CURRENT_STATUS.md)
+- [Testing](docs/TESTING.md), [Architecture](docs/ARCHITECTURE.md) and [UI Principles](docs/UI_PRINCIPLES.md)
+- [Repository Hygiene](docs/REPOSITORY_HYGIENE.md), [Branding](docs/BRANDING.md), [Upstream Relationship](docs/UPSTREAM.md) and [Stop and Validate report](docs/VALIDATION.md)
 
-### Sound & Customisation
+## Current limitations
 
-Create speaker presets, DSP programs and product identities to customise the sound system.
+- Physical DSP deployment and physical Apply controls remain blocked.
+- Timing references can be user-declared; that metadata is not acoustic verification.
+- Driver Protection has no thermal or excursion model and is not a safety guarantee.
+- Predictions depend on measurement calibration, gating, placement, phase quality, overlap and source integrity.
+- Assisted crossover, alignment and EQ are conservative suggestions, not automatic optimization or guarantees of audible improvement.
+- Simulator readback is not hardware evidence.
 
-- [Speaker Presets](Documentation/SoundPresets.md)
-- DSP Programs
-- [Product Identities](Documentation/ProductIdentities.md)
+## Hardware target and safety boundary
 
-### Design
+SpeakerLab currently targets the existing Beocreate 4-Channel Amplifier and inherited software platform. Saved, predicted and simulated states must not be interpreted as audible or physically deployed behavior. Physical Apply controls remain unavailable pending hardware identity, mute, readback, reconnect and rollback evidence.
 
-Guidelines and best practices for design within Beocreate 2 ecosystem.
+## Origins and independence
 
-- [Beocreate 2 Design Guidelines](Documentation/DesignGuidelines.md)
+SpeakerLab continues the strongest ideas of the original Bang & Olufsen Beocreate software: an intuitive interface that makes loudspeaker DSP approachable. The original project, contributors and retained source history are acknowledged with respect.
 
+SpeakerLab is independently developed in `Heineb/speakerlab`. It is not an official Bang & Olufsen project and is not developed, endorsed or supported by Bang & Olufsen. The historical `bang-olufsen/create` repository is source material only.
 
-## Known Issues
+## Development
 
-Some issues in the current release that aren't acknowledged in the user interface:
+The project is under active development and is not yet a production-ready replacement image. Routine work is performed on `develop`; `master` is the stable integration and release branch. Read [AGENTS.md](AGENTS.md), the [Project Charter](docs/PROJECT_CHARTER.md) and [Testing](docs/TESTING.md) before contributing.
 
-(No current issues)
+## License
 
-
-## Legacy Code
-
-The original code for the project (SigmaTCPDaemon, SigmaClientTool Beocreate Server and the bang-olufsen.com-based setup tool) has been archived under the [beocreate1](https://github.com/bang-olufsen/create/tree/beocreate1) branch.
-
-The old DSP programs are in the *Speakers* directory, but please note that these aren't fully compatible with Beocreate 2. Beocreate 2 comes built in with the speaker presets for these models.
+The repository is distributed under the [MIT License](LICENSE) and retains applicable copyright, licence notices and attribution from the original Beocreate project.

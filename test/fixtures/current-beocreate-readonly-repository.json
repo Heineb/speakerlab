@@ -1,0 +1,31 @@
+{
+  "sourceType": "repository-backed",
+  "provenance": [
+    "Beocreate2/beo-dsp-programs/beocreate-universal-10.xml",
+    "beocreate_essentials/dsp.js",
+    "docs/CURRENT_BEOCREATE_DSP_MAPPING.md"
+  ],
+  "privacy": "Contains no device, network, user or local-path identifiers.",
+  "observations": [
+    {
+      "operationId": "program-checksum",
+      "responseHex": "f20000000000000000000000000040fb6c92f57abb70177ce053c73f54dc"
+    },
+    {
+      "operationId": "output-a-routing",
+      "responseHex": "0a00000000000000000412fc000000000000"
+    },
+    {
+      "operationId": "output-a-gain",
+      "responseHex": "0a000000000000000004030d000001000000"
+    },
+    {
+      "operationId": "output-a-delay",
+      "responseHex": "0a0000000000000000040312000000000000"
+    },
+    {
+      "operationId": "output-a-polarity",
+      "responseHex": "0a0000000000000000041302000000000000"
+    }
+  ]
+}

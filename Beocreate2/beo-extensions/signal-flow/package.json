@@ -1,0 +1,14 @@
+{
+  "name": "@speakerlab/signal-flow",
+  "version": "1.0.0",
+  "description": "Versioned signal-flow and output-routing design for current Beocreate hardware",
+  "main": "index.js",
+  "private": true,
+  "author": "SpeakerLab contributors",
+  "license": "MIT",
+  "beocreate": {
+    "requireCardFeatures": [
+      "dsp"
+    ]
+  }
+}

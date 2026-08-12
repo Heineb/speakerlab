@@ -197,6 +197,12 @@ Do not update all dependencies in one pull request.
 * Verify that a deployment reached the DSP correctly.
 * Recover automatically from failed deployments.
 
+Completed foundation: evidence-backed current-Beocreate capability/identity, deterministic design compilation, preview-only UI, process-local simulated apply/readback/comparison, safety ordering and browser journeys. Physical application remains deferred until mute confirmation, SigmaTCP/readback/reconnect behavior and rollback prerequisites are characterized.
+
+Completed characterization: current-code SigmaTCP framing, positional read queue, write-acknowledgement limits, reconnect/timeouts, mapping confidence, framing-level simulation, recovery prerequisites and user-visible readiness blockers. Physical application remains blocked by physical identity freshness, mute confirmation, per-operation hardware readback and a verified rollback plan.
+
+Completed read-only evidence contract: exact checksum/parameter-read allowlist, guarded explicit-host capture command, versioned redacted capture/review format, repository-backed sanitized fixture, zero-write safety tests and accessible evidence provenance. No physical capture was available, no mapping confidence was promoted and safe-state/write/rollback blockers remain.
+
 ### Work
 
 * Document the current DSP deployment sequence.
@@ -302,6 +308,12 @@ Make the current signal path visible and editable without exposing raw DSP imple
 * Keep the normal view simple.
 * Place unrestricted routing in an optional advanced mode.
 
+### Version 1 delivered
+
+The first slice provides a versioned, simulator-first saved design for Left, Right and Mono inputs and the four current Beocreate outputs. It supports labels, driver roles, side/position, enable state, one input per output, structural errors, advisory warnings, optimistic revision conflicts, atomic verified persistence, backup/restore and a responsive structured editor.
+
+Version 1 deliberately does not expose gain, delay, polarity or processing blocks and does not deploy to the DSP. Those remaining items require separate safe feature slices.
+
 ---
 
 ## M8 — Crossover editor
@@ -330,9 +342,19 @@ Provide a dedicated loudspeaker crossover workflow instead of requiring users to
 
 The primary controls should use loudspeaker terminology rather than biquad terminology.
 
+### Completed simulator-first extension: Parametric EQ Editor v1
+
+Each output now supports up to 12 peaking, low-shelf and high-shelf bands inside the complete Signal Flow design. Pure RBJ mathematics, validation, combined electrical response, estimated headroom, atomic persistence, backup/restore, current-target compilation, simulator readback and responsive accessible browser journeys are covered. Physical deployment remains blocked; legacy equaliser and speaker-preset data are unchanged.
+
 ---
 
 ## M9 — Measurement import
+
+Completed foundation: deterministic REW text and generic FRD magnitude/optional-phase import, bounded versioned storage, integrity, output association, portable backup/restore, measured/electrical overlay and accessible real-browser journeys. Automatic correction, alignment, merge and DSP deployment remain separate.
+
+Completed alignment/merge foundation: immutable source relationships, robust visible level suggestion, manual alignment, log-frequency interpolation without extrapolation, smooth raised-cosine transition, magnitude-only derived response, stale/dependency handling, backup/restore and responsive accessible browser journeys. Automatic baffle-step correction, phase/time alignment, EQ and optimisation remain separate.
+
+Completed phase/time foundation: two compatible phase-bearing measurements can now produce a robust multi-point relative-delay fit and complex crossover-region sum with current processing, one bounded delay/polarity suggestion, explicit review and ordinary draft acceptance. Timing-reference metadata is mandatory; absolute acoustic centre, automatic correction and physical deployment remain excluded.
 
 ### Goals
 
@@ -386,6 +408,8 @@ This functionality may share components with the crossover editor but must have 
 
 ## M11 — Headroom and limiter panel
 
+Completed foundation: per-output driver/amplifier metadata, explicit voltage/power units, deterministic electrical conversions, visible safety margin, crossover/EQ/gain headroom analysis, peak-voltage limiter design, normalized level-envelope simulation, atomic persistence, backup/restore, unknown physical-mapping diagnostics and responsive accessible browser journeys. Physical limiter mapping/readback, thermal and excursion models and physical deployment remain separate.
+
 ### Goals
 
 Help users understand the electrical consequences of filters and protect loudspeaker drivers.
@@ -402,6 +426,30 @@ Help users understand the electrical consequences of filters and protect loudspe
 * Conservative defaults.
 * Explicit distinction between estimated and measured values.
 * Safety tests for invalid and missing parameters.
+
+---
+
+## M11A — Measurement-Assisted EQ Suggestions
+
+Completed v1 foundation: contextual measurement selection inside Parametric EQ, Flat and Gentle downward tilt targets, deterministic log-grid analysis with 1/6-octave default smoothing, crossover/role-aware range, one to five bounded peaking suggestions, strong cut preference, conservative boost and null restraint. Each result is human-reviewed, predicted explicitly and accepted only as an ordinary unsaved PEQ band. Existing EQ, headroom and Driver Protection contribute context and warnings. Source measurements remain unchanged; automatic room correction and physical deployment are excluded.
+
+---
+
+## M11B — Measurement Phase/Time Alignment Foundation
+
+Completed v1 foundation: contextual two-driver alignment around a configured crossover, explicit timing-reference compatibility, immutable shortest-step phase unwrap, robust multi-point delay fit, current crossover/EQ/gain/delay/polarity context, complex-sum and polarity comparison, one bounded human-reviewed suggestion and acceptance into ordinary unsaved delay/polarity fields. Low-quality, incompatible, magnitude-only, stale and out-of-capability cases are blocked. No automatic design change or physical DSP operation exists.
+
+---
+
+## M11C — Assisted Crossover Design Foundation
+
+Completed v1 foundation: contextual comparison of two supported neighbouring acoustic ways, conservative measurement-overlap range, current-design baseline, existing supported filter families, deterministic multi-factor ranking and no more than three human-reviewed alternatives. Compatible phase/timing permits qualified complex-sum and bounded polarity/delay context; magnitude-only data uses a clearly separate power-sum fallback. Explicit acceptance creates ordinary unsaved crossover and included processing fields. EQ, gain, limiter, protection, measurements, navigation and physical DSP deployment remain unchanged.
+
+---
+
+## M11D — UI Workflow Consolidation v1
+
+Completed presentation foundation: the inherited global shell now presents loudspeaker work as **Speaker Design** with local **Design**, **Measurements** and **Review** views over one ordinary draft. One selected output and one expanded processing section reduce repeated controls and graphs. Measurement actions open contextual alignment/crossover/EQ assistance, Review derives speaker-wide state, and Deployment Preview keeps mapping/compiler/transport details under a standard collapsed Advanced disclosure. Canonical terminology, empty states, keyboard semantics and desktop/tablet/mobile journeys are protected. No DSP algorithm, storage format, physical write, dependency or global navigation was added.
 
 ---
 

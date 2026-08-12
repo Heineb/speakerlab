@@ -1,8 +1,13 @@
-var hifiberry_system_tools = (function() {
+var hifiberry_system_tools = (typeof window != "undefined" && window.hifiberry_system_tools) ? window.hifiberry_system_tools : (function(configurationUI) {
 
 var newVersion = null;
 var archiveURL = null;
-var backupURL = null;
+var configurationState = configurationUI ? configurationUI.initialState() : null;
+var configurationAPIBase = "/hifiberry-system-tools/configuration-backup";
+
+if (!configurationUI) {
+	console.error("System Tools configuration UI is unavailable because speakerlabConfigurationUI was not loaded.");
+}
 
 
 $(document).on("hifiberry-system-tools", function(event, data) {
@@ -27,41 +32,6 @@ $(document).on("hifiberry-system-tools", function(event, data) {
 		} else {
 			$("#diagnostic-archive").addClass("hidden");
 			$("#diagnostic-collect-button").removeClass("grey").addClass("black");
-		}
-	}
-	
-	if (data.header == "backingUp") {
-		$("#backup-controls .button").addClass("disabled");
-		$("#backup-download-button").addClass("hidden");
-		$("#backup-collecting").removeClass("hidden");
-	}
-	
-	if (data.header == "finishedBackup") {
-		$("#backup-controls .button").removeClass("disabled");
-		$("#backup-collecting").addClass("hidden");
-	}
-	
-	if (data.header == "backup") {
-		if (data.content && data.content.backupURL) {
-			backupURL = data.content.backupURL;
-			
-			$("#backup-button").removeClass("black").addClass("grey");
-			$("#backup-download-button").removeClass("hidden");
-		} else {
-			$("#backup-download-button").addClass("hidden");
-			$("#backup-button").removeClass("grey").addClass("black");
-		}
-	}
-	
-	if (data.header == "restoreSettings") {
-		if (!data.content) {
-			restore();
-		} else {
-			if (data.content && data.content.stage) {
-				if (data.content.stage == "restoring") {
-					beo.notify({title: "Restoring settings…", message: "Please wait. The product will restart automatically.", icon: "attention", timeout: false, id: "settingsRestore"});
-				}
-			}
 		}
 	}
 	
@@ -91,6 +61,22 @@ $(document).on("hifiberry-system-tools", function(event, data) {
 	}
 });
 
+$(document).on("general", function(event, data) {
+	if (data.header == "connection" && data.content) {
+		if (!configurationUI) return;
+		configurationState = configurationUI.reduce(configurationState, {
+			type: "CONNECTION",
+			connected: data.content.status == "connected"
+		});
+		renderConfigurationState();
+	}
+});
+
+$(document).on("change", "#configuration-backup-file", function() {
+	if (this.files && this.files[0]) validateBackupFile(this.files[0]);
+	this.value = "";
+});
+
 
 function collect() {
 	beo.send({target: "hifiberry-system-tools", header: "collect"});
@@ -116,29 +102,144 @@ function downloadArchive() {
 }
 
 function downloadBackup() {
-	window.location = backupURL;
+	window.location = configurationAPIBase+"/export";
 }
 
-function backup() {
-	beo.send({target: "hifiberry-system-tools", header: "backup"});
-}
-
-function restore(confirmed) {
-	if (!confirmed) {
-		beo.ask("restore-backup-prompt");
-	} else {
-		beo.ask();
-		beo.sendToProduct("hifiberry-system-tools", "restoreSettings");
+function chooseBackup() {
+	if (configurationUI && configurationUI.viewModel(configurationState).canChooseFile) {
+		$("#configuration-backup-file").trigger("click");
 	}
 }
 
 
+function validateBackupFile(file) {
+	if (!configurationUI) return;
+	if (file.size > 5*1024*1024) {
+		configurationState = configurationUI.reduce(configurationState, {
+			type: "VALIDATION_FAILED",
+			error: {message: "The selected backup is larger than 5 MiB."}
+		});
+		renderConfigurationState();
+		return;
+	}
+	configurationState = configurationUI.reduce(configurationState, {type: "VALIDATE"});
+	renderConfigurationState();
+	var reader = new FileReader();
+	reader.onload = function() {
+		request(configurationAPIBase+"/preview", reader.result).then(function(preview) {
+			configurationState = configurationUI.reduce(configurationState, {type: "PREVIEW", preview: preview});
+			renderConfigurationState();
+		}).catch(function(error) {
+			configurationState = configurationUI.reduce(configurationState, {type: "VALIDATION_FAILED", error: error});
+			renderConfigurationState();
+		});
+	};
+	reader.onerror = function() {
+		configurationState = configurationUI.reduce(configurationState, {
+			type: "VALIDATION_FAILED",
+			error: {message: "The selected file could not be read."}
+		});
+		renderConfigurationState();
+	};
+	reader.readAsText(file);
+}
+
+function confirmRestore() {
+	if (!configurationUI) return;
+	var view = configurationUI.viewModel(configurationState);
+	if (!view.canConfirm) return;
+	configurationState = configurationUI.reduce(configurationState, {type: "CONFIRM_RESTORE"});
+	renderConfigurationState();
+	request(configurationAPIBase+"/restore", JSON.stringify({token: configurationState.preview.token})).then(function(result) {
+		if (result.status == "success") {
+			configurationState = configurationUI.reduce(configurationState, {type: "RESTORE_SUCCEEDED"});
+		} else {
+			configurationState = configurationUI.reduce(configurationState, {
+				type: "RESTORE_FAILED",
+				error: result.error,
+				rollback: result.rollback
+			});
+		}
+		renderConfigurationState();
+	}).catch(function(error) {
+		configurationState = configurationUI.reduce(configurationState, {
+			type: "RESTORE_FAILED",
+			error: error,
+			rollback: error.rollback
+		});
+		renderConfigurationState();
+	});
+}
+
+function cancelRestore() {
+	if (!configurationUI) return;
+	configurationState = configurationUI.reduce(configurationState, {type: "RESET"});
+	renderConfigurationState();
+}
+
+function request(url, body) {
+	return fetch(url, {
+		method: "POST",
+		credentials: "include",
+		headers: {"Content-Type": "application/json"},
+		body: body
+	}).then(function(response) {
+		return response.json().then(function(result) {
+			if (!response.ok) {
+				var error = result.error || result;
+				if (result.rollback) error.rollback = result.rollback;
+				throw error;
+			}
+			return result;
+		});
+	});
+}
+
+function renderConfigurationState() {
+	if (!configurationUI) {
+		$("#restore-button").addClass("disabled");
+		$("#configuration-restore-status").removeClass("hidden");
+		$("#configuration-restore-title").text("Configuration tools unavailable");
+		$("#configuration-restore-message").text("Reload the interface. The configuration UI dependency did not load.");
+		return;
+	}
+	var view = configurationUI.viewModel(configurationState);
+	if (configurationState.status == "idle") {
+		$("#configuration-restore-status").addClass("hidden");
+	} else {
+		$("#configuration-restore-status").removeClass("hidden");
+	}
+	$("#configuration-restore-title").text(view.title);
+	$("#configuration-restore-message").text(view.message);
+	$("#configuration-restore-progress").toggleClass("hidden", !view.showProgress);
+	$("#restore-button").toggleClass("disabled", !view.canChooseFile);
+	$("#configuration-restore-confirm").toggleClass("disabled", !view.canConfirm);
+	if (configurationState.status == "preview") {
+		var preview = configurationState.preview;
+		var changeCount = preview.plan.create.length+preview.plan.replace.length;
+		$("#configuration-restore-preview").removeClass("hidden");
+		$("#configuration-backup-created").text(new Date(preview.metadata.createdAt).toLocaleString());
+		$("#configuration-backup-changes").text(changeCount+" changes");
+		$("#configuration-backup-warnings").empty();
+		for (var i = 0; i < preview.plan.warnings.length; i++) {
+			$("#configuration-backup-warnings").append('<p class="warning"></p>');
+			$("#configuration-backup-warnings p:last").text(preview.plan.warnings[i]);
+		}
+	} else {
+		$("#configuration-restore-preview").addClass("hidden");
+	}
+}
+
+
+renderConfigurationState();
+
 return {
 	collect: collect,
 	downloadArchive: downloadArchive,
-	backup: backup,
 	downloadBackup: downloadBackup,
-	restore: restore
+	chooseBackup: chooseBackup,
+	confirmRestore: confirmRestore,
+	cancelRestore: cancelRestore
 };
 
-})();
+})(typeof window != "undefined" ? window.speakerlabConfigurationUI : null);

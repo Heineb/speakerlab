@@ -1,0 +1,588 @@
+.signal-flow-content {
+	max-width: 760px;
+}
+.signal-flow-workspace-nav {
+	display: grid;
+	grid-template-columns: repeat(3, 1fr);
+	gap: 3px;
+	padding: 3px;
+	margin: 18px 0 24px;
+	border-radius: 10px;
+	background: rgba(0, 0, 0, 0.06);
+}
+.signal-flow-workspace-nav button {
+	border: 0;
+	border-radius: 8px;
+	padding: 10px 14px;
+	background: transparent;
+	font: inherit;
+	cursor: pointer;
+}
+.signal-flow-workspace-nav button[aria-selected="true"] {
+	background: #fff;
+	box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+	font-weight: 600;
+}
+.signal-flow-section-heading { display: flex; justify-content: space-between; align-items: end; gap: 12px; }
+.signal-flow-section-heading h2,
+.signal-flow-section-heading p { margin-bottom: 4px; }
+.signal-flow-output-selector {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 8px;
+	margin-bottom: 12px;
+}
+.signal-flow-output-choice {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 3px;
+	padding: 11px 12px;
+	border: 1px solid rgba(0, 0, 0, 0.14);
+	border-radius: 9px;
+	background: transparent;
+	text-align: left;
+	font: inherit;
+}
+.signal-flow-output-choice span { font-size: .82em; opacity: .72; }
+.signal-flow-output-choice.selected { border-color: currentColor; box-shadow: inset 3px 0 currentColor; }
+.signal-flow-content section {
+	display: block;
+	position: static;
+	transition: none;
+	-webkit-user-select: auto;
+	user-select: auto;
+}
+.signal-flow-status,
+.signal-flow-summary,
+.signal-flow-message {
+	border-radius: 8px;
+	padding: 12px 14px;
+	background: rgba(0, 0, 0, 0.06);
+	margin-bottom: 14px;
+}
+.signal-flow-safety-note {
+	font-size: 0.9em;
+}
+.signal-flow-inputs {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin-bottom: 18px;
+}
+.signal-flow-input {
+	border: 1px solid rgba(0, 0, 0, 0.2);
+	border-radius: 999px;
+	padding: 7px 12px;
+}
+.signal-flow-output {
+	border: 1px solid rgba(0, 0, 0, 0.14);
+	border-radius: 10px;
+	padding: 14px;
+	margin-bottom: 12px;
+}
+.signal-flow-output-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+}
+.signal-flow-output-header div { display: flex; flex-direction: column; gap: 3px; }
+.signal-flow-output-header span { font-size: .86em; opacity: .72; }
+.signal-flow-workflow-section { border-top: 1px solid rgba(0, 0, 0, 0.12); }
+.signal-flow-workflow-section:last-child { border-bottom: 1px solid rgba(0, 0, 0, 0.12); }
+.signal-flow-workflow-summary {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	gap: 12px;
+	width: 100%;
+	padding: 13px 2px;
+	border: 0;
+	background: transparent;
+	color: inherit;
+	text-align: left;
+	font: inherit;
+}
+.signal-flow-workflow-summary span:first-child { display: flex; flex-direction: column; gap: 3px; }
+.signal-flow-workflow-summary small { font-weight: 400; opacity: .72; }
+.signal-flow-workflow-panel { padding: 0 2px 16px; }
+.signal-flow-advanced { margin-top: 14px; padding-top: 8px; border-top: 1px solid rgba(0, 0, 0, 0.1); }
+.signal-flow-advanced > summary { cursor: pointer; font-weight: 600; padding: 8px 0; }
+.signal-flow-file-action + input { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); }
+.signal-flow-measurement-context-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+.signal-flow-design-review { display: grid; gap: 7px; }
+.signal-flow-review-state,
+.signal-flow-review-item { border-radius: 8px; padding: 11px 13px; background: rgba(0, 0, 0, 0.045); }
+.signal-flow-review-state.warning { color: #785900; }
+.signal-flow-review-state.error { color: #a21c1c; }
+.signal-flow-review-item { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.signal-flow-review-item div { display: flex; flex-direction: column; gap: 3px; }
+.signal-flow-review-item span { font-size: .86em; opacity: .78; }
+.signal-flow-output-grid {
+	display: grid;
+	grid-template-columns: 1.4fr 1fr 1fr 1fr;
+	gap: 10px;
+	margin-top: 12px;
+}
+.signal-flow-field label {
+	display: block;
+	font-size: 0.78em;
+	font-weight: 600;
+	margin-bottom: 4px;
+}
+.signal-flow-field input,
+.signal-flow-field select {
+	box-sizing: border-box;
+	width: 100%;
+	min-height: 38px;
+}
+.signal-flow-crossover {
+	border-top: 1px solid rgba(0, 0, 0, 0.12);
+	margin-top: 14px;
+	padding-top: 8px;
+}
+.signal-flow-crossover-grid {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 10px;
+}
+.signal-flow-crossover-filter {
+	border: 1px solid rgba(0, 0, 0, 0.12);
+	border-radius: 8px;
+	padding: 10px;
+}
+.signal-flow-crossover-fields {
+	display: grid;
+	grid-template-columns: 1fr 1fr 1fr;
+	gap: 8px;
+	margin-top: 8px;
+}
+.signal-flow-frequency {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+.signal-flow-response {
+	margin-top: 12px;
+	padding: 10px;
+	border-radius: 8px;
+	background: rgba(0, 0, 0, 0.04);
+}
+.signal-flow-response svg {
+	display: block;
+	width: 100%;
+	max-height: 210px;
+}
+.signal-flow-axis {
+	stroke: rgba(0, 0, 0, 0.45);
+	stroke-width: 1;
+}
+.signal-flow-response-line {
+	fill: none;
+	stroke: #2470a0;
+	stroke-width: 2.5;
+}
+.signal-flow-eq-response-line {
+	fill: none;
+	stroke: #7b4fa3;
+	stroke-width: 2;
+	stroke-dasharray: 5 4;
+}
+.signal-flow-cutoff {
+	stroke: #a05b24;
+	stroke-width: 1;
+	stroke-dasharray: 4 3;
+}
+.signal-flow-response text {
+	font-size: 11px;
+	fill: currentColor;
+}
+.signal-flow-response-summary {
+	font-size: 0.86em;
+	margin-bottom: 0;
+}
+.signal-flow-crossover-actions {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px;
+	margin-top: 10px;
+}
+.signal-flow-crossover-assistance-entry,
+.signal-flow-crossover-assistance {
+	border-top: 1px solid rgba(0, 0, 0, 0.1);
+	margin-top: 14px;
+	padding-top: 12px;
+}
+.signal-flow-crossover-assistance-heading,
+.signal-flow-crossover-assistance-primary {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 8px;
+}
+.signal-flow-crossover-assistance-heading { justify-content: space-between; }
+.signal-flow-crossover-assistance-heading h4 { margin: 0; }
+.signal-flow-crossover-assistance-primary select { min-width: 170px; }
+.signal-flow-crossover-candidates { margin: 10px 0; }
+.signal-flow-crossover-candidate {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	border: 1px solid rgba(0, 0, 0, 0.12);
+	border-radius: 8px;
+	margin: 7px 0;
+	padding: 9px;
+}
+.signal-flow-crossover-candidate.selected { border-color: #2470a0; box-shadow: inset 3px 0 #2470a0; }
+.signal-flow-crossover-recommendation { background: rgba(0, 0, 0, 0.04); border-radius: 8px; padding: 9px; }
+.signal-flow-crossover-recommendation p { margin: 5px 0; }
+.signal-flow-crossover-assistance-graph { width: 100%; max-height: 260px; border: 1px solid rgba(0,0,0,.15); }
+.signal-flow-crossover-assistance-graph polyline { fill: none; stroke-width: 1.5; }
+.signal-flow-crossover-assistance-graph .low-driver { stroke: #777; }
+.signal-flow-crossover-assistance-graph .high-driver { stroke: #777; stroke-dasharray: 6 3; }
+.signal-flow-crossover-assistance-graph .current-result { stroke: #2470a0; stroke-dasharray: 2 3; }
+.signal-flow-crossover-assistance-graph .suggested-result { stroke: #2b7a46; stroke-width: 2.5; }
+.signal-flow-crossover-assistance-advanced { margin-top: 12px; }
+.signal-flow-crossover-assistance-advanced dl { display: grid; grid-template-columns: minmax(9rem, .5fr) 1fr; gap: 5px 10px; }
+.signal-flow-crossover-assistance-advanced dt,
+.signal-flow-crossover-assistance-advanced dd { margin: 0; }
+.signal-flow-processing {
+	border-top: 1px solid rgba(0, 0, 0, 0.12);
+	margin-top: 14px;
+	padding-top: 8px;
+}
+.signal-flow-protection {
+	border-top: 1px solid rgba(0, 0, 0, 0.12);
+	margin-top: 14px;
+	padding-top: 10px;
+}
+.signal-flow-protection > summary {
+	cursor: pointer;
+	font-weight: 600;
+}
+.signal-flow-protection-grid {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 10px;
+}
+.signal-flow-protection section {
+	border: 1px solid rgba(0, 0, 0, 0.1);
+	border-radius: 8px;
+	margin: 10px 0;
+	padding: 10px;
+}
+.signal-flow-protection dl {
+	display: grid;
+	grid-template-columns: minmax(12rem, 0.8fr) 1fr;
+	gap: 5px 10px;
+}
+.signal-flow-protection dt,
+.signal-flow-protection dd { margin: 0; }
+.signal-flow-eq {
+	border-top: 1px solid rgba(0, 0, 0, 0.12);
+	margin-top: 14px;
+	padding-top: 8px;
+}
+.signal-flow-eq-layout {
+	display: grid;
+	grid-template-columns: minmax(210px, 0.8fr) minmax(300px, 1.4fr);
+	gap: 12px;
+}
+.signal-flow-eq-list {
+	list-style: none;
+	margin: 0 0 10px;
+	padding: 0;
+}
+.signal-flow-eq-list li {
+	display: grid;
+	grid-template-columns: 1fr auto auto;
+	gap: 4px;
+	margin-bottom: 5px;
+}
+.signal-flow-eq-band {
+	display: grid;
+	text-align: left;
+	border: 1px solid rgba(0, 0, 0, 0.15);
+	border-radius: 6px;
+	background: transparent;
+	padding: 7px;
+}
+.signal-flow-eq-band.selected {
+	border-color: #2470a0;
+	box-shadow: inset 3px 0 #2470a0;
+}
+.signal-flow-eq-band span + span {
+	font-size: 0.78em;
+}
+.signal-flow-eq-editor {
+	border: 1px solid rgba(0, 0, 0, 0.12);
+	border-radius: 8px;
+	padding: 10px;
+}
+.signal-flow-eq-fields {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 8px;
+	margin-top: 8px;
+}
+.signal-flow-eq-actions {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin-top: 10px;
+}
+.signal-flow-eq-suggestion-entry,
+.signal-flow-eq-suggestions {
+	border-top: 1px solid rgba(0, 0, 0, 0.1);
+	margin-top: 14px;
+	padding-top: 12px;
+}
+.signal-flow-eq-suggestion-heading,
+.signal-flow-eq-suggestion-primary,
+.signal-flow-eq-suggestion-actions {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 8px;
+}
+.signal-flow-eq-suggestion-heading { justify-content: space-between; }
+.signal-flow-eq-suggestion-heading h4 { margin: 0; }
+.signal-flow-eq-suggestion-primary select { min-width: 170px; }
+.signal-flow-eq-suggestion-advanced {
+	margin: 12px 0;
+	padding: 8px 0;
+}
+.signal-flow-eq-suggestion-options {
+	display: grid;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: 8px;
+	margin-top: 10px;
+}
+.signal-flow-eq-suggestion-options label { display: flex; flex-direction: column; }
+.signal-flow-eq-suggestion-list { list-style: none; margin: 10px 0; padding: 0; }
+.signal-flow-eq-suggestion-list li {
+	border: 1px solid rgba(0, 0, 0, 0.12);
+	border-radius: 8px;
+	margin: 7px 0;
+	padding: 9px;
+}
+.signal-flow-eq-suggestion-list p { margin: 5px 0; }
+.signal-flow-eq-suggestion-graph { width: 100%; max-height: 260px; border: 1px solid rgba(0,0,0,.15); }
+.signal-flow-eq-suggestion-graph polyline { fill: none; stroke-width: 1.5; }
+.signal-flow-eq-suggestion-graph .measured { stroke: #777; }
+.signal-flow-eq-suggestion-graph .target { stroke: #111; stroke-dasharray: 5 4; }
+.signal-flow-eq-suggestion-graph .current { stroke: #2470a0; stroke-dasharray: 2 3; }
+.signal-flow-eq-suggestion-graph .predicted { stroke: #2b7a46; stroke-width: 2.5; }
+.signal-flow-alignment-entry,
+.signal-flow-alignment {
+	border: 1px solid rgba(0, 0, 0, 0.12);
+	border-radius: 8px;
+	margin: 12px 0;
+	padding: 12px;
+}
+.signal-flow-alignment-heading,
+.signal-flow-alignment-primary {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 8px;
+}
+.signal-flow-alignment-heading { justify-content: space-between; }
+.signal-flow-alignment-heading h4 { margin: 0; }
+.signal-flow-alignment-primary select { min-width: 175px; }
+.signal-flow-alignment-options,
+.signal-flow-alignment-advanced { margin-top: 10px; }
+.signal-flow-alignment-options > div { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 8px; }
+.signal-flow-alignment-options label { display: flex; flex-direction: column; }
+.signal-flow-alignment-results { margin-top: 12px; }
+.signal-flow-alignment-results dl { display: grid; grid-template-columns: minmax(9rem, .5fr) 1fr; gap: 5px 10px; }
+.signal-flow-alignment-results dt,
+.signal-flow-alignment-results dd { margin: 0; }
+.signal-flow-alignment-graph { width: 100%; max-height: 260px; border: 1px solid rgba(0,0,0,.15); }
+.signal-flow-alignment-graph polyline { fill: none; stroke-width: 1.5; }
+.signal-flow-alignment-graph .source-a { stroke: #777; }
+.signal-flow-alignment-graph .source-b { stroke: #777; stroke-dasharray: 6 3; }
+.signal-flow-alignment-graph .current-sum { stroke: #2470a0; stroke-dasharray: 2 3; }
+.signal-flow-alignment-graph .suggested-sum { stroke: #2b7a46; stroke-width: 2.5; }
+.signal-flow-processing-grid {
+	display: grid;
+	grid-template-columns: 1fr 1.5fr 1fr;
+	gap: 10px;
+}
+.signal-flow-unit-input,
+.signal-flow-processing-actions {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 8px;
+}
+.signal-flow-unit-input input {
+	flex: 1;
+	min-width: 90px;
+}
+.signal-flow-processing-detail,
+.signal-flow-processing-summary {
+	font-size: 0.82em;
+	margin: 6px 0 0;
+}
+.signal-flow-processing-actions {
+	margin-top: 10px;
+}
+.signal-flow-deployment {
+	border: 1px solid rgba(0, 0, 0, 0.16);
+	border-radius: 8px;
+	padding: 14px;
+	margin: 18px 0;
+}
+.signal-flow-deployment-target,
+.signal-flow-readiness,
+.signal-flow-deployment-output,
+.signal-flow-operation {
+	background: rgba(0, 0, 0, 0.04);
+	border-radius: 6px;
+	padding: 10px;
+	margin: 8px 0;
+}
+.signal-flow-readiness dl {
+	display: grid;
+	grid-template-columns: minmax(9rem, 0.4fr) 1fr;
+	gap: 0.35rem 1rem;
+}
+.signal-flow-readiness dt,
+.signal-flow-readiness dd {
+	margin: 0;
+}
+.signal-flow-readiness-item {
+	display: grid;
+	grid-template-columns: minmax(7rem, 0.4fr) 1fr 1fr;
+	gap: 0.5rem;
+	padding: 0.45rem 0;
+	border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+}
+.signal-flow-deployment-output dl {
+	display: grid;
+	grid-template-columns: minmax(100px, 0.7fr) 1fr 1fr 0.8fr;
+	gap: 5px 10px;
+	margin: 8px 0 0;
+}
+.signal-flow-deployment-output dt,
+.signal-flow-deployment-output dd {
+	margin: 0;
+}
+.signal-flow-deployment-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin-top: 12px;
+}
+.signal-flow-status-matched { color: #176b35; }
+.signal-flow-status-different,
+.signal-flow-status-unsupported { color: #a21c1c; }
+.signal-flow-status-unknown { color: #785900; }
+.visually-hidden {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	padding: 0;
+	margin: -1px;
+	overflow: hidden;
+	clip: rect(0, 0, 0, 0);
+	white-space: nowrap;
+	border: 0;
+}
+.signal-flow-issues {
+	margin: 8px 0 0;
+	padding-left: 22px;
+}
+.signal-flow-error {
+	color: #a21c1c;
+}
+.signal-flow-warning {
+	color: #785900;
+}
+.signal-flow-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	padding-bottom: 24px;
+}
+.signal-flow-measurement-item { display: flex; width: 100%; flex-direction: column; text-align: left; padding: 10px; margin: 5px 0; border: 1px solid rgba(0,0,0,.15); background: transparent; }
+.signal-flow-measurement-item.selected { border-color: currentColor; }
+.signal-flow-measurement-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.signal-flow-measurement-fields label { display: flex; flex-direction: column; }
+.signal-flow-measurement-graph { width: 100%; max-height: 260px; border: 1px solid rgba(0,0,0,.15); margin-top: 12px; }
+.signal-flow-measured-response-line { fill: none; stroke: #1672a5; stroke-width: 2; }
+.signal-flow-electrical-response-line { fill: none; stroke: currentColor; stroke-width: 1.5; }
+.signal-flow-electrical-response-line.crossover { stroke-dasharray: 7 3; }
+.signal-flow-electrical-response-line.eq { stroke-dasharray: 2 3; }
+.signal-flow-electrical-response-line.combined { stroke-width: 2.5; opacity: .7; }
+.signal-flow-measurement-overlay-controls { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 12px; }
+.signal-flow-merge-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.signal-flow-merge-transition { fill: rgba(120, 120, 120, .15); }
+.signal-flow-merge-center { stroke: #555; stroke-width: 1; stroke-dasharray: 3 3; }
+.signal-flow-merged-response-line { fill: none; stroke: #1672a5; stroke-width: 2.5; }
+.signal-flow-merge-source { fill: none; stroke: #777; stroke-width: 1.25; opacity: .75; }
+.signal-flow-merge-source.high { stroke-dasharray: 6 3; }
+.signal-flow-merge-adjusted { fill: none; stroke: #9a6614; stroke-width: 1.5; stroke-dasharray: 2 3; }
+@media (max-width: 620px) {
+	.signal-flow-workspace-nav { position: sticky; top: 0; z-index: 2; }
+	.signal-flow-output-selector { grid-template-columns: 1fr; }
+	.signal-flow-review-item { align-items: stretch; flex-direction: column; }
+	.signal-flow-review-item .button { width: 100%; box-sizing: border-box; }
+	.signal-flow-readiness dl,
+	.signal-flow-readiness-item {
+		display: block;
+	}
+	.signal-flow-readiness dt,
+	.signal-flow-readiness-item span {
+		display: block;
+		margin-top: 0.35rem;
+	}
+	.signal-flow-output-grid {
+		grid-template-columns: 1fr;
+	}
+	.signal-flow-crossover-grid,
+	.signal-flow-crossover-fields,
+	.signal-flow-processing-grid,
+	.signal-flow-eq-layout,
+	.signal-flow-eq-fields {
+		grid-template-columns: 1fr;
+	}
+	.signal-flow-eq-suggestion-options { grid-template-columns: 1fr; }
+	.signal-flow-eq-suggestion-primary { align-items: stretch; flex-direction: column; }
+	.signal-flow-eq-suggestion-primary select,
+	.signal-flow-eq-suggestion-primary .button { width: 100%; box-sizing: border-box; }
+	.signal-flow-alignment-primary { align-items: stretch; flex-direction: column; }
+	.signal-flow-alignment-primary select,
+	.signal-flow-alignment-primary .button { width: 100%; box-sizing: border-box; }
+	.signal-flow-crossover-assistance-primary { align-items: stretch; flex-direction: column; }
+	.signal-flow-crossover-assistance-primary select,
+	.signal-flow-crossover-assistance-primary .button { width: 100%; box-sizing: border-box; }
+	.signal-flow-crossover-assistance-advanced dl { grid-template-columns: 1fr; }
+	.signal-flow-alignment-options > div,
+	.signal-flow-alignment-results dl { grid-template-columns: 1fr; }
+	.signal-flow-protection-grid,
+	.signal-flow-protection dl {
+		display: grid;
+		grid-template-columns: 1fr;
+	}
+	.signal-flow-measurement-fields { grid-template-columns: 1fr; }
+	.signal-flow-deployment-output dl {
+		grid-template-columns: 1fr;
+	}
+	.signal-flow-deployment-output dd {
+		margin-bottom: 7px;
+	}
+	.signal-flow-deployment-actions .button {
+		width: 100%;
+		box-sizing: border-box;
+	}
+	.signal-flow-actions .button {
+		width: 100%;
+		box-sizing: border-box;
+		text-align: center;
+	}
+}
